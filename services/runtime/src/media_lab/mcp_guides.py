@@ -58,7 +58,7 @@ def english_capabilities(value):
             if field['path'] == 'scheduler':
                 field['default_by_profile_and_mode'] = {'base_r2v': 'beta', 'other': 'simple'}
             if field['path'] in ('shift_video', 'shift_audio'):
-                field['help'] = 'Base keeps checkpoint sigma defaults when both shifts are unset; Turbo uses video=12 and audio=3. Setting either shift adds an override with 12/3 for the unset counterpart.'
+                field['help'] = 'Base keeps checkpoint sigma defaults when both shifts are unset. Defaults per profile: turbo video=6 / audio=3; fused_turbo and omni 12 / 3. Setting one shift on Base fills the other from 12 / 3.'
     return result
 
 
@@ -100,7 +100,7 @@ The type is detected from the bytes, not the name or declared MIME:
   are remuxed to MKV without re-encoding. 1–600 seconds, up to 500 MiB.
 Each tool still applies its own limits when used; read `capabilities.inputs.references`
 for how many references each tool accepts and the durations it needs (for example H3
-reference videos 2–15 s and audio 1–15 s; upscaling up to 600 s; Director songs 5–900 s).
+reference videos 2–15 s and audio 2–15 s; upscaling up to 600 s; Director songs 5–900 s).
 Uploaded files are sources, not model-generated results.
 
 ### Small-file fallback (no HTTP client)
@@ -286,14 +286,18 @@ exact dimensions for each ratio in `generation_options.video_resolutions` below.
 The aligned 720p landscape is 1280×704, not 1280×720. Custom requires width/height
 in multiples of 32, with at most 1.1 MP per frame; dimensions are invalid with other presets.
 `r2v` accepts `references` (up to 9 images), `reference_videos` (up to 3 videos,
-2–15 seconds each) and `reference_audios` (up to 3 audio references,
-(1–15 seconds each). Video/audio references require r2v mode. Video references are
+2–15 seconds each) and `reference_audios` (up to 3 audio references, 2–15 seconds each),
+at most 12 files and at least one image or video (official H3 limits). Total reference
+video is at most 15 s, and total audio at most 15 s: the soundtrack of every reference video
+that has one counts and becomes an `<Audio>` label, so upload a silent copy of a video used only
+for motion or identity. Video/audio references require r2v mode. Video references are
 normalized to 24 fps with bounded dimensions; silent video does not invent audio.
 H3 `options.container`: mp4/mkv/webm; `codec`: h264/av1. WebM requires AV1;
 MP4 and MKV accept either. `bit_depth`: 8 or 10 (SDR, not HDR). CRF: 0–51 for
 H.264 and 0–63 for AV1; lower CRF means less compression and larger files.
 CRF unset uses encoder defaults. There is no independent audio codec/bitrate control for H3.
-`ref_image_size=match` is default; `max` may improve identity conditioning at higher cost.
+`ref_image_size=match` is default; `max` may improve identity conditioning at higher cost with
+`profile=base`. Keep `match` for `turbo` and `omni`: their distillation was trained that way.
 Seeds, profile, steps, seconds and ratio are top-level; sampling/shifts/encoding are `options`.
 
 ### Video control
@@ -311,10 +315,11 @@ source soundtrack on the result; false keeps H3's own audio. Profiles: `base` (a
 
 ### Music
 `model` picks the engine. `yue2` (default) is described below. `ace_step` is ACE-Step 1.5 XL
-Turbo: same `style` tags and `lyrics`, `max_duration` is the exact length (10–600 s), and
-optional `bpm`, `key` (e.g. `E minor`) and `language` (two-letter code) steer it; by default
-tempo and key come from a `95 BPM` / `E minor` tag in `style` (else 110 BPM, C major) and the
-language is guessed from the lyrics. Its 4B planner writes the audio codes and it renders in
+Turbo: `style` (at most 512 characters) and `lyrics` (at most 4096), `max_duration` is the
+exact length (10–600 s), and optional `bpm`, `key` (e.g. `E minor`), `time_signature` (`2`,
+`3`, `4` default, `6`) and `language` (two-letter code) steer it. Prefer the parameters: a
+`95 BPM` / `E minor` tag in `style` is used when they are unset (else 110 BPM, C major) and
+removed from the caption; the language is otherwise guessed (Spanish or English) from the lyrics. Its 4B planner writes the audio codes and it renders in
 8 steps, so it is the fast choice; `mode`, `abc`, `source_audio` (covers), `steps` and the
 YuE2 `options` except `format`/`audio_quality` do not apply. Check
 `capabilities.music.models.ace_step.ready`.
@@ -322,11 +327,11 @@ YuE2 `options` except `format`/`audio_quality` do not apply. Check
 YuE2: `mode=direct` generates from style/lyrics without a separate ABC-planning pass.
 `mode=full` generates a full ABC score first when no ABC/audio is provided;
 `mode=melody` plans melody ABC. A supplied nonempty `abc` is used unchanged.
-`source_audio` with full or melody uses SheetSage to extract ABC and takes
+`source_audio` with full or melody uses SheetSage2 to extract ABC and takes
 precedence over supplied ABC. Cover is this combination, not `mode=cover`.
 Check `cover_ready`. `source_audio` with direct is invalid.
 `options.score` applies only to automatically generated ABC; it does not change a
-supplied score or SheetSage output. `options.composition` controls music-token
+supplied score or SheetSage2 output. `options.composition` controls music-token
 generation; top-level `steps` (4–80, default 32) and `options.cfg/sampler/scheduler/denoise`
 control diffusion. `max_duration` (10–900, default 120) is a cap, not exact duration.
 `options.format=flac` is lossless and requires audio_quality unset.
@@ -379,7 +384,7 @@ removal take none. LoRAs are added in the web page from a Hugging Face or Civita
 `create_production` requires title, owned song, brief and 1–100 scenes. Analyze
 the actual song first. Scenes start at zero, have contiguous positive start/end times,
 each at most 15 seconds, and cover the whole song. Both prompts are required even
-when reusing media. A final scene shorter than 5 seconds is allowed: generate 5 then trim.
+when reusing media. Any scene may be shorter than 5 seconds: its clip is generated at 5 then trimmed.
 Optional scene `image` is owned PNG; scene `video` is owned MP4/MKV/WebM.
 If video is present, reuse it; otherwise use the image or generate a keyframe, then i2v.
 Reused short clips loop and longer ones trim to cover their scene; original files are preserved.
@@ -428,7 +433,7 @@ Edit with one reference (no `<image1>` tag for a single image):
 ```json
 {"body":{"prompt":"Replace the background with a starry night sky in deep navy with scattered pale stars, and let a cool blue rim light fall on the character's hair. Keep the character's face, outfit, pose and framing exactly as they are.","references":[{"uri":"<owned uri>","sha256":"<owned sha256>"}],"resolution":1024,"options":{"steps":40}},"idempotency_key":"edit-001"}
 ```
-H3 Turbo from text (only if ready):
+H3 Fused Turbo (experimental 4-step merge) from text, only if ready:
 ```json
 {"body":{"prompt":"integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a violet-haired singer on a dim stage … The camera pushes in with small amplitude at slow speed as she turns toward the lens.\n\noverall_soundscape: A faint hum of stage equipment and soft footsteps on wooden boards.\n\nnon_diegetic_music: N/A","mode":"t2v","profile":"fused_turbo","steps":4,"seconds":5,"aspect_ratio":"16:9","options":{"resolution":"720p","container":"webm","codec":"av1","bit_depth":10,"crf":24}},"idempotency_key":"video-001"}
 ```
@@ -587,7 +592,7 @@ def controls_reference():
             if group == 'video' and field['path'] == 'scheduler':
                 default = 'simple; beta for Base r2v'
             if group == 'video' and field['path'] in ('shift_video', 'shift_audio'):
-                default = 'Base: checkpoint defaults; Turbo: ' + str(field['default'])
+                default = 'Base: checkpoint defaults; turbo: ' + ('6' if field['path'] == 'shift_video' else '3') + '; fused_turbo and omni: ' + str(field['default'])
             meaning = field['label'] + ('. ' + field['help'] if field.get('help') else '')
             parts.append(f"| `{field['path']}` | {default} | {allowed} | {meaning} |")
     parts.append('\n#### Video preset dimensions\n| Preset | 16:9 | 9:16 | 1:1 |\n| --- | --- | --- | --- |')
@@ -606,7 +611,7 @@ def build_guides(operations):
     for name, _, _, scope, description in operations:
         catalog.append(f'| `{name}` | {scope} | {description} |')
     for name, scope, description in [
-        ('prompt_guide', 'read', 'Read a guide topic: image, edit, video, music, director, prompts, formats, controls, workflows, overview or all.'),
+        ('prompt_guide', 'read', 'Read a guide topic: image, edit, video, music, sound, speech, director, prompts, formats, controls, workflows, overview or all.'),
         ('wait_for_job', 'read', 'Wait up to 50 s for a job to finish; returns it with `outputs` (result file references).'),
         ('create_uploads', 'create', 'Temporary upload links (1–50 files); PUT each file with curl -T and receive its owned reference.'),
         ('get_uploads', 'read', 'Status and references of upload links.'),
@@ -626,8 +631,9 @@ def build_guides(operations):
     # Server instructions stay compact: clients keep them in context on every turn.
     topics['overview'] = '\n'.join([
         '# Media Lab — MCP overview',
-        'Private studio: Qwen-Image-2.1 (and its 8-step Turbo) images and edits, MiniMax H3 '
-        'audio-video clips, FlashVSR video upscaling, YuE2 songs, Director music videos and the '
-        'Rinari agent, all scoped to your account.',
+        'Private studio: Qwen-Image-2.1 (and its 8-step Turbo), MOSS-Image and FLUX 3 Klein images '
+        'and edits, MiniMax H3 and Kandinsky 6 audio-video clips, video swaps and upscaling, YuE2 and '
+        'ACE-Step songs, Stable Audio 3 sound, Qwen3-TTS speech, Director music videos and the Rinari '
+        'agent, all scoped to your account.',
         REMOTE, OVERVIEW, LANGUAGE, '## Model prompt essentials', AGENT_BRIEF, '', catalog])
     return topics

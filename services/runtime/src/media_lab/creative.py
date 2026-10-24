@@ -24,7 +24,7 @@ from .creative_workflows import (h3_workflow, yue2_workflow, flashvsr_workflow, 
                                 swap_prompt, swap_size, swap_workflow, SWAP_LORA, SWAP_LORA_SHA256, SWAP_STEPS, SWAP_TURBO,
                                 head_swap_workflow, h3_length, HEAD_FACE_SIZE, HEAD_LORA, HEAD_LORA_SHA256, HEAD_STEPS,
                                 HEAD_TURBO, face_detect_workflow, face_refine_workflow, FACE_STRENGTHS,
-                                ace_step_workflow, ace_language, ace_tempo, ACE_KEYS, ACE_STEPS,
+                                ace_step_workflow, ace_caption, ace_language, ace_tempo, ACE_KEYS, ACE_STEPS,
                                 H3_FUSED, H3_FUSED_REVISION,
                                 H3_FUSED_SHA256, H3_FUSED_VIDEO_VAE, H3_FUSED_VAE_SHA256,
                                 H3_TURBO_FL_LORA, H3_TURBO_REF_LORA, H3_OMNI, CLEAN_FRAME_PROMPT, REMOVER_LORA, REMOVER_STEPS,
@@ -337,12 +337,13 @@ class CreativeJobs:
         bpm, key = body.bpm or named_bpm, body.key if body.key in ACE_KEYS else named_key
         language = body.language or ace_language(body.lyrics)
         fmt = body.options.format if body.options else "flac"
-        graph = ace_step_workflow(body.style, body.lyrics, body.max_duration, seed, bpm, key, language,
-                                  fmt, body.options.audio_quality if body.options else None)
+        meter = body.time_signature or "4"
+        graph = ace_step_workflow(ace_caption(body.style), body.lyrics, body.max_duration, seed, bpm, key, language,
+                                  fmt, body.options.audio_quality if body.options else None, meter)
         raw, backend = self._run(job_id, gpu, graph, "audio")
         media = self.artifacts.put_media(job["session_id"], raw, {"flac": "audio/flac", "mp3": "audio/mpeg", "opus": "audio/ogg"}[fmt], "songs",
             {"model": "ACE-Step 1.5 XL Turbo", "style": body.style, "lyrics": body.lyrics, "bpm": bpm, "key": key,
-             "language": language, "seconds": body.max_duration, "seed": seed, "steps": ACE_STEPS, "backend": backend})
+             "time_signature": meter, "language": language, "seconds": body.max_duration, "seed": seed, "steps": ACE_STEPS, "backend": backend})
         return {"media": [media], "data": {"seed": seed, "model": "ace_step", "bpm": bpm, "key": key, "language": language,
                                           "gpu": gpu, "output": media_probe(self.artifacts.resolve(media["uri"]))}}
 

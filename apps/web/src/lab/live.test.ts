@@ -103,16 +103,36 @@ test('ACE-Step songs ask for the exact length and covers stay on YuE2', () => {
 
 test('the IA pass uses the guide that matches each creator mode', async () => {
   const calls: any[] = []
-  vi.stubGlobal('visualLab', { agent: { improve: async (...args: any[]) => { calls.push(args); return args[1] === 'song' ? { prompt: 'pop, warm', lyrics: '[verse] hola' } : { prompt: 'mejorado' } } } })
+  vi.stubGlobal('visualLab', { agent: { improve: async (...args: any[]) => {
+    calls.push(args)
+    return args[1] === 'ace_song' ? { prompt: 'cumbia, accordion', lyrics: '[Verse]\nlunes', bpm: 98, key: 'A minor', language: 'es' }
+      : args[1] === 'song' ? { prompt: 'pop, warm', lyrics: '[verse] hola' } : args[1] === 'kandinsky' ? { prompt: 'A vendor says: <S>¡Hola!<E>', audio_prompt: 'warm voice; no music' }
+      : { prompt: 'mejorado' } } } })
   expect((await improve(base({ refs: [ref] }))).prompt).toBe('mejorado')
   await improve(base({ kind: 'video', values: { mode: 'Imagen inicial', duration: '0:08', aspect: '16:9' }, refs: [ref, ref] }))
   const song = await improve(base({ kind: 'audio', values: { type: 'Canción', duration: '1:00' }, lyrics: 'mi letra' }))
   const cover = await improve(base({ kind: 'audio', values: { type: 'Cover', duration: '1:00' } }))
-  expect(calls.map(c => c[1])).toEqual(['i2i', 'i2v', 'song'])
+  await improve(base({ modelId: 'moss-image' }))
+  await improve(base({ modelId: 'moss-image', refs: [ref], values: { mode: 'Estructura' } }))
+  const ace = await improve(base({ kind: 'audio', modelId: 'ace-step', prompt: 'una cumbia sobre el lunes', values: { type: 'Canción', duration: '2:00' } }))
+  await improve(base({ kind: 'video', modelId: 'h3-turbo', values: { mode: 'Referencias', duration: '0:05', aspect: '16:9' }, refs: [ref] }))
+  const k6 = await improve(base({ kind: 'video', modelId: 'kandinsky6', prompt: 'una vendedora dice "hola"', values: { mode: 'Imagen inicial', aspect: '16:9' }, refs: [ref] }))
+  // FLUX, Stable Audio and the voice rewrite or read the text themselves.
+  for (const [modelId, kind] of [['flux3-klein', 'image'], ['stable-audio3', 'audio'], ['qwen3-tts', 'audio']] as const) expect((await improve(base({ modelId, kind, refs: kind === 'image' ? [ref] : [] }))).prompt).toBe('un faro')
+  expect(calls.map(c => c[1])).toEqual(['i2i', 'i2v', 'song', 'moss', 't2i', 'ace_song', 'r2v', 'kandinsky'])
   expect(calls[1][2]).toEqual([ref])
   expect(calls[1][3]).toBe(8)
   expect(calls[2][0]).toContain('mi letra')
+  // The first box is the idea, never lyrics; with no lyrics the provider is told to write them.
+  expect(calls[5][0]).toMatch(/^Song idea \(a description of the song, not lyrics\): una cumbia sobre el lunes/)
+  expect(calls[5][0]).toContain('No lyrics supplied')
+  expect(calls[5][0]).toContain('2:00 (exact)')
+  expect(requests(ace)[0].body).toMatchObject({ model: 'ace_step', style: 'cumbia, accordion', lyrics: '[Verse]\nlunes', bpm: 98, key: 'A minor', language: 'es', max_duration: 120 })
+  expect(calls[7][2]).toEqual([ref])
+  expect(k6).toMatchObject({ prompt: 'A vendor says: <S>¡Hola!<E>', lyrics: 'warm voice; no music' })
+  expect(requests(k6)[0].body).toMatchObject({ prompt: 'A vendor says: <S>¡Hola!<E>', audio_prompt: 'warm voice; no music' })
   expect(song).toMatchObject({ prompt: 'pop, warm', lyrics: '[verse] hola' })
+  expect(song.music).toBeUndefined()
   expect(cover.prompt).toBe('un faro')
 })
 

@@ -495,7 +495,7 @@ def create_app(*, state_root: Path | None = None, key_path: Path | None = None,
     async def agent_improve(body: dict):
         if set(body) - {"prompt", "mode", "references", "seconds"}:
             raise ValueError("invalid prompt request")
-        if body.get("mode", "t2i") not in {"t2i", "i2i", "t2v", "i2v", "r2v", "song"}:
+        if body.get("mode", "t2i") not in {"t2i", "i2i", "moss", "t2v", "i2v", "r2v", "kandinsky", "song", "ace_song"}:
             raise ValueError("invalid prompt mode")
         with store._db() as db:
             store._check_refs(db, body.get("references", []), owner())

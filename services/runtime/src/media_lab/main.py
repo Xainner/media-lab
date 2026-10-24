@@ -342,16 +342,28 @@ def video_job(body: VideoRequest, idempotency_key: str | None = Header(default=N
             if not h3_control_ready(SETTINGS.model_root, body.control.mode):
                 raise ValueError("H3 video control is not installed for this mode; no automatic substitution")
             check_control_input(video_info(artifacts.resolve(body.control.video.uri, body.control.video.sha256)))
-        if body.mode == "r2v" and not (body.references or body.reference_videos or body.reference_audios or body.control):
-            raise ValueError("r2v requires references")
+        # Official H3 Ref2VA input limits: an image or video is required, at most 12 files, each audio
+        # 2–15 s, and at most 15 s of reference video and 15 s of reference audio in total.
+        if body.mode == "r2v" and not (body.references or body.reference_videos or body.control):
+            raise ValueError("r2v necesita al menos una imagen o un vídeo de referencia")
+        if len(body.references) + len(body.reference_videos) + len(body.reference_audios) > 12:
+            raise ValueError("H3 admite hasta 12 referencias en total")
+        video_seconds = audio_seconds = 0.0
         for ref in body.reference_videos:
             probe = media_probe(artifacts.resolve(ref.uri, ref.sha256))
             if not any(stream.get('codec_type') == 'video' for stream in probe['streams']) or not 2 <= probe['duration'] <= 15:
                 raise ValueError('Las referencias de vídeo deben durar entre 2 y 15 segundos')
+            video_seconds += probe['duration']
+            # A reference video's soundtrack becomes an <Audio> label and counts toward the audio total.
+            if any(stream.get('codec_type') == 'audio' for stream in probe['streams']):
+                audio_seconds += probe['duration']
         for ref in body.reference_audios:
             probe = media_probe(artifacts.resolve(ref.uri, ref.sha256))
-            if not any(stream.get('codec_type') == 'audio' for stream in probe['streams']) or not 1 <= probe['duration'] <= 15:
-                raise ValueError('Las referencias de audio deben durar entre 1 y 15 segundos')
+            if not any(stream.get('codec_type') == 'audio' for stream in probe['streams']) or not 2 <= probe['duration'] <= 15:
+                raise ValueError('Las referencias de audio deben durar entre 2 y 15 segundos')
+            audio_seconds += probe['duration']
+        if video_seconds > 15.05 or audio_seconds > 15.05:
+            raise ValueError('Las referencias suman más de 15 s de vídeo o de audio; recórtalas o usa un vídeo sin sonido')
         if body.model == "kandinsky6":
             if not kandinsky6_ready(SETTINGS.model_root, SETTINGS.h3_model_root):
                 raise ValueError("Kandinsky 6 is not installed; no automatic substitution")

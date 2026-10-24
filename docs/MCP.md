@@ -55,16 +55,20 @@ client's context on every turn.
 `prompt_guide(topic=...)` supports `all` (default), `overview`, `prompts`, `formats`,
 `controls`, `workflows` and one topic per model: `image` (Qwen-Image-2.1 text-to-image),
 `edit` (Qwen editing), `video` (MiniMax H3), `music` (YuE2) and `director`. The model
-guides live in `services/runtime/src/media_lab/model_guides.py`, built from the
-official Qwen prompt rewriters, the official MiniMax H3 prompt-writing skill, the
-YuE2-3B card and protocol, and the owner's H3 Prompt Architect v4.0 adapted to ComfyUI.
-Readable Markdown resources:
+guides live in `services/runtime/src/media_lab/model_guides.py`, built from each model's
+official sources (Qwen prompt rewriters, the MiniMax H3 prompt-writing skill, the YuE2-3B
+protocol, the MOSS-Image prompt enhancer, BFL's FLUX 3 Klein upsampler and prompting guides, the
+Kandinsky 6 beautifier, the ACE-Step 1.5 tutorial, Stability's Stable Audio 3 guide and the
+Qwen3-TTS documentation; the docstring lists them with their dates).
+Readable Markdown resources, one per `prompt_guide` topic:
 
-- `rinari://guides/prompts`: the full guide, preserving the existing resource URI.
-- `rinari://guides/formats`: uploads, references, encoding, export and downloads.
-- `rinari://guides/controls`: complete controls, limits, defaults and resolution tables.
-- `rinari://guides/qwen-image`, `rinari://guides/qwen-edit`, `rinari://guides/h3`,
-  `rinari://guides/yue2`, `rinari://guides/director`: one model guide each.
+- `media-lab://guides/all`: the full guide.
+- `media-lab://guides/formats`: uploads, references, encoding, export and downloads.
+- `media-lab://guides/controls`: complete controls, limits, defaults and resolution tables.
+- `media-lab://guides/image` (Qwen, MOSS, FLUX 3 Klein), `media-lab://guides/edit` (Qwen, FLUX),
+  `media-lab://guides/video` (H3, Kandinsky 6), `media-lab://guides/music` (YuE2, ACE-Step),
+  `media-lab://guides/sound` (Stable Audio 3), `media-lab://guides/speech` (Qwen3-TTS) and
+  `media-lab://guides/director`.
 
 Prompt templates: `creative_brief(goal, medium)`, `image_prompt(goal, references)`,
 `video_prompt(goal, inputs, seconds)`, `music_prompt(goal)` and `music_video(goal)`.

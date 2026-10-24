@@ -173,7 +173,7 @@ Every account can expose its own studio to MCP clients at `https://<your-origin>
    offers a ready `mcpServers` configuration and copyable agent instructions.
 
 The server ships **55 tools**, English instructions, per-model prompt guides
-(`prompt_guide`, `rinari://guides/*` resources) and prompt templates:
+(`prompt_guide`, `media-lab://guides/*` resources) and prompt templates:
 
 | Area | Tools |
 |---|---|
