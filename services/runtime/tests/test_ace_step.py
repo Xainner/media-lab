@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from media_lab.contracts import SongRequest
-from media_lab.creative_workflows import ACE_CLIPS, ACE_DIT, ace_language, ace_step_workflow, ace_tempo
+from media_lab.creative_workflows import ACE_CLIPS, ACE_DIT, ace_caption, ace_language, ace_step_workflow, ace_tempo
 from media_lab.mcp_server import GUIDES
 
 
@@ -43,3 +43,19 @@ def test_ace_requests_refuse_covers_scores_and_overlong_songs():
 def test_music_guide_explains_both_engines():
     guide = "".join(str(v) for v in GUIDES.values())
     assert "`ace_step` is ACE-Step 1.5 XL" in guide and "YuE2: `mode=direct`" in guide
+
+
+def test_tempo_and_key_leave_the_caption_and_the_meter_is_configurable():
+    assert ace_caption("reggaeton, 95 BPM, E minor, female vocals") == "reggaeton, female vocals"
+    assert ace_caption("dreamy pop, warm synths") == "dreamy pop, warm synths"
+    assert ace_caption("120 bpm") == "120 bpm"  # never send an empty caption
+    assert ace_step_workflow("waltz", "[Instrumental]", 60, 1, 90, "D major", "en", time_signature="3")["music"]["inputs"]["timesignature"] == "3"
+    assert ace_step_workflow("pop", "x", 30, 1, 110, "C major", "en")["music"]["inputs"]["timesignature"] == "4"
+
+
+def test_ace_requests_follow_the_documented_input_limits():
+    assert SongRequest(style="waltz", lyrics="x", model="ace_step", time_signature="3").time_signature == "3"
+    for bad in ({"style": "x" * 513}, {"lyrics": "x" * 4097}, {"time_signature": "5"}):
+        with pytest.raises(ValidationError):
+            SongRequest(**{"style": "pop", "lyrics": "x", "model": "ace_step", **bad})
+    assert SongRequest(style="x" * 600, lyrics="x").model == "yue2"

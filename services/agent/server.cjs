@@ -163,7 +163,7 @@ const server = http.createServer(async (request, response) => {
       const references = body.references || [];
       const mode = body.mode || 't2i';
       if (!prompt.trim() || prompt.length > 20000 || !Array.isArray(references) || references.length > 16) throw new Error('Prompt inválido');
-      const label = { i2i: i => `Reference <image${i}>${i === 1 ? ' (canvas)' : ''}`, i2v: i => `<Picture ${i}> (${i === 1 ? 'first' : 'last'} frame)`,
+      const label = { i2i: i => `Reference <image${i}>${i === 1 ? ' (canvas)' : ''}`, kandinsky: () => 'First frame (the clip starts from this image)', i2v: i => `<Picture ${i}> (${i === 1 ? 'first' : 'last'} frame)`,
         r2v: i => `<Picture ${i}> (reference image ${i})` }[mode] || (i => `Reference image ${i}`);
       let content = [{ type: 'text', text: prompt }];
       for (let index = 0; index < references.length; index++) {

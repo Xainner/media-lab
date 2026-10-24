@@ -16,7 +16,7 @@ export const available = (m: Model, caps: Caps) => m.status !== 'soon' && (m.id 
 // Audio settings that belong to one kind of audio model; the rest (type, stems, duration) are for songs.
 const audioOnly: Record<string, string> = { sound: 'stable-audio3', length: 'stable-audio3', voice: 'qwen3-tts', speaker: 'qwen3-tts', language: 'qwen3-tts' }
 // Models that rewrite or read the text themselves, so the IA chip stays off.
-const selfWritten: Record<string, string> = { kandinsky6: 'Kandinsky reescribe tu escena y tus sonidos con su propio modelo', 'stable-audio3': 'Stable Audio reescribe tu idea con su propio modelo', 'qwen3-tts': 'La voz dice tu texto exacto' }
+const selfWritten: Record<string, string> = { 'flux3-klein': 'FLUX reescribe tu idea con su propio modelo', 'stable-audio3': 'Stable Audio reescribe tu idea con su propio modelo', 'qwen3-tts': 'La voz dice tu texto exacto' }
 
 function Popover({ open, onClose, children, className = '' }: { open: boolean; onClose: () => void; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -282,6 +282,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     : tts ? 'Escribe lo que dirá la voz, con puntuación normal…'
     : sfx ? 'Describe el sonido: género, instrumentos y ánimo; o la fuente, el material y el espacio de un efecto…'
     : k6 ? 'Describe la escena y lo que pasa; lo que dicen, entre comillas: «Hola, ¿qué tal?»'
+    : song && enhance ? 'Describe tu canción: tema, género, ánimo, voz e idioma. La IA escribe el estilo y la letra…'
     : { image: refs.length ? 'Describe qué cambiar en la imagen…' : 'Describe la imagen que imaginas…', video: 'Describe la escena, el movimiento de cámara y el sonido…', audio: 'Estilo: género, ánimo, instrumentos, voz…' }[modality]
   return <div className="ml-composer" onDragOver={e => { if (limit) e.preventDefault() }} onDrop={e => { if (!limit) return; e.preventDefault(); void attach(Array.from(e.dataTransfer.files)) }}>
     {(refs.length > 0 || uploading || source || picked.length > 0 || people.length > 0) && <div className="ml-refs">
@@ -292,7 +293,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
       {picked.map(l => <span key={l.id} className="ml-ref-tag is-lora" title={l.trigger ? `Palabras clave: ${l.trigger}` : l.name}><SwatchBook size={12} />{l.name}
         <button type="button" aria-label={`Quitar LoRA ${l.name}`} onClick={() => setLoras(v => v.filter(p => p.id !== l.id))}><X size={11} /></button></span>)}
     </div>}
-    <textarea ref={area} rows={1} value={split || cutout ? '' : prompt} placeholder={placeholder} disabled={split || cutout} aria-label={tts ? 'Texto' : sfx ? 'Sonido' : modality === 'audio' ? 'Estilo' : 'Prompt'}
+    <textarea ref={area} rows={1} value={split || cutout ? '' : prompt} placeholder={placeholder} disabled={split || cutout} aria-label={tts ? 'Texto' : sfx ? 'Sonido' : song && enhance ? 'Idea' : modality === 'audio' ? 'Estilo' : 'Prompt'}
       onChange={e => { setPrompt(e.target.value); track(e.target.value, e.target.selectionStart) }}
       onKeyDown={e => {
         const total = listed.length + listedLoras.length
@@ -305,7 +306,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void submit()
       }} />
     {song && value('type') !== 'Instrumental' && !split && <textarea className="ml-lyrics" rows={3} value={lyrics} aria-label="Letra"
-      placeholder={'[verse]\nEscribe la letra, una frase por línea\n[chorus]\n…'} onChange={e => setLyrics(e.target.value)} />}
+      placeholder={enhance ? 'Letra (opcional): déjala vacía y la IA la escribe; si la escribes, se canta tal cual' : '[Verse]\nEscribe la letra, una frase por línea\n\n[Chorus]\n…'} onChange={e => setLyrics(e.target.value)} />}
     {(tts || k6) && <textarea className="ml-lyrics" rows={2} value={lyrics} onChange={e => setLyrics(e.target.value)}
       aria-label={k6 ? 'Voz y sonidos' : voice === 'design' ? 'Descripción de la voz' : voice === 'clone' ? 'Texto de la referencia' : 'Cómo lo dice'}
       placeholder={k6 ? 'Voz y sonidos (opcional): «voz grave y tranquila, lluvia de fondo, música suave»'

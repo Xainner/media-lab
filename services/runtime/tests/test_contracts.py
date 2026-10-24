@@ -45,9 +45,9 @@ def test_nine_one_megapixel_presets_are_valid():
 
 def test_rgba_prompt_is_explicit():
     result = compile_prompt("a red dragon sticker", True)
-    assert result.startswith("This is an RGBA format image")
-    assert "a red dragon sticker" in result
-    assert result.endswith("transparent background.")
+    assert result == ("This is an RGBA image with transparency. a red dragon sticker. "
+                      "The image has alpha channel and the background is transparent.")
+    assert compile_prompt("a red dragon sticker.", True) == result
 
 
 def test_edit_reference_bounds_and_resolution():

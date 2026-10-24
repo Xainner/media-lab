@@ -152,8 +152,8 @@ def _check_image(body: PromptCheck, errors: list, warnings: list) -> dict:
         warnings.append('Odd number of straight double quotes; visible text must be fully quoted.')
     if body.model == 'image':
         words = len(text.split())
-        if words < 60:
-            warnings.append(f'Only {words} words; Qwen-Image-2.1 responds best to a full 150–500 word observer description.')
+        if words < 200:
+            warnings.append(f'Only {words} words; Qwen-Image-2.1 responds best to a full observer description of about 400–500 words.')
         if re.search(r'\b(create|generate|make sure|you should|please)\b', text, re.I):
             warnings.append('Describe the finished image declaratively instead of giving instructions.')
     else:

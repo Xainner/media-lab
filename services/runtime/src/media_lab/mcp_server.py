@@ -43,8 +43,8 @@ class UploadSlot(BaseModel):
 class PromptImprovement(BaseModel):
     model_config = ConfigDict(extra='forbid')
     prompt: str = Field(min_length=1, max_length=20000, description='Complete original request. Preserve literal quoted text and every explicit requirement.')
-    mode: Literal['t2i', 'i2i', 't2v', 'i2v', 'r2v', 'song'] = Field(default='t2i', description='Target: Qwen image (t2i) or edit (i2i), H3 video (t2v/i2v/r2v) or YuE2 song (returns style and lyrics). Proposing a prompt does not execute it.')
-    references: list[ArtifactRef] = Field(default_factory=list, max_length=16, description='Owned images in request order: edit references, the H3 first frame, or H3 r2v reference images.')
+    mode: Literal['t2i', 'i2i', 'moss', 't2v', 'i2v', 'r2v', 'kandinsky', 'song', 'ace_song'] = Field(default='t2i', description='Target: Qwen image (t2i) or edit (i2i), MOSS-Image caption (moss), H3 video (t2v/i2v/r2v), Kandinsky 6 (kandinsky: returns prompt and audio_prompt), YuE2 song (song) or ACE-Step song (ace_song: also bpm, key, time_signature, language); song modes return style and lyrics. FLUX 3 Klein, Stable Audio 3 and Qwen3-TTS need no improver. Proposing a prompt does not execute it.')
+    references: list[ArtifactRef] = Field(default_factory=list, max_length=16, description='Owned images in request order: edit references, the H3 or Kandinsky first frame, or H3 r2v reference images.')
     seconds: float | None = Field(default=None, ge=5, le=15, description='H3 only: requested clip duration for timing shots and dialogue.')
 
 
@@ -141,7 +141,7 @@ OPERATIONS = [
     ('get_agent_run', 'GET', '/v1/agent/runs/{rid}', 'read', 'Steps, status and media results of an owned agent run.'),
     ('cancel_agent', 'POST', '/v1/agent/runs/{rid}/cancel', 'agent', 'Cancel an owned agent run.'),
     ('continue_agent', 'POST', '/v1/agent/runs/{rid}/continue', 'agent', 'Continue an owned stopped agent run with explicit user authorization.'),
-    ('improve_prompt', 'POST', '/v1/agent/improve', 'agent', 'Propose a model-ready English prompt (Qwen image/edit, H3 video, or YuE2 style plus lyrics) with the active provider using the studio guides, preserving intent and literal text; no generation.'),
+    ('improve_prompt', 'POST', '/v1/agent/improve', 'agent', 'Propose a model-ready English prompt (Qwen image/edit, MOSS caption, H3 or Kandinsky video, or YuE2/ACE-Step style plus lyrics) with the active provider using the studio guides, preserving intent and literal text; no generation.'),
     ('review_with_agent', 'POST', '/v1/agent/review', 'agent', 'Review an owned image with the external provider; verified vision required.'),
     ('plan_storyboard', 'POST', '/v1/agent/director', 'agent', 'Plan scenes with English model prompts from brief, literal lyrics and technical audio analysis; does not generate.'),
     ('delete_media', 'DELETE', '/v1/library', 'delete', 'Permanently delete an owned media file; obtain user confirmation first.'),
@@ -330,9 +330,10 @@ def build_mcp(app, access):
 
     # structured_output=False: the guide is plain Markdown text. A generated {"result": str} output
     # schema made some clients validate the Markdown itself and reject every call.
-    @server.tool(structured_output=False, annotations=READS, description='English studio guides. Topics: image (Qwen text-to-image), edit (Qwen editing), video (MiniMax H3), music (YuE2), director (music videos), prompts (all model guides), formats, controls, workflows, overview, all. Read the medium topic before writing a model prompt.')
+    @server.tool(structured_output=False, annotations=READS, description='English studio guides. Topics: image (Qwen, MOSS and FLUX 3 Klein creation), edit (Qwen and FLUX editing), video (MiniMax H3 and Kandinsky 6), music (YuE2 and ACE-Step), sound (Stable Audio 3), speech (Qwen3-TTS), director (music videos), prompts (all model guides), formats, controls, workflows, overview, all. Read the medium topic before writing a model prompt.')
     def prompt_guide(ctx: Context, topic: Literal['all', 'overview', 'prompts', 'formats', 'controls', 'workflows',
-                                                  'image', 'edit', 'video', 'music', 'director'] = 'all') -> str:
+                                                  'image', 'edit', 'video', 'music', 'sound', 'speech',
+                                                  'director'] = 'all') -> str:
         authorize(ctx, 'read')
         return GUIDES[topic]
 
@@ -342,14 +343,16 @@ def build_mcp(app, access):
         read.__name__ = uri.rsplit('/', 1)[-1].replace('-', '_') + '_guide'
         server.resource(uri, mime_type='text/markdown', description=description)(read)
 
-    guide_resource('rinari://guides/prompts', 'all', 'Complete English guide for all creative tools, model prompts, formats and workflows.')
-    guide_resource('rinari://guides/formats', 'formats', 'English upload, reference, encoding, export and private-download format guide.')
-    guide_resource('rinari://guides/controls', 'controls', 'English complete model controls, defaults, constraints and resolution tables.')
-    guide_resource('rinari://guides/qwen-image', 'image', 'Qwen-Image-2.1 text-to-image prompt guide.')
-    guide_resource('rinari://guides/qwen-edit', 'edit', 'Qwen-Image-2.1 image-editing prompt guide.')
-    guide_resource('rinari://guides/h3', 'video', 'MiniMax H3 audio-video prompt guide: modes, formats, labels, dialogue and audio.')
-    guide_resource('rinari://guides/yue2', 'music', 'YuE2 style, lyrics, modes and cover guide.')
-    guide_resource('rinari://guides/director', 'director', 'Director music-video planning guide with the Qwen and H3 guides it relies on.')
+    guide_resource('media-lab://guides/all', 'all', 'Complete English guide for all creative tools, model prompts, formats and workflows.')
+    guide_resource('media-lab://guides/formats', 'formats', 'English upload, reference, encoding, export and private-download format guide.')
+    guide_resource('media-lab://guides/controls', 'controls', 'English complete model controls, defaults, constraints and resolution tables.')
+    guide_resource('media-lab://guides/image', 'image', 'Image creation prompt guides: Qwen-Image 2.1, MOSS-Image and FLUX 3 Klein.')
+    guide_resource('media-lab://guides/edit', 'edit', 'Image editing prompt guides: Qwen-Image 2.1 and FLUX 3 Klein.')
+    guide_resource('media-lab://guides/video', 'video', 'Video prompt guides: MiniMax H3 (modes, formats, labels, dialogue, audio) and Kandinsky 6.')
+    guide_resource('media-lab://guides/music', 'music', 'Song guides: YuE2 (style, lyrics, modes, covers) and ACE-Step 1.5.')
+    guide_resource('media-lab://guides/sound', 'sound', 'Stable Audio 3 instrumental, loop and sound-effect prompt guide.')
+    guide_resource('media-lab://guides/speech', 'speech', 'Qwen3-TTS text, preset voices, voice design and consented cloning guide.')
+    guide_resource('media-lab://guides/director', 'director', 'Director music-video planning guide with the Qwen and H3 guides it relies on.')
 
     def brief(ctx, goal, extra=''):
         authorize(ctx, 'read')
@@ -361,6 +364,7 @@ def build_mcp(app, access):
     def creative_brief(goal: str, medium: str = 'image', ctx: Context = None) -> str:
         brief(ctx, goal, medium)
         topic = {'image': 'image', 'edit': 'edit', 'video': 'video', 'music': 'music', 'song': 'music',
+                 'sound': 'sound', 'sfx': 'sound', 'speech': 'speech', 'voice': 'speech',
                  'director': 'director', 'production': 'director'}.get(medium.strip().lower(), 'prompts')
         return (f'{GUIDES["overview"]}\n{GUIDES[topic]}\nOriginal user goal ({medium}): {goal}\nRead live capabilities and plan the authorized work. '
                 'Write model-facing descriptive prompts in English, preserving literal lyrics, dialogue and visible text. Preserve the original user request. '

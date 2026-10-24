@@ -189,7 +189,7 @@ export function setAnimationMode(value: AnimationMode) {
   window.dispatchEvent(new Event(ANIMATION_EVENT))
 }
 
-export type ImproveMode = 't2i' | 'i2i' | 't2v' | 'i2v' | 'r2v' | 'song'
+export type ImproveMode = 't2i' | 'i2i' | 'moss' | 't2v' | 'i2v' | 'r2v' | 'kandinsky' | 'song' | 'ace_song'
 
 export async function enhancePrompt(_source: 'external', prompt: string, mode: 't2i' | 'i2i', references: ArtifactRef[] = []): Promise<string> {
   return (await window.visualLab.agent.improve(prompt, mode, references)).prompt

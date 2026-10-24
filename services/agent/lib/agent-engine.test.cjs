@@ -237,6 +237,17 @@ test('provider prompts carry the model guide for each target and parse songs', (
   assert.throws(() => improveSystem('cover'), /no admitido/);
   assert.deepEqual(parseImproved('song', '```json\n{"style":"rock, drums","lyrics":"[Verse]\\nHola"}\n```'), { prompt: 'rock, drums', lyrics: '[Verse]\nHola' });
   assert.equal(parseImproved('t2v', '```\nintegrated_multimodal_description: x\n```').prompt, 'integrated_multimodal_description: x');
+  // Each model gets its own guide; a song idea is never sung back as lyrics.
+  assert.match(improveSystem('moss'), /MOSS-Image · posters[\s\S]*220–320 words/);
+  assert.match(improveSystem('kandinsky', { references: 1 }), /<S>exact words<E>[\s\S]*Kandinsky 6 · 5-second/);
+  assert.match(improveSystem('song'), /never copy the description into the lyrics/);
+  assert.match(improveSystem('ace_song'), /time_signature[\s\S]*ACE-Step 1.5 XL Turbo/);
+  assert.deepEqual(parseImproved('ace_song', 'Sure: {"style":"cumbia, accordion","lyrics":"[Verse]\\nLunes","bpm":"98","key":"A minor","time_signature":3,"language":"es"}'),
+    { prompt: 'cumbia, accordion', lyrics: '[Verse]\nLunes', bpm: 98, key: 'A minor', time_signature: '3', language: 'es' });
+  assert.deepEqual(parseImproved('ace_song', '{"style":"pop","lyrics":"[Instrumental]","bpm":400,"key":"La menor","language":"spa"}'), { prompt: 'pop', lyrics: '[Instrumental]' });
+  assert.deepEqual(parseImproved('kandinsky', '{"prompt":"A vendor says: <S>¡Hola!<E>","audio_prompt":"warm voice"}'), { prompt: 'A vendor says: <S>¡Hola!<E>', audio_prompt: 'warm voice' });
+  assert.throws(() => parseImproved('kandinsky', '{"audio_prompt":"x"}'), /incompleta/);
+  for (const topic of ['image', 'edit', 'video', 'music', 'sound', 'speech', 'director']) assert.ok(require('./agent-language.cjs').guides.topics[topic]);
   assert.match(directorSystem(), /non_diegetic_music: N\/A[\s\S]*Qwen-Image-2.1 · text to image[\s\S]*MiniMax H3/);
   assert.match(reviewSystem(), /suggested_prompt/);
   const names = require('./agent-engine.cjs').TOOLS.map(t => t.function.name);
