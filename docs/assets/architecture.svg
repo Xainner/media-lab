@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" font-family="Inter, 'Segoe UI', system-ui, -apple-system, sans-serif">
+  <title>Media Lab architecture</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d0d10"/>
+      <stop offset="1" stop-color="#08080a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff5a1f" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#ff5a1f" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#ff8a3d"/>
+    </marker>
+    <marker id="arrow-dim" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8a847c"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="640" rx="24" fill="url(#bg)"/>
+  <ellipse cx="575" cy="250" rx="330" ry="260" fill="url(#glow)"/>
+
+  <!-- Clients -->
+  <text x="40" y="52" fill="#ff8a3d" font-size="13" font-weight="700" letter-spacing="2">CLIENTS</text>
+  <g>
+    <rect x="40" y="70" width="250" height="92" rx="14" fill="#141417" stroke="#2a2a30"/>
+    <text x="60" y="104" fill="#f4f1ec" font-size="18" font-weight="700">Web studio</text>
+    <text x="60" y="128" fill="#a8a29a" font-size="13">Browser · React · private login</text>
+    <text x="60" y="148" fill="#a8a29a" font-size="13">TOTP 2FA · invitations</text>
+  </g>
+  <g>
+    <rect x="40" y="182" width="250" height="92" rx="14" fill="#141417" stroke="#2a2a30"/>
+    <text x="60" y="216" fill="#f4f1ec" font-size="18" font-weight="700">MCP clients</text>
+    <text x="60" y="240" fill="#a8a29a" font-size="13">Claude and any MCP client with</text>
+    <text x="60" y="260" fill="#a8a29a" font-size="13">Streamable HTTP + Bearer token</text>
+  </g>
+  <g>
+    <rect x="40" y="440" width="250" height="110" rx="14" fill="#141417" stroke="#2a2a30" stroke-dasharray="5 5"/>
+    <text x="60" y="474" fill="#f4f1ec" font-size="18" font-weight="700">Your LLM provider</text>
+    <text x="60" y="498" fill="#a8a29a" font-size="13">OpenAI-compatible API,</text>
+    <text x="60" y="518" fill="#a8a29a" font-size="13">configured per account and</text>
+    <text x="60" y="538" fill="#a8a29a" font-size="13">approved by the admin</text>
+  </g>
+
+  <!-- HTTPS edge -->
+  <path d="M290 116 L372 160" stroke="#ff8a3d" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M290 228 L372 196" stroke="#ff8a3d" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="40" y="304" fill="#8a847c" font-size="12">HTTPS to one exact origin</text>
+  <text x="40" y="321" fill="#8a847c" font-size="12">(your reverse proxy in front, optional)</text>
+
+  <!-- Runtime -->
+  <text x="380" y="52" fill="#ff8a3d" font-size="13" font-weight="700" letter-spacing="2">SERVER · DOCKER COMPOSE</text>
+  <rect x="380" y="70" width="400" height="330" rx="18" fill="#16110e" stroke="#ff5a1f" stroke-opacity=".75" stroke-width="1.5"/>
+  <text x="404" y="106" fill="#f4f1ec" font-size="20" font-weight="800">Web runtime</text>
+  <text x="404" y="128" fill="#a8a29a" font-size="13">FastAPI · TLS :8390 · services/runtime</text>
+  <g font-size="14" fill="#f4f1ec">
+    <rect x="404" y="146" width="168" height="54" rx="10" fill="#1f1915" stroke="#3a2c24"/>
+    <text x="418" y="170" font-weight="700">Studio UI</text>
+    <text x="418" y="189" fill="#a8a29a" font-size="12">apps/web build</text>
+    <rect x="588" y="146" width="168" height="54" rx="10" fill="#1f1915" stroke="#3a2c24"/>
+    <text x="602" y="170" font-weight="700">Jobs API</text>
+    <text x="602" y="189" fill="#a8a29a" font-size="12">/v1 · idempotent</text>
+    <rect x="404" y="212" width="168" height="54" rx="10" fill="#1f1915" stroke="#3a2c24"/>
+    <text x="418" y="236" font-weight="700">MCP server</text>
+    <text x="418" y="255" fill="#a8a29a" font-size="12">/mcp · 50+ tools</text>
+    <rect x="588" y="212" width="168" height="54" rx="10" fill="#1f1915" stroke="#3a2c24"/>
+    <text x="602" y="236" font-weight="700">Accounts</text>
+    <text x="602" y="255" fill="#a8a29a" font-size="12">owners · quotas · audit</text>
+    <rect x="404" y="278" width="352" height="54" rx="10" fill="#1f1915" stroke="#3a2c24"/>
+    <text x="418" y="302" font-weight="700">GPU scheduler · library · Director</text>
+    <text x="418" y="321" fill="#a8a29a" font-size="12">SQLite state · artifacts · encrypted provider keys</text>
+  </g>
+  <text x="404" y="370" fill="#8a847c" font-size="12">Builds every model workflow; calls the LLM provider</text>
+  <text x="404" y="386" fill="#8a847c" font-size="12">for the agent and prompt assist.</text>
+
+  <!-- Agent -->
+  <rect x="380" y="440" width="400" height="110" rx="18" fill="#141417" stroke="#2a2a30"/>
+  <text x="404" y="476" fill="#f4f1ec" font-size="20" font-weight="800">Agent</text>
+  <text x="404" y="498" fill="#a8a29a" font-size="13">Node · 127.0.0.1:8392 · services/agent</text>
+  <text x="404" y="518" fill="#a8a29a" font-size="13">Tool loop over the studio: plans, prompts, generates,</text>
+  <text x="404" y="538" fill="#a8a29a" font-size="13">reviews · resumable runs</text>
+  <path d="M580 400 L580 436" stroke="#ff8a3d" stroke-width="2" fill="none" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <path d="M380 384 L294 452" stroke="#8a847c" stroke-width="2" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow-dim)"/>
+
+  <!-- GPU workers -->
+  <text x="860" y="52" fill="#ff8a3d" font-size="13" font-weight="700" letter-spacing="2">GPU WORKERS</text>
+  <g>
+    <rect x="860" y="70" width="300" height="100" rx="16" fill="#141417" stroke="#2a2a30"/>
+    <circle cx="886" cy="102" r="7" fill="#ff5a1f"/>
+    <text x="902" y="108" fill="#f4f1ec" font-size="18" font-weight="700">ComfyUI · GPU 0</text>
+    <text x="884" y="134" fill="#a8a29a" font-size="13">127.0.0.1:8388 · RTX 3090 24 GB</text>
+    <text x="884" y="154" fill="#a8a29a" font-size="13">pinned ComfyUI + Media Lab nodes</text>
+  </g>
+  <g>
+    <rect x="860" y="190" width="300" height="100" rx="16" fill="#141417" stroke="#2a2a30"/>
+    <circle cx="886" cy="222" r="7" fill="#ff5a1f"/>
+    <text x="902" y="228" fill="#f4f1ec" font-size="18" font-weight="700">ComfyUI · GPU 1</text>
+    <text x="884" y="254" fill="#a8a29a" font-size="13">127.0.0.1:8389 · RTX 3090 24 GB</text>
+    <text x="884" y="274" fill="#a8a29a" font-size="13">same image, own volumes</text>
+  </g>
+  <path d="M780 170 L856 122" stroke="#ff8a3d" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M780 230 L856 240" stroke="#ff8a3d" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="790" y="314" fill="#ffd9c4" font-size="13" font-weight="700">One job per GPU</text>
+  <text x="790" y="332" fill="#8a847c" font-size="12">never split across cards; VRAM is not pooled</text>
+
+  <!-- Models -->
+  <rect x="860" y="380" width="300" height="170" rx="16" fill="#141417" stroke="#2a2a30"/>
+  <text x="884" y="414" fill="#f4f1ec" font-size="18" font-weight="700">Model store</text>
+  <text x="884" y="438" fill="#a8a29a" font-size="13">Pinned revisions, SHA-256 verified</text>
+  <g font-size="12" fill="#ffd9c4">
+    <text x="884" y="466">Qwen-Image 2.1 · FLUX 3 Klein · MOSS</text>
+    <text x="884" y="486">MiniMax H3 · Kandinsky 6 · SCAIL-2</text>
+    <text x="884" y="506">ACE-Step · YuE2 · Stable Audio 3</text>
+    <text x="884" y="526">Qwen3-TTS · Demucs · FlashVSR · LoRAs</text>
+  </g>
+  <path d="M1130 290 L1130 376" stroke="#8a847c" stroke-width="2" fill="none" marker-end="url(#arrow-dim)"/>
+  <text x="1066" y="366" fill="#8a847c" font-size="12">read-only</text>
+
+  <text x="40" y="606" fill="#5e5952" font-size="12">Media Lab · self-hosted · every model runs on your GPUs; only agent and prompt-assist requests reach the LLM provider you configure.</text>
+</svg>

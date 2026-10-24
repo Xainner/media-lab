@@ -1,0 +1,13 @@
+{
+  "_note": "Runtime adds LoadImage nodes 11..20 and images.image_N inputs dynamically.",
+  "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "qwen_image_2.1_int8_convrot.safetensors", "weight_dtype": "default"}},
+  "2": {"class_type": "QwenImage21Cache", "inputs": {"model": ["1", 0], "device": "auto", "dtype": "default"}},
+  "3": {"class_type": "CLIPLoader", "inputs": {"clip_name": "{{ENCODER}}", "type": "qwen_image", "device": "default"}},
+  "4": {"class_type": "VAELoader", "inputs": {"vae_name": "qwen_image_2.1_vae_bf16.safetensors"}},
+  "5": {"class_type": "TextEncodeQwenImage21", "inputs": {"clip": ["3", 0], "prompt": "{{PROMPT}}", "negative_prompt": "", "vae": ["4", 0], "resolution": "{{RESOLUTION}}", "images.image_1": ["11", 0]}},
+  "6": {"class_type": "KSampler", "inputs": {"model": ["2", 0], "positive": ["5", 0], "negative": ["5", 1], "latent_image": ["5", 2], "seed": "{{SEED}}", "steps": "{{STEPS}}", "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
+  "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["4", 0]}},
+  "8": {"class_type": "SaveImage", "inputs": {"images": ["7", 0], "filename_prefix": "media_lab/qwen21_edit"}},
+  "11": {"class_type": "LoadImage", "inputs": {"image": "{{IMAGE_1}}"}}
+}
+

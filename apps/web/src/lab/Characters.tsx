@@ -1,0 +1,166 @@
+import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'motion/react'
+import { AtSign, ExternalLink, ImagePlus, Link2, Loader2, Plus, SwatchBook, Trash2, X } from 'lucide-react'
+import type { ArtifactRef } from '../studio/lib/api'
+import { addLora, deleteCharacter, deleteLora, editLora, LORA_BASES, plain, saveCharacter, uploadImages, useCharacters, useMediaSrc,
+  type Character, type CharacterDraft, type Lora } from './live'
+
+const handleOf = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24)
+const size = (bytes?: number | null) => bytes ? `${(bytes / 1024 ** 2).toFixed(bytes > 100 * 1024 ** 2 ? 0 : 1)} MB` : ''
+
+function Photo({ value, onRemove, main }: { value: ArtifactRef; onRemove?: () => void; main?: boolean }) {
+  const src = useMediaSrc(value)
+  return <span className={`ml-char-photo ${main ? 'is-main' : ''}`} style={src ? { backgroundImage: `url(${src})` } : undefined}>
+    {main && <em>Principal</em>}
+    {onRemove && <button type="button" aria-label="Quitar foto" onClick={onRemove}><X size={12} /></button>}
+  </span>
+}
+
+function Card({ c, onOpen, index }: { c: Character; onOpen: () => void; index: number }) {
+  const src = useMediaSrc(c.references[0])
+  return <motion.button type="button" className="ml-char-card" onClick={onOpen} layout
+    initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .03, duration: .5, ease: [.2, .8, .2, 1] }}>
+    <span className="ml-char-img" style={src ? { backgroundImage: `url(${src})` } : undefined}>{!c.references.length && <ImagePlus size={22} />}</span>
+    <span className="ml-char-text"><b>@{c.handle}</b><span>{c.name}</span>{c.description && <small>{c.description}</small>}</span>
+    {c.lora && <i title={c.lora.name}><SwatchBook size={12} />LoRA</i>}
+  </motion.button>
+}
+
+/** Create or edit one character: name, @handle, look, 1–4 photos and an optional LoRA. */
+function Editor({ initial, loras, onClose }: { initial: Character | CharacterDraft; loras: Lora[]; onClose: () => void }) {
+  const editing = 'id' in initial ? initial : null
+  const [draft, setDraft] = useState<CharacterDraft>({ handle: initial.handle, name: initial.name, description: initial.description,
+    references: initial.references, lora_id: editing ? editing.lora?.id ?? null : (initial as CharacterDraft).lora_id })
+  const [touched, setTouched] = useState(!!editing)
+  const [busy, setBusy] = useState<'' | 'upload' | 'save' | 'delete'>('')
+  const [error, setError] = useState('')
+  const file = useRef<HTMLInputElement>(null)
+  const set = (patch: Partial<CharacterDraft>) => setDraft(d => ({ ...d, ...patch }))
+  const valid = /^[a-z0-9_]{2,24}$/.test(draft.handle) && draft.name.trim() && draft.references.length > 0
+  const upload = async (files: File[]) => {
+    if (!files.length) return
+    setBusy('upload'); setError('')
+    try { const added = await uploadImages(files); setDraft(d => ({ ...d, references: [...d.references, ...added].slice(0, 4) })) }
+    catch (e) { setError(plain(e)) } finally { setBusy('') }
+  }
+  const save = async () => {
+    setBusy('save'); setError('')
+    try { await saveCharacter(draft, editing?.id); onClose() } catch (e) { setError(plain(e)) } finally { setBusy('') }
+  }
+  const remove = async () => {
+    if (!editing || !await window.visualLab.ui.confirm('character-remove')) return
+    setBusy('delete'); setError('')
+    try { await deleteCharacter(editing.id); onClose() } catch (e) { setError(plain(e)) } finally { setBusy('') }
+  }
+  useEffect(() => { const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; document.addEventListener('keydown', esc); return () => document.removeEventListener('keydown', esc) }, [onClose])
+  return <motion.div className="ml-sheet-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+    <motion.section className="ml-sheet" role="dialog" aria-modal="true" aria-label={editing ? `Editar @${editing.handle}` : 'Nuevo personaje'}
+      initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+      onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); void upload(Array.from(e.dataTransfer.files)) }}>
+      <header><h2>{editing ? `@${editing.handle}` : 'Nuevo personaje'}</h2><button type="button" className="ml-icon-btn" aria-label="Cerrar" onClick={onClose}><X size={18} /></button></header>
+      <div className="ml-char-photos">
+        {draft.references.map((r, i) => <Photo key={r.sha256 + i} value={r} main={i === 0} onRemove={() => set({ references: draft.references.filter((_, k) => k !== i) })} />)}
+        {draft.references.length < 4 && <button type="button" className="ml-char-add" onClick={() => file.current?.click()} disabled={busy === 'upload'}>
+          {busy === 'upload' ? <Loader2 size={18} className="ml-spin" /> : <ImagePlus size={18} />}<span>{draft.references.length ? 'Otra foto' : 'Subir fotos'}</span></button>}
+      </div>
+      <p className="ml-hint">1 a 4 fotos; la primera es la principal. Cara, pelo y ropa bien visibles. Solo personas que te den permiso: tú o amigos que acepten.</p>
+      <label className="ml-field"><span>Nombre</span>
+        <input value={draft.name} maxLength={60} placeholder="Ana" onChange={e => set({ name: e.target.value, ...(touched ? {} : { handle: handleOf(e.target.value) }) })} /></label>
+      <label className="ml-field"><span>Mención</span>
+        <span className="ml-input-at"><AtSign size={14} /><input value={draft.handle} maxLength={24} placeholder="ana" aria-invalid={!!draft.handle && !/^[a-z0-9_]{2,24}$/.test(draft.handle)}
+          onChange={e => { setTouched(true); set({ handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }) }} /></span>
+        <small>Escribe @{draft.handle || 'nombre'} en cualquier prompt y sus fotos entran como referencia.</small></label>
+      <label className="ml-field"><span>Aspecto <em>opcional</em></span>
+        <textarea rows={2} value={draft.description} maxLength={600} placeholder="young woman, long curly black hair, green bomber jacket (en inglés funciona mejor)" onChange={e => set({ description: e.target.value })} /></label>
+      <label className="ml-field"><span>LoRA <em>opcional</em></span>
+        <select value={draft.lora_id || ''} onChange={e => set({ lora_id: e.target.value || null })}>
+          <option value="">Ninguno</option>
+          {loras.filter(l => l.status === 'ready').map(l => <option key={l.id} value={l.id}>{l.name} · {l.base ? LORA_BASES[l.base] : ''}</option>)}
+        </select>
+        <small>Se aplica solo cuando el modelo coincide: un LoRA de imagen en Imagen, uno de H3 en Vídeo.</small></label>
+      {error && <p className="ml-error" role="alert">{error}</p>}
+      <footer>
+        {editing && <button type="button" className="ml-btn is-danger" disabled={!!busy} onClick={() => void remove()}><Trash2 size={15} />Borrar</button>}
+        <span />
+        <button type="button" className="ml-btn" onClick={onClose}>Cancelar</button>
+        <button type="button" className="ml-btn is-accent" disabled={!valid || !!busy} onClick={() => void save()}>{busy === 'save' ? <Loader2 size={15} className="ml-spin" /> : null}Guardar</button>
+      </footer>
+      <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={e => { void upload(Array.from(e.target.files || [])); e.target.value = '' }} />
+    </motion.section>
+  </motion.div>
+}
+
+function LoraRow({ l }: { l: Lora }) {
+  const [trigger, setTrigger] = useState(l.trigger)
+  const [strength, setStrength] = useState(l.strength)
+  const [error, setError] = useState('')
+  useEffect(() => { setTrigger(l.trigger); setStrength(l.strength) }, [l.trigger, l.strength])
+  const save = (values: { trigger?: string; strength?: number }) => void editLora(l.id, values).catch(e => setError(plain(e)))
+  const remove = async () => { if (await window.visualLab.ui.confirm('lora-remove')) await deleteLora(l.id).catch(e => setError(plain(e))) }
+  const pct = l.total ? Math.min(100, Math.round((l.bytes || 0) / l.total * 100)) : null
+  return <motion.li className={`ml-lora is-${l.status}`} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+    <span className="ml-lora-icon"><SwatchBook size={17} /></span>
+    <div className="ml-lora-main">
+      <b>{l.name}</b>
+      <span className="ml-lora-meta">
+        {l.base && <em>{LORA_BASES[l.base]}</em>}
+        {l.status === 'ready' && <span>{size(l.bytes)}</span>}
+        {l.page && <a href={l.page} target="_blank" rel="noreferrer noopener">Origen<ExternalLink size={11} /></a>}
+      </span>
+      {l.status === 'downloading' && <span className="ml-lora-bar" aria-label="Descargando"><i style={{ width: `${pct ?? 8}%` }} /><small>{pct !== null ? `${pct}% de ${size(l.total)}` : 'Preparando la descarga…'}</small></span>}
+      {l.status === 'error' && <p className="ml-error">{l.error}</p>}
+      {l.status === 'ready' && <div className="ml-lora-edit">
+        <label><span>Palabras clave</span><input value={trigger} maxLength={300} placeholder="Las que pide el LoRA" onChange={e => setTrigger(e.target.value)} onBlur={() => trigger !== l.trigger && save({ trigger })} /></label>
+        <label><span>Fuerza <b>{strength.toFixed(2)}</b></span><input type="range" min={0.05} max={2} step={0.05} value={strength} onChange={e => setStrength(Number(e.target.value))}
+          onPointerUp={() => strength !== l.strength && save({ strength })} onKeyUp={() => strength !== l.strength && save({ strength })} /></label>
+      </div>}
+      {error && <p className="ml-error" role="alert">{error}</p>}
+    </div>
+    <button type="button" className="ml-icon-btn" aria-label={`Quitar ${l.name}`} onClick={() => void remove()}><Trash2 size={16} /></button>
+  </motion.li>
+}
+
+function Loras({ loras, ready }: { loras: Lora[]; ready: boolean }) {
+  const [url, setUrl] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const add = async () => {
+    setBusy(true); setError('')
+    try { await addLora(url.trim()); setUrl('') } catch (e) { setError(plain(e)) } finally { setBusy(false) }
+  }
+  return <section className="ml-section-block">
+    <header className="ml-section-head"><h2>LoRAs</h2><span>Estilos y personas entrenados por la comunidad</span></header>
+    {!ready ? <p className="ml-hint">La biblioteca de LoRAs aún no está activada en este servidor.</p> : <>
+      <form className="ml-lora-add" onSubmit={e => { e.preventDefault(); if (url.trim()) void add() }}>
+        <label className="ml-search"><Link2 size={15} /><input value={url} onChange={e => setUrl(e.target.value)} placeholder="Pega un enlace de Hugging Face o Civitai" aria-label="Enlace del LoRA" maxLength={600} /></label>
+        <button type="submit" className="ml-btn is-accent" disabled={busy || !url.trim()}>{busy ? <Loader2 size={15} className="ml-spin" /> : <Plus size={15} />}Añadir</button>
+      </form>
+      <p className="ml-hint">Solo archivos .safetensors de hasta 2 GB, para Qwen-Image 2.1 (imagen) o MiniMax H3 (vídeo); el Lab comprueba cuál es al descargarlo. Si el repositorio tiene varios, pega el enlace del archivo.</p>
+      {error && <p className="ml-error" role="alert">{error}</p>}
+      {loras.length > 0 && <ul className="ml-loras"><AnimatePresence initial={false}>{loras.map(l => <LoraRow key={l.id} l={l} />)}</AnimatePresence></ul>}
+    </>}
+  </section>
+}
+
+/** Private @characters and the LoRA library they can carry. A photo sent from the lightbox opens a new character with it. */
+export default function Characters() {
+  const { characters, loras, ready, loaded } = useCharacters()
+  const incoming = (useLocation().state as { photo?: ArtifactRef } | null)?.photo
+  const [open, setOpen] = useState<Character | CharacterDraft | null>(null)
+  const blank = (photo?: ArtifactRef): CharacterDraft => ({ handle: '', name: '', description: '', references: photo ? [photo] : [], lora_id: null })
+  useEffect(() => { if (incoming) setOpen(blank(incoming)) }, [incoming?.sha256])
+  return <div className="ml-page">
+    <header className="ml-page-head">
+      <div><small className="ml-kicker">Tu espacio</small><h1>Personajes</h1></div>
+      <span className="ml-count">{loaded ? `${characters.length} ${characters.length === 1 ? 'personaje' : 'personajes'}` : '…'}</span>
+    </header>
+    <p className="ml-lede">Guarda a alguien una vez y escríbelo como <b>@nombre</b> en Imagen o Vídeo: sus fotos entran como referencia y su LoRA se aplica solo. Son privados: nadie más los ve.</p>
+    <div className="ml-char-grid">
+      <button type="button" className="ml-char-card is-new" onClick={() => setOpen(blank())}><span className="ml-char-img"><Plus size={26} /></span><span className="ml-char-text"><b>Nuevo personaje</b><span>Fotos, nombre y aspecto</span></span></button>
+      {characters.map((c, i) => <Card key={c.id} c={c} index={i} onOpen={() => setOpen(c)} />)}
+    </div>
+    <Loras loras={loras} ready={ready} />
+    <AnimatePresence>{open && <Editor key={'id' in open ? open.id : 'new'} initial={open} loras={loras} onClose={() => setOpen(null)} />}</AnimatePresence>
+  </div>
+}

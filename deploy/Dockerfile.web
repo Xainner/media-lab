@@ -1,0 +1,23 @@
+FROM node:22-bookworm-slim AS frontend
+WORKDIR /app/apps/web
+COPY apps/web/package*.json ./
+RUN npm ci --ignore-scripts
+COPY apps/web ./
+RUN npm run build
+
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app/src WEB_ROOT=/app/web
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl \
+    && rm -rf /var/lib/apt/lists/*
+COPY services/runtime/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY services/runtime/src ./src
+COPY assets/bundles ./assets/bundles
+COPY --from=frontend /app/apps/web/dist ./web
+# Source archives may have private directory modes. Keep code readable for the
+# runtime user, without granting that user write access to root-owned code.
+RUN chmod -R u=rwX,go=rX /app/src /app/assets /app/web
+USER 1000:1000
+EXPOSE 8390
+CMD ["uvicorn", "media_lab.web:create_app", "--factory", "--host", "0.0.0.0", "--port", "8390", "--no-proxy-headers", "--no-access-log", "--ssl-certfile", "/run/media-lab/origin.crt", "--ssl-keyfile", "/run/media-lab/origin.key"]

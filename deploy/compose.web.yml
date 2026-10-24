@@ -1,0 +1,56 @@
+# The private web deployment on top of deploy/compose.yml. Host values come from the env file
+# (deploy/.web.env; see deploy/web.env.example): MEDIA_LAB_ORIGIN, MEDIA_LAB_HOST, MEDIA_LAB_PORT,
+# MEDIA_LAB_STATE_DIR, MEDIA_LAB_SECRETS_DIR and MEDIA_LAB_FUSED_DIR (the directory holding the
+# H3 Fused Turbo checkpoint and minimax_h3/vae/ with its int8 VAE).
+services:
+  comfyui:
+    restart: unless-stopped
+    volumes:
+      - ${MEDIA_LAB_FUSED_DIR:?H3 fused checkpoint directory required}:/fused-models/diffusion_models:ro
+      - ${MEDIA_LAB_FUSED_DIR:?H3 fused checkpoint directory required}/minimax_h3/vae:/fused-models/vae:ro
+  comfyui-gpu1:
+    restart: unless-stopped
+    volumes:
+      - ${MEDIA_LAB_FUSED_DIR:?H3 fused checkpoint directory required}:/fused-models/diffusion_models:ro
+      - ${MEDIA_LAB_FUSED_DIR:?H3 fused checkpoint directory required}/minimax_h3/vae:/fused-models/vae:ro
+  runtime:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    image: media-lab-web:0.14.1
+    command: ["uvicorn", "media_lab.web:create_app", "--factory", "--host", "${MEDIA_LAB_LISTEN:-0.0.0.0}", "--port", "${MEDIA_LAB_PORT:-8390}", "--no-proxy-headers", "--no-access-log", "--ssl-certfile", "/run/media-lab/origin.crt", "--ssl-keyfile", "/run/media-lab/origin.key"]
+    environment:
+      PUBLIC_ORIGIN: ${MEDIA_LAB_ORIGIN:?public origin required, e.g. https://media.example.com}
+      MASTER_KEY_FILE: /run/media-lab/master.key
+      AGENT_SERVICE_KEY_FILE: /run/media-lab/agent.key
+      H3_FUSED_ROOT: /fused-models
+      LORA_ROOT: /user-loras
+      CIVITAI_TOKEN_FILE: /run/media-lab/civitai.token
+      TRUSTED_PROXY_IP: ${MEDIA_LAB_PROXY_IP:-}
+    volumes: !override
+      - ${MEDIA_LAB_STATE_DIR:?state directory required}:/data
+      - ${MEDIA_LAB_SECRETS_DIR:?external secrets required}:/run/media-lab:ro
+      - ${MEDIA_LAB_MODELS_DIR:?models directory required}:/models:ro
+      - ${MEDIA_LAB_SHARED_MODELS_DIR:?shared models directory required}:/h3-models:ro
+      - ${MEDIA_LAB_LORAS_DIR:?LoRA directory required}:/user-loras
+      - ${MEDIA_LAB_FUSED_DIR:?H3 fused checkpoint directory required}:/fused-models/diffusion_models:ro
+      - ${MEDIA_LAB_FUSED_DIR:?H3 fused checkpoint directory required}/minimax_h3/vae:/fused-models/vae:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--cacert", "/run/media-lab/origin-ca.crt", "--resolve", "${MEDIA_LAB_HOST:?origin host name required}:${MEDIA_LAB_PORT:-8390}:127.0.0.1", "-H", "Host: ${MEDIA_LAB_HOST:?origin host name required}", "https://${MEDIA_LAB_HOST:?origin host name required}:${MEDIA_LAB_PORT:-8390}/health"]
+  agent:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.agent
+    image: media-lab-agent:0.14.1
+    container_name: media-lab-agent
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PUBLIC_ORIGIN: ${MEDIA_LAB_ORIGIN:?public origin required, e.g. https://media.example.com}
+      AGENT_SERVICE_KEY_FILE: /run/media-lab/agent.key
+      ORIGIN_CA_FILE: /run/media-lab/origin-ca.crt
+      AGENT_STATE_ROOT: /agent-state
+      RUNTIME_PORT: "${MEDIA_LAB_PORT:-8390}"
+    volumes:
+      - ${MEDIA_LAB_STATE_DIR:?state directory required}/agent-runs:/agent-state
+      - ${MEDIA_LAB_SECRETS_DIR:?external secrets required}:/run/media-lab:ro

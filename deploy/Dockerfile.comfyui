@@ -1,0 +1,66 @@
+# ComfyUI 0.39+ recommends CUDA 13 for current NVIDIA GPUs. Saturno's 595
+# driver supports it, and this base enables DynamicVRAM and optimized kernels.
+# ComfyUI dropped torchaudio from its requirements in 0.38; the base image still
+# ships torchaudio 2.11.0+cu130, which the optional H3 packs import.
+FROM pytorch/pytorch:2.12.1-cuda13.0-cudnn9-devel
+
+ARG COMFYUI_REF=483dae4326356b81de05d27aca3f433dd323cc25
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONUNBUFFERED=1 \
+    TORCH_CUDA_ARCH_LIST=8.6
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git curl ca-certificates ffmpeg libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+RUN git clone https://github.com/Comfy-Org/ComfyUI.git ComfyUI \
+    && git -C ComfyUI checkout --detach "$COMFYUI_REF" \
+    && pip install --no-cache-dir -r ComfyUI/requirements.txt
+
+# Native nodes remain the production workflow path. These pinned packs expose
+# advanced graph tools without replacing the installed Torch/CUDA stack.
+RUN git clone https://github.com/xiaolibai-sys/ComfyUI-MiniMaxH3.git ComfyUI/custom_nodes/ComfyUI-MiniMaxH3 \
+    && git -C ComfyUI/custom_nodes/ComfyUI-MiniMaxH3 checkout --detach 099aa38c122cea030ce45a51eb1d83208b16a363 \
+    && git clone https://github.com/ScryptHunter/ComfyUI-YuE2.git ComfyUI/custom_nodes/ComfyUI-YuE2 \
+    && git -C ComfyUI/custom_nodes/ComfyUI-YuE2 checkout --detach e73a1871aece6952d54e21ad76a95837a505a230 \
+    && git clone https://github.com/T8mars/comfyui-minimax-h3-audio-T8.git ComfyUI/custom_nodes/minimax-h3-audio-T8 \
+    && git -C ComfyUI/custom_nodes/minimax-h3-audio-T8 checkout --detach 6063fafbd9c3b85c5ff40aef435ae11b2844e558 \
+    && git clone https://github.com/pytraveler/YuE2-ComfyUI.git ComfyUI/custom_nodes/YuE2-ComfyUI \
+    && git -C ComfyUI/custom_nodes/YuE2-ComfyUI checkout --detach 1de6f8691eca0cc7e894e9e23f7926c4b28e5d2d \
+    && pip install --no-cache-dir 'tiktoken>=0.7,<1'
+
+# FlashVSR v1.1 video upscaling (GPL-3.0 node, used in-house). Its requirements.txt is
+# deliberately NOT installed: torch, triton, einops, safetensors and huggingface_hub already
+# ship with the base image and must not be replaced. Weights live in models/FlashVSR-v1.1.
+RUN git clone https://github.com/lihaoyun6/ComfyUI-FlashVSR_Ultra_Fast.git ComfyUI/custom_nodes/ComfyUI-FlashVSR_Ultra_Fast     && git -C ComfyUI/custom_nodes/ComfyUI-FlashVSR_Ultra_Fast checkout --detach 4820b3f02347bddcbbb9a5a85ab7638fe976366e     && python -c "import triton, einops, safetensors, huggingface_hub"
+
+# Kandinsky 6.0 (Kandinsky Lab, MIT): the official extension, pinned. Weights in models/diffusion_models,
+# vae, text_encoders and audio_vae (deploy/scripts/download-kandinsky6-models.sh). Qwen3-TTS runs
+# through the official qwen-tts package, which needs transformers 4.57: it and its pinned Python
+# packages go to /opt/qwen-tts, used only by the media_lab_tts worker subprocess, while librosa,
+# soundfile, sox and onnxruntime (imported by its unused 25 Hz tokenizer) join the image. A
+# constraints file of the current environment keeps torch, numpy and transformers exactly as installed.
+ARG KANDINSKY6_REF=6b8d3455088a3680b8e3d87c9226ca0276ed3594
+RUN pip freeze > /tmp/base-constraints.txt \
+    && git clone https://github.com/kandinskylab/kandinsky-6.git /tmp/kandinsky-6 \
+    && git -C /tmp/kandinsky-6 checkout --detach "$KANDINSKY6_REF" \
+    && cp -r /tmp/kandinsky-6/comfyui ComfyUI/custom_nodes/kandinsky6 \
+    && rm -rf /tmp/kandinsky-6 \
+    && pip install --no-cache-dir -c /tmp/base-constraints.txt \
+         'librosa==0.11.0' 'soundfile>=0.13,<1' 'loguru>=0.7,<1' 'omegaconf==2.3.0' 'sox==1.5.0' 'onnxruntime>=1.20,<2' \
+    && pip install --no-cache-dir --no-deps --target /opt/qwen-tts 'qwen-tts==0.1.1' 'transformers==4.57.3' \
+         'accelerate==1.12.0' 'huggingface_hub==0.36.0' 'tokenizers==0.22.2' \
+    && python -c "import librosa, soundfile, loguru, omegaconf, transformers; assert transformers.__version__.startswith('5.')" \
+    && PYTHONPATH=/opt/qwen-tts python -c "import transformers, qwen_tts; assert transformers.__version__ == '4.57.3'"
+
+# In-house Media Lab nodes: only torch/torchaudio from the base image (plus qwen-tts above). Weights
+# live in models/stems and models/tts.
+COPY services/comfyui-nodes/media_lab_stems ComfyUI/custom_nodes/media_lab_stems
+COPY services/comfyui-nodes/media_lab_tts ComfyUI/custom_nodes/media_lab_tts
+
+WORKDIR /workspace/ComfyUI
+EXPOSE 8188
+CMD ["bash", "-lc", "exec python main.py --listen 0.0.0.0 --port 8188 --offline ${COMFYUI_EXTRA_ARGS:-}"]
