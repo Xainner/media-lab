@@ -87,6 +87,11 @@
 
 /* Command palette & dialogs */
 .app-dialog { background: rgba(20, 20, 23, .96) !important; border: 1px solid var(--line-2) !important; border-radius: var(--r-l) !important; box-shadow: 0 40px 120px -30px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .06), 0 0 80px -40px rgba(255, 90, 31, .7) !important; color: var(--text); max-height: 90dvh; overflow: auto; }
+/* .rvl sets position: relative and full button styles; keep the dialog fixed and centred in the
+   viewport (it scrolls inside), and the close button a small icon in the corner. */
+.rvl.app-dialog { position: fixed; }
+.rvl.app-dialog > button.absolute { position: absolute; top: 14px; right: 14px; width: 34px; min-height: 34px; padding: 0; border-radius: 10px; z-index: 1; }
+.app-dialog > div:first-child { padding-right: 36px; }
 .app-dialog h2 { font-family: var(--f-display); font-size: 24px; letter-spacing: -.03em; }
 .app-dialog p { color: var(--text-3); }
 .app-dialog form, .app-dialog > div:not(:first-child) { display: grid; gap: 14px; }
