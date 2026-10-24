@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew only the Media Lab origin leaf certificate when idle
+After=docker.service
+
+[Service]
+Type=oneshot
+# The uid that owns the secrets and state directories (the containers run as 1000).
+User=1000
+EnvironmentFile=/etc/media-lab/media-lab.env
+UMask=0077
+ExecStart=/usr/bin/python3 /etc/media-lab/renew-origin.py

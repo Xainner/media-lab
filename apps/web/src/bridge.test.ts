@@ -1,0 +1,40 @@
+import {afterEach,expect,test,vi} from 'vitest'
+import {clearBrowser,migrateStorage,request,setSession} from './bridge'
+afterEach(()=>{clearBrowser();vi.unstubAllGlobals()})
+test('authenticated mutations send CSRF and idempotency and never expose structured errors',async()=>{
+ const fetch=vi.fn(async()=>new Response(JSON.stringify({detail:[{loc:['body','model'],msg:'Field required'}]}),{status:422}))
+ vi.stubGlobal('fetch',fetch);setSession({csrf:'fixture-csrf'})
+ await expect(request('POST','/v1/jobs/generate',{prompt:'exact'})).rejects.toThrow('Revisa los campos: modelo')
+ expect(fetch.mock.calls[0][1]).toMatchObject({credentials:'same-origin',headers:{'X-CSRF-Token':'fixture-csrf'}})
+ await expect(request('POST','//outside.invalid/v1/job')).rejects.toThrow('Ruta no permitida')
+ expect(fetch).toHaveBeenCalledTimes(1)
+})
+test('expiry clears account previews/preferences and signals the shell',async()=>{
+ localStorage.setItem('media-lab:create-job','job-old');localStorage.setItem('unrelated','keep')
+ const expired=vi.fn();window.addEventListener('rvl-logged-out',expired)
+ vi.stubGlobal('fetch',async()=>new Response('{}',{status:401}))
+ await expect(request('GET','/v1/jobs')).rejects.toThrow('Runtime 401')
+ expect(localStorage.getItem('media-lab:create-job')).toBeNull()
+ expect(localStorage.getItem('unrelated')).toBe('keep');expect(expired).toHaveBeenCalledOnce()
+ window.removeEventListener('rvl-logged-out',expired)
+})
+test('multipart uploads signal session expiry and reject results after an account change',async()=>{
+ const expired=vi.fn();window.addEventListener('rvl-logged-out',expired)
+ vi.stubGlobal('fetch',async()=>new Response('{}',{status:401}))
+ await expect(window.visualLab.runtime.upload({bytes:[1],type:'image/png',sessionId:'fixture'})).rejects.toThrow('Runtime 401')
+ expect(expired).toHaveBeenCalledOnce()
+ window.removeEventListener('rvl-logged-out',expired)
+ let finish!:(value:Response)=>void
+ vi.stubGlobal('fetch',()=>new Promise<Response>(resolve=>{finish=resolve}))
+ const pending=window.visualLab.runtime.upload({bytes:[1],type:'image/png',sessionId:'fixture'})
+ clearBrowser();finish(new Response('{}'))
+ await expect(pending).rejects.toThrow('La cuenta cambió')
+})
+test('the old storage prefix moves to media-lab once without overwriting newer values',()=>{
+ localStorage.setItem('rinari-visual-lab:enhancer-mode','auto');localStorage.setItem('rinari-visual-lab:image-variant','turbo')
+ localStorage.setItem('media-lab:image-variant','base')
+ migrateStorage()
+ expect(localStorage.getItem('media-lab:enhancer-mode')).toBe('auto')
+ expect(localStorage.getItem('media-lab:image-variant')).toBe('base')
+ expect(Object.keys(localStorage).filter(k=>k.startsWith('rinari-visual-lab:'))).toEqual([])
+})

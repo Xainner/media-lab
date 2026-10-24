@@ -1,0 +1,63 @@
+/* ---------- Entrance ---------- */
+.entry { --ml-accent: #ff5a1f; --ml-ink: #08080a; --ml-text: #f4f1ec; --ml-display: 'Archivo Variable', 'Arial Narrow', sans-serif; --ml-ease: cubic-bezier(.2, .8, .2, 1);
+  position: relative; min-height: 100dvh; overflow: hidden; perspective: 1400px; background: #0b0b0d; }
+.entry-scene { position: fixed; inset: -4%; z-index: 0; transform-origin: 72% 46%; will-change: transform, filter; }
+.entry-scene::after { content: ""; position: absolute; inset: 0; background:
+  linear-gradient(90deg, rgba(8, 8, 10, .97) 0%, rgba(8, 8, 10, .86) 34%, rgba(8, 8, 10, .25) 64%, rgba(8, 8, 10, .55) 100%),
+  linear-gradient(0deg, rgba(8, 8, 10, .92) 0%, transparent 30%), linear-gradient(180deg, rgba(8, 8, 10, .7) 0%, transparent 22%); }
+.entry-wall { position: absolute; top: -12%; bottom: -12%; left: 34%; right: -6%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; transform: rotate(-8deg) skewX(-2deg); transform-origin: 50% 50%; }
+.entry-column { display: flex; flex-direction: column; gap: 14px; animation: wall-up 64s linear infinite; }
+.entry-column:nth-child(even) { animation-name: wall-down; animation-duration: 78s; }
+.entry-column img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); filter: saturate(1.05) brightness(.9); }
+.entry-column:nth-child(2) img:nth-child(3n), .entry-column:nth-child(4) img:nth-child(3n + 1) { aspect-ratio: 3 / 4; }
+@keyframes wall-up { to { transform: translateY(-50%); } }
+@keyframes wall-down { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .entry-column { animation: none; } }
+html.motion-off .entry-column { animation: none; }
+.entry-portal-glow { position: absolute; left: 58%; top: 18%; width: 40vw; height: 40vw; border-radius: 50%; background: radial-gradient(circle, rgba(255, 138, 61, .22), rgba(255, 90, 31, .1) 40%, transparent 70%); mix-blend-mode: screen; filter: blur(30px); animation: portal 9s ease-in-out infinite; }
+@keyframes portal { 0%, 100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+
+/* Rinari as the host, standing in front of the portal */
+
+.entry-stage { position: relative; z-index: 3; min-height: 100dvh; display: grid; align-items: center; padding: 48px clamp(20px, 6vw, 96px) 96px; }
+.entry-card-wrap { width: min(470px, 100%); }
+.entry-card { padding: 34px 34px 26px; display: grid; gap: 20px; transform-style: preserve-3d; }
+.entry-card .ml-wordmark { margin-bottom: 6px; }
+.entry-card .ml-wordmark > span { display: flex; font-size: 28px; }
+.entry-title { font: 850 clamp(52px, 6vw, 84px)/.88 var(--ml-display) !important; font-stretch: 62% !important; text-transform: uppercase; letter-spacing: 0 !important; word-spacing: .06em; }
+.entry-sub { color: var(--text-2); font-size: 15px; max-width: 38ch; }
+.entry-form { display: grid; gap: 16px; }
+.entry-options { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.entry-submit { min-height: 52px !important; font-size: 15px !important; border-radius: 14px !important; margin-top: 4px; }
+.entry-back { justify-self: start; }
+.entry-private { display: flex; align-items: center; gap: 9px; color: var(--text-3); font-size: 12px; border-top: 1px solid var(--line); padding-top: 16px; }
+.entry-private svg { color: var(--ml-accent); flex: none; }
+.entry-factor { display: grid; gap: 14px; }
+.password-field { position: relative; }
+.password-field input { padding-right: 52px !important; }
+.password-field .icon-button { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--text-3); }
+.password-field .icon-button:hover:not(:disabled) { color: #fff; background: rgba(255, 255, 255, .06); }
+
+.entry-ticker { position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; height: 46px; display: flex; align-items: center; overflow: hidden; border-top: 1px solid var(--line); background: linear-gradient(90deg, rgba(8, 8, 10, .85), rgba(8, 8, 10, .4)); backdrop-filter: blur(8px); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.entry-ticker > div { display: flex; gap: 36px; white-space: nowrap; animation: ticker 38s linear infinite; padding-left: 36px; }
+.entry-ticker span { font: 500 11px/1 var(--f-mono); letter-spacing: .3em; text-transform: uppercase; color: var(--text-3); display: inline-flex; gap: 36px; align-items: center; }
+.entry-ticker i { color: var(--ml-accent); font-style: normal; }
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* Intro overlay */
+.intro { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; cursor: pointer; }
+.intro-veil { --hole: 0%; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, #0e0e10 0%, #030108 70%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 6%)); mask-image: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 6%)); }
+.intro-mark { position: relative; width: min(46vmin, 320px); aspect-ratio: 1; display: grid; place-items: center; }
+.logo-trace, .intro-emblem, .intro-flare { position: absolute; inset: 0; width: 100%; height: 100%; }
+.intro-emblem { display: grid; place-items: center; opacity: 0; filter: drop-shadow(0 0 40px rgba(255, 138, 61, .7)); }
+.intro-flare { border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(255, 176, 128, .5) 18%, rgba(255, 90, 31, .2) 40%, transparent 65%); opacity: 0; mix-blend-mode: screen; }
+.intro-skip { position: absolute; right: 24px; bottom: 24px; font-family: var(--f-mono) !important; font-size: 11px !important; letter-spacing: .2em; text-transform: uppercase; background: rgba(255, 255, 255, .04) !important; }
+
+@media (max-width: 900px) {
+  .entry-stage { align-items: end; padding: 40vh 16px 76px; }
+  .entry-card { padding: 24px 20px 20px; }
+  .entry-scene::after { background: linear-gradient(0deg, rgba(8, 8, 10, .97) 34%, rgba(8, 8, 10, .3) 78%); }
+  .entry-wall { left: -10%; right: -10%; top: -20%; grid-template-columns: repeat(3, 1fr); }
+  .entry-column:nth-child(4) { display: none; }
+}

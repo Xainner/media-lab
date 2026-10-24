@@ -1,0 +1,127 @@
+name: media-lab
+
+# Host paths come from the env file (deploy/.web.env, or the installer's compose.env):
+# MEDIA_LAB_MODELS_DIR, MEDIA_LAB_SHARED_MODELS_DIR, MEDIA_LAB_LORAS_DIR and MEDIA_LAB_STATE_DIR.
+# See deploy/web.env.example.
+
+services:
+  comfyui:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.comfyui
+      args:
+        COMFYUI_REF: 483dae4326356b81de05d27aca3f433dd323cc25
+    image: media-lab-comfyui:0.10.0
+    container_name: media-lab-comfyui
+    restart: "no"
+    ports:
+      - "127.0.0.1:8388:8188"
+    # Persistent NVIDIA character-device grants across systemd reloads.
+    device_cgroup_rules:
+      - "c 195:* rwm"
+      - "c 510:* rwm"
+    environment:
+      COMFYUI_EXTRA_ARGS: ${COMFYUI_EXTRA_ARGS:---preview-method latent2rgb}
+    volumes:
+      - ${MEDIA_LAB_MODELS_DIR:?models directory required}:/workspace/ComfyUI/models
+      - ${MEDIA_LAB_SHARED_MODELS_DIR:?shared models directory required}:/shared-models:ro
+      - ${MEDIA_LAB_LORAS_DIR:?LoRA directory required}:/user-loras:ro
+      - ./extra_model_paths.yaml:/workspace/ComfyUI/extra_model_paths.yaml:ro
+      - comfy-input:/workspace/ComfyUI/input
+      - comfy-output:/workspace/ComfyUI/output
+      - comfy-user:/workspace/ComfyUI/user
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8188/system_stats"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
+  comfyui-gpu1:
+    image: media-lab-comfyui:0.10.0
+    container_name: media-lab-comfyui-gpu1
+    restart: "no"
+    ports:
+      - "127.0.0.1:8389:8188"
+    device_cgroup_rules:
+      - "c 195:* rwm"
+      - "c 510:* rwm"
+    environment:
+      COMFYUI_EXTRA_ARGS: ${COMFYUI_EXTRA_ARGS:---preview-method latent2rgb}
+    volumes:
+      - ${MEDIA_LAB_MODELS_DIR:?models directory required}:/workspace/ComfyUI/models
+      - ${MEDIA_LAB_SHARED_MODELS_DIR:?shared models directory required}:/shared-models:ro
+      - ${MEDIA_LAB_LORAS_DIR:?LoRA directory required}:/user-loras:ro
+      - ./extra_model_paths.yaml:/workspace/ComfyUI/extra_model_paths.yaml:ro
+      - comfy-gpu1-input:/workspace/ComfyUI/input
+      - comfy-gpu1-output:/workspace/ComfyUI/output
+      - comfy-gpu1-user:/workspace/ComfyUI/user
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["1"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8188/system_stats"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
+  runtime:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.runtime
+    image: media-lab-runtime:0.6.0
+    container_name: media-lab-runtime
+    restart: unless-stopped
+    network_mode: host
+    command: ["uvicorn", "media_lab.main:app", "--host", "127.0.0.1", "--port", "8390"]
+    environment:
+      COMFYUI_ENDPOINT: http://127.0.0.1:8388
+      COMFYUI_GPU1_ENDPOINT: http://127.0.0.1:8389
+      EXTERNAL_COMFY_URL: http://127.0.0.1:8188
+      IMAGE_LAB_URL: http://127.0.0.1:8290
+      STATE_ROOT: /data
+      ARTIFACTS_ROOT: /data/artifacts
+      DB_PATH: /data/media-lab.db
+      MODEL_ROOT: /models
+      H3_MODEL_ROOT: /h3-models
+      BUNDLES_DIR: /app/assets/bundles
+      GENERATION_TIMEOUT_SECONDS: "900"
+      MAX_PENDING: "4"
+      IDLE_UNLOAD_SECONDS: "120"
+      GPU_GUARD_ENABLED: "true"
+      ENABLE_2K: ${ENABLE_2K:-false}
+      ENABLE_BF16: ${ENABLE_BF16:-false}
+      QWEN21_ENCODER: ${QWEN21_ENCODER:-qwen3vl_8b_int8_convrot.safetensors}
+    volumes:
+      - ${MEDIA_LAB_STATE_DIR:?state directory required}:/data
+      - ${MEDIA_LAB_MODELS_DIR:?models directory required}:/models:ro
+      - ${MEDIA_LAB_SHARED_MODELS_DIR:?shared models directory required}:/h3-models:ro
+    depends_on:
+      comfyui:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8390/v1/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+
+volumes:
+  comfy-input:
+  comfy-output:
+  comfy-user:
+  comfy-gpu1-input:
+  comfy-gpu1-output:
+  comfy-gpu1-user:

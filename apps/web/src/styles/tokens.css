@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@source "../";
+
+/* Animate UI primitives read these shadcn tokens. */
+@theme inline {
+  --color-background: var(--bg); --color-foreground: var(--text);
+  --color-card: var(--surface-2); --color-card-foreground: var(--text);
+  --color-popover: var(--surface-2); --color-popover-foreground: var(--text);
+  --color-primary: var(--v-500); --color-primary-foreground: #fff;
+  --color-secondary: var(--surface-3); --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-3); --color-muted-foreground: var(--text-3);
+  --color-accent: rgba(255, 90, 31, .16); --color-accent-foreground: var(--v-200);
+  --color-destructive: var(--bad); --color-border: var(--line-2); --color-input: var(--line-2); --color-ring: var(--v-400);
+}
+
+:root {
+  color-scheme: dark;
+  --ink: #08080a;
+  --bg: #0b0b0d;
+  --surface-1: rgba(20, 20, 23, .58);
+  --surface-2: #141417;
+  --surface-3: #1c1c21;
+  --surface-4: #26262c;
+  --line: rgba(255, 255, 255, .11);
+  --line-2: rgba(255, 255, 255, .2);
+  --line-3: rgba(255, 255, 255, .36);
+  --text: #f4f1ec;
+  --text-2: #c9c4bc;
+  --text-3: #8f8a83;
+  --v-100: #ffe9dd; --v-200: #ffd6bf; --v-300: #ffb48a; --v-400: #ff8a3d;
+  --v-500: #ff5a1f; --v-600: #e64814; --v-700: #c43a0e; --v-900: #3a1406;
+  --pink: #ffb080;
+  --cyan: #7dd3fc;
+  --amber: #fcd34d;
+  --good: #6ee7b7;
+  --warn: #fcd34d;
+  --bad: #fb7185;
+  --grad: linear-gradient(100deg, #ffe0cc 0%, #ff8a3d 40%, #ff5a1f 70%, #ffb080 100%);
+  --grad-btn: linear-gradient(120deg, #ff7a3a 0%, #ff5a1f 52%, #ff9a4a 100%);
+  --tone: 255 138 61;
+  --f-display: 'Archivo Variable', 'Arial Narrow', sans-serif;
+  --f-ui: 'Geist Variable', system-ui, sans-serif;
+  --f-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --r-s: 10px; --r-m: 16px; --r-l: 24px; --r-xl: 34px;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-io: cubic-bezier(.65, 0, .35, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --shadow-1: 0 18px 50px -18px rgba(0, 0, 0, .7);
+  --shadow-glow: 0 0 0 1px rgba(255, 255, 255, .18), 0 20px 60px -20px rgba(230, 72, 20, .55);
+  --rail: 84px;
+  --rail-open: 248px;
+  --topbar: 64px;
+}
+
+/* Per-section tone: the nebula hue, accents and glows follow the active tool. */
+[data-tone="image"] { --tone: 255 138 61; }
+[data-tone="edit"] { --tone: 255 176 128; }
+[data-tone="video"] { --tone: 255 106 61; }
+[data-tone="music"] { --tone: 125 211 252; }
+[data-tone="director"] { --tone: 252 211 77; }
+[data-tone="agent"] { --tone: 255 150 90; }
+[data-tone="library"] { --tone: 220 200 185; }
+[data-tone="account"] { --tone: 148 163 184; }

@@ -1,0 +1,44 @@
+/* Atmosphere and reusable light effects. */
+.nebula { position: fixed; inset: 0; width: 100vw; height: 100dvh; z-index: -3; display: block; background:
+  radial-gradient(60% 50% at 70% 30%, rgba(230, 72, 20, .28), transparent 70%),
+  radial-gradient(50% 40% at 20% 80%, rgba(255, 176, 128, .12), transparent 70%), var(--ink); }
+.grain { position: fixed; inset: -50%; z-index: 80; pointer-events: none; opacity: .05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain .9s steps(4) infinite; }
+@keyframes grain { 0% { transform: translate(0, 0); } 25% { transform: translate(-3%, 2%); } 50% { transform: translate(2%, -3%); } 75% { transform: translate(-1%, -2%); } }
+.vignette { position: fixed; inset: 0; z-index: -2; pointer-events: none; background: radial-gradient(140% 100% at 50% 40%, transparent 50%, rgba(0, 0, 0, .62) 100%); }
+
+/* Dark glass with a masked, cursor-lit border. Use --mx/--my from useSpotlight. */
+.glass { position: relative; background: linear-gradient(180deg, rgba(28, 28, 32, .72), rgba(14, 14, 16, .72)); border: 1px solid var(--line); border-radius: var(--r-l); box-shadow: var(--shadow-1); backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25); }
+.lit { --mx: 50%; --my: 0%; }
+.lit::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: radial-gradient(420px circle at var(--mx) var(--my), rgba(var(--tone) / .75), transparent 45%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .9; transition: opacity .4s; }
+.lit::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(600px circle at var(--mx) var(--my), rgba(var(--tone) / .07), transparent 40%); }
+
+/* Word reveal (WordReveal component). */
+.words .w { display: inline-block; transform: translateY(105%) rotate(4deg); opacity: 0; filter: blur(10px); transition: transform 1s var(--ease-out), opacity .7s, filter .8s; transition-delay: calc(var(--i) * 55ms + var(--d, 0ms)); }
+.words .line { display: block; overflow: clip; padding: .16em 0 .1em; margin: -.16em 0 -.1em; }
+.words.is-on .w { transform: none; opacity: 1; filter: none; }
+
+/* Rise-in for blocks */
+.rise { opacity: 0; transform: translateY(26px); filter: blur(8px); transition: opacity .8s var(--ease-out), transform 1s var(--ease-out), filter .8s; transition-delay: var(--d, 0ms); }
+.rise.is-on { opacity: 1; transform: none; filter: none; }
+
+/* Aurora / scan used by live generation */
+@keyframes aurora { 0% { transform: translate(-10%, -6%) rotate(0deg) scale(1); } 50% { transform: translate(8%, 6%) rotate(160deg) scale(1.15); } 100% { transform: translate(-10%, -6%) rotate(360deg) scale(1); } }
+@keyframes scan { 0% { transform: translateY(-110%); } 100% { transform: translateY(110%); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-4px) scale(1.006); } }
+@keyframes orbit { to { transform: rotate(360deg); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+/* Motion off: honour the OS setting and the studio preference (html.motion-off). */
+@media (prefers-reduced-motion: reduce) {
+  .rvl *, .rvl *::before, .rvl *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; transition-delay: 0ms !important; }
+  .grain { animation: none; }
+  .words .w, .rise { opacity: 1; transform: none; filter: none; }
+}
+html.motion-off .rvl *, html.motion-off .rvl *::before, html.motion-off .rvl *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; transition-delay: 0ms !important; }
+html.motion-off .grain { animation: none; }
+html.motion-off .words .w, html.motion-off .rise { opacity: 1; transform: none; filter: none; }

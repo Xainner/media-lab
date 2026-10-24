@@ -1,0 +1,669 @@
+{
+  "image": [
+    {
+      "path": "sampler",
+      "label": "Muestreador",
+      "group": "Muestreo",
+      "default": "euler",
+      "choices": [
+        "euler",
+        "euler_cfg_pp",
+        "euler_ancestral",
+        "euler_ancestral_cfg_pp",
+        "heun",
+        "heunpp2",
+        "exp_heun_2_x0",
+        "exp_heun_2_x0_sde",
+        "dpm_2",
+        "dpm_2_ancestral",
+        "lms",
+        "dpm_fast",
+        "dpm_adaptive",
+        "dpmpp_2s_ancestral",
+        "dpmpp_2s_ancestral_cfg_pp",
+        "dpmpp_sde",
+        "dpmpp_sde_gpu",
+        "dpmpp_2m",
+        "dpmpp_2m_cfg_pp",
+        "dpmpp_2m_sde",
+        "dpmpp_2m_sde_gpu",
+        "dpmpp_2m_sde_heun",
+        "dpmpp_2m_sde_heun_gpu",
+        "dpmpp_3m_sde",
+        "dpmpp_3m_sde_gpu",
+        "ddpm",
+        "lcm",
+        "ipndm",
+        "ipndm_v",
+        "deis",
+        "cfgpp_ud10_ab",
+        "res_multistep",
+        "res_multistep_cfg_pp",
+        "res_multistep_ancestral",
+        "res_multistep_ancestral_cfg_pp",
+        "gradient_estimation",
+        "gradient_estimation_cfg_pp",
+        "er_sde",
+        "seeds_2",
+        "seeds_3",
+        "sa_solver",
+        "sa_solver_pece",
+        "ddim",
+        "uni_pc",
+        "uni_pc_bh2"
+      ]
+    },
+    {
+      "path": "scheduler",
+      "label": "Curva de ruido",
+      "group": "Muestreo",
+      "default": "simple",
+      "choices": [
+        "simple",
+        "sgm_uniform",
+        "karras",
+        "exponential",
+        "ddim_uniform",
+        "beta",
+        "normal",
+        "linear_quadratic",
+        "kl_optimal"
+      ]
+    },
+    {
+      "path": "denoise",
+      "label": "Intensidad de denoising",
+      "group": "Muestreo",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "path": "cfg",
+      "label": "Guía CFG",
+      "group": "Muestreo",
+      "default": 1,
+      "min": 0,
+      "max": 100,
+      "step": 0.1
+    },
+    {
+      "path": "steps",
+      "label": "Pasos personalizados",
+      "group": "Muestreo",
+      "default": null,
+      "min": 1,
+      "max": 200,
+      "step": 1,
+      "help": "Vacío: usa los pasos del preset de calidad."
+    },
+    {
+      "path": "negative_prompt",
+      "label": "Prompt negativo",
+      "group": "Condicionamiento",
+      "default": "",
+      "type": "text"
+    },
+    {
+      "path": "width",
+      "label": "Ancho personalizado",
+      "group": "Tamaño",
+      "default": null,
+      "min": 32,
+      "max": 16384,
+      "step": 32
+    },
+    {
+      "path": "height",
+      "label": "Alto personalizado",
+      "group": "Tamaño",
+      "default": null,
+      "min": 32,
+      "max": 16384,
+      "step": 32
+    }
+  ],
+  "edit": [
+    {
+      "path": "sampler",
+      "label": "Muestreador",
+      "group": "Muestreo",
+      "default": "euler",
+      "choices": [
+        "euler",
+        "euler_cfg_pp",
+        "euler_ancestral",
+        "euler_ancestral_cfg_pp",
+        "heun",
+        "heunpp2",
+        "exp_heun_2_x0",
+        "exp_heun_2_x0_sde",
+        "dpm_2",
+        "dpm_2_ancestral",
+        "lms",
+        "dpm_fast",
+        "dpm_adaptive",
+        "dpmpp_2s_ancestral",
+        "dpmpp_2s_ancestral_cfg_pp",
+        "dpmpp_sde",
+        "dpmpp_sde_gpu",
+        "dpmpp_2m",
+        "dpmpp_2m_cfg_pp",
+        "dpmpp_2m_sde",
+        "dpmpp_2m_sde_gpu",
+        "dpmpp_2m_sde_heun",
+        "dpmpp_2m_sde_heun_gpu",
+        "dpmpp_3m_sde",
+        "dpmpp_3m_sde_gpu",
+        "ddpm",
+        "lcm",
+        "ipndm",
+        "ipndm_v",
+        "deis",
+        "cfgpp_ud10_ab",
+        "res_multistep",
+        "res_multistep_cfg_pp",
+        "res_multistep_ancestral",
+        "res_multistep_ancestral_cfg_pp",
+        "gradient_estimation",
+        "gradient_estimation_cfg_pp",
+        "er_sde",
+        "seeds_2",
+        "seeds_3",
+        "sa_solver",
+        "sa_solver_pece",
+        "ddim",
+        "uni_pc",
+        "uni_pc_bh2"
+      ]
+    },
+    {
+      "path": "scheduler",
+      "label": "Curva de ruido",
+      "group": "Muestreo",
+      "default": "simple",
+      "choices": [
+        "simple",
+        "sgm_uniform",
+        "karras",
+        "exponential",
+        "ddim_uniform",
+        "beta",
+        "normal",
+        "linear_quadratic",
+        "kl_optimal"
+      ]
+    },
+    {
+      "path": "denoise",
+      "label": "Intensidad de denoising",
+      "group": "Muestreo",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "path": "cfg",
+      "label": "Guía CFG",
+      "group": "Muestreo",
+      "default": 1,
+      "min": 0,
+      "max": 100,
+      "step": 0.1
+    },
+    {
+      "path": "steps",
+      "label": "Pasos personalizados",
+      "group": "Muestreo",
+      "default": null,
+      "min": 1,
+      "max": 200,
+      "step": 1,
+      "help": "Vacío: usa los pasos del preset de calidad."
+    },
+    {
+      "path": "negative_prompt",
+      "label": "Prompt negativo",
+      "group": "Condicionamiento",
+      "default": "",
+      "type": "text"
+    }
+  ],
+  "video": [
+    {
+      "path": "sampler",
+      "label": "Muestreador",
+      "group": "Muestreo",
+      "default": "res_multistep",
+      "choices": [
+        "euler",
+        "euler_cfg_pp",
+        "euler_ancestral",
+        "euler_ancestral_cfg_pp",
+        "heun",
+        "heunpp2",
+        "exp_heun_2_x0",
+        "exp_heun_2_x0_sde",
+        "dpm_2",
+        "dpm_2_ancestral",
+        "lms",
+        "dpm_fast",
+        "dpm_adaptive",
+        "dpmpp_2s_ancestral",
+        "dpmpp_2s_ancestral_cfg_pp",
+        "dpmpp_sde",
+        "dpmpp_sde_gpu",
+        "dpmpp_2m",
+        "dpmpp_2m_cfg_pp",
+        "dpmpp_2m_sde",
+        "dpmpp_2m_sde_gpu",
+        "dpmpp_2m_sde_heun",
+        "dpmpp_2m_sde_heun_gpu",
+        "dpmpp_3m_sde",
+        "dpmpp_3m_sde_gpu",
+        "ddpm",
+        "lcm",
+        "ipndm",
+        "ipndm_v",
+        "deis",
+        "cfgpp_ud10_ab",
+        "res_multistep",
+        "res_multistep_cfg_pp",
+        "res_multistep_ancestral",
+        "res_multistep_ancestral_cfg_pp",
+        "gradient_estimation",
+        "gradient_estimation_cfg_pp",
+        "er_sde",
+        "seeds_2",
+        "seeds_3",
+        "sa_solver",
+        "sa_solver_pece",
+        "ddim",
+        "uni_pc",
+        "uni_pc_bh2"
+      ]
+    },
+    {
+      "path": "scheduler",
+      "label": "Curva de ruido",
+      "group": "Muestreo",
+      "default": "simple",
+      "choices": [
+        "simple",
+        "sgm_uniform",
+        "karras",
+        "exponential",
+        "ddim_uniform",
+        "beta",
+        "normal",
+        "linear_quadratic",
+        "kl_optimal"
+      ]
+    },
+    {
+      "path": "denoise",
+      "label": "Intensidad de denoising",
+      "group": "Muestreo",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "path": "shift_video",
+      "label": "Desplazamiento de sigmas · vídeo",
+      "group": "Condicionamiento",
+      "default": 12,
+      "min": 0.01,
+      "max": 100,
+      "step": 0.1
+    },
+    {
+      "path": "shift_audio",
+      "label": "Desplazamiento de sigmas · audio",
+      "group": "Condicionamiento",
+      "default": 3,
+      "min": 0.01,
+      "max": 100,
+      "step": 0.1
+    },
+    {
+      "path": "ref_image_size",
+      "label": "Tamaño de las referencias",
+      "group": "Condicionamiento",
+      "default": "match",
+      "choices": [
+        "match",
+        "max"
+      ],
+      "help": "max: mayor fidelidad de identidad, más memoria y tiempo."
+    },
+    {
+      "path": "container",
+      "label": "Contenedor",
+      "group": "Archivo de salida",
+      "default": "mp4",
+      "choices": [
+        "mp4",
+        "mkv",
+        "webm"
+      ]
+    },
+    {
+      "path": "codec",
+      "label": "Códec",
+      "group": "Archivo de salida",
+      "default": "h264",
+      "choices": [
+        "h264",
+        "av1"
+      ]
+    },
+    {
+      "path": "bit_depth",
+      "label": "Profundidad de color · salida SDR",
+      "group": "Archivo de salida",
+      "default": 8,
+      "choices": [
+        8,
+        10
+      ],
+      "help": "8 o 10 bits de codificación. El modelo genera SDR; esto no convierte el resultado en HDR."
+    },
+    {
+      "path": "crf",
+      "label": "Calidad de compresión · CRF",
+      "group": "Archivo de salida",
+      "default": null,
+      "min": 0,
+      "max": 63,
+      "step": 1,
+      "help": "Menor CRF conserva más detalle y ocupa más. H.264: 0–51; AV1: 0–63. Vacío: automático."
+    }
+  ],
+  "song": [
+    {
+      "path": "sampler",
+      "label": "Muestreador",
+      "group": "Muestreo",
+      "default": "dpm_2",
+      "choices": [
+        "euler",
+        "euler_cfg_pp",
+        "euler_ancestral",
+        "euler_ancestral_cfg_pp",
+        "heun",
+        "heunpp2",
+        "exp_heun_2_x0",
+        "exp_heun_2_x0_sde",
+        "dpm_2",
+        "dpm_2_ancestral",
+        "lms",
+        "dpm_fast",
+        "dpm_adaptive",
+        "dpmpp_2s_ancestral",
+        "dpmpp_2s_ancestral_cfg_pp",
+        "dpmpp_sde",
+        "dpmpp_sde_gpu",
+        "dpmpp_2m",
+        "dpmpp_2m_cfg_pp",
+        "dpmpp_2m_sde",
+        "dpmpp_2m_sde_gpu",
+        "dpmpp_2m_sde_heun",
+        "dpmpp_2m_sde_heun_gpu",
+        "dpmpp_3m_sde",
+        "dpmpp_3m_sde_gpu",
+        "ddpm",
+        "lcm",
+        "ipndm",
+        "ipndm_v",
+        "deis",
+        "cfgpp_ud10_ab",
+        "res_multistep",
+        "res_multistep_cfg_pp",
+        "res_multistep_ancestral",
+        "res_multistep_ancestral_cfg_pp",
+        "gradient_estimation",
+        "gradient_estimation_cfg_pp",
+        "er_sde",
+        "seeds_2",
+        "seeds_3",
+        "sa_solver",
+        "sa_solver_pece",
+        "ddim",
+        "uni_pc",
+        "uni_pc_bh2"
+      ]
+    },
+    {
+      "path": "scheduler",
+      "label": "Curva de ruido",
+      "group": "Muestreo",
+      "default": "sgm_uniform",
+      "choices": [
+        "simple",
+        "sgm_uniform",
+        "karras",
+        "exponential",
+        "ddim_uniform",
+        "beta",
+        "normal",
+        "linear_quadratic",
+        "kl_optimal"
+      ]
+    },
+    {
+      "path": "denoise",
+      "label": "Intensidad de denoising",
+      "group": "Muestreo",
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "path": "cfg",
+      "label": "Guía CFG",
+      "group": "Muestreo",
+      "default": 1,
+      "min": 0,
+      "max": 100,
+      "step": 0.1
+    },
+    {
+      "path": "composition.temperature",
+      "label": "Temperatura",
+      "group": "Composición",
+      "default": 1,
+      "min": 0,
+      "max": 5,
+      "step": 0.01
+    },
+    {
+      "path": "composition.top_p",
+      "label": "Top P",
+      "group": "Composición",
+      "default": 0.95,
+      "min": 0.01,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "path": "composition.top_k",
+      "label": "Top K",
+      "group": "Composición",
+      "default": 100,
+      "min": 1,
+      "max": 32768,
+      "step": 1
+    },
+    {
+      "path": "composition.repetition_penalty",
+      "label": "Penalización de repetición",
+      "group": "Composición",
+      "default": 1.2,
+      "min": 0.01,
+      "max": 10,
+      "step": 0.001
+    },
+    {
+      "path": "score.temperature",
+      "label": "Temperatura",
+      "group": "Generación de partitura ABC",
+      "default": 0.7,
+      "min": 0,
+      "max": 5,
+      "step": 0.01
+    },
+    {
+      "path": "score.top_p",
+      "label": "Top P",
+      "group": "Generación de partitura ABC",
+      "default": 0.9,
+      "min": 0.01,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "path": "score.top_k",
+      "label": "Top K",
+      "group": "Generación de partitura ABC",
+      "default": 30,
+      "min": 1,
+      "max": 32768,
+      "step": 1
+    },
+    {
+      "path": "score.repetition_penalty",
+      "label": "Penalización de repetición",
+      "group": "Generación de partitura ABC",
+      "default": 1.005,
+      "min": 0.01,
+      "max": 10,
+      "step": 0.001
+    },
+    {
+      "path": "composition.cfg_scale",
+      "label": "Guía de composición",
+      "group": "Composición",
+      "default": 1,
+      "min": 0,
+      "max": 100,
+      "step": 0.01
+    },
+    {
+      "path": "score.max_abc_tokens",
+      "label": "Máximo de tokens ABC",
+      "group": "Generación de partitura ABC",
+      "default": 8192,
+      "min": 1,
+      "max": 20000,
+      "step": 1
+    },
+    {
+      "path": "score.penalty_window",
+      "label": "Ventana de repetición",
+      "group": "Generación de partitura ABC",
+      "default": 100,
+      "min": 1,
+      "max": 20000,
+      "step": 1
+    },
+    {
+      "path": "format",
+      "label": "Formato de audio",
+      "group": "Archivo de salida",
+      "default": "flac",
+      "choices": [
+        "flac",
+        "mp3",
+        "opus"
+      ]
+    },
+    {
+      "path": "audio_quality",
+      "label": "Calidad de compresión",
+      "group": "Archivo de salida",
+      "default": null,
+      "choices": [
+        "V0",
+        "64k",
+        "96k",
+        "128k",
+        "192k",
+        "320k"
+      ]
+    }
+  ],
+  "video_resolutions": {
+    "preview": {
+      "16:9": [
+        640,
+        352
+      ],
+      "9:16": [
+        352,
+        640
+      ],
+      "1:1": [
+        480,
+        480
+      ]
+    },
+    "480p": {
+      "16:9": [
+        864,
+        480
+      ],
+      "9:16": [
+        480,
+        864
+      ],
+      "1:1": [
+        640,
+        640
+      ]
+    },
+    "720p": {
+      "16:9": [
+        1280,
+        704
+      ],
+      "9:16": [
+        704,
+        1280
+      ],
+      "1:1": [
+        960,
+        960
+      ]
+    },
+    "native": {
+      "16:9": [
+        1344,
+        768
+      ],
+      "9:16": [
+        768,
+        1344
+      ],
+      "1:1": [
+        1024,
+        1024
+      ]
+    }
+  },
+  "limits": {
+    "video_pixels": 1100000,
+    "image_pixels": 1200000,
+    "image_2k_pixels": 4500000
+  },
+  "notes": {
+    "video": "24 fps con audio sincronizado; 5–15 s dentro del rango entrenado. Dimensiones múltiplos de 32. 720p usa 704 píxeles por alineación. Resoluciones altas requieren más VRAM.",
+    "sampling": "Los valores originales son los predeterminados del estudio. Otros muestreadores son experimentales: más pasos no garantizan más calidad.",
+    "image": "Hasta 1,2 MP; hasta 4,5 MP en INT8 si el servidor habilita 2K. La edición permanece limitada a 1 MP.",
+    "score": "Estos ajustes se aplican al generar ABC; no alteran una partitura escrita o extraída de audio."
+  }
+}

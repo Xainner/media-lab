@@ -1,0 +1,13 @@
+[Unit]
+Description=Media Lab web proxy-only ingress before Docker auto-start
+Before=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/media-lab/media-lab.env
+ExecStart=/etc/media-lab/web-firewall.sh apply
+# Keep the protective rule when this unit or Docker stops/restarts.
+
+[Install]
+WantedBy=multi-user.target

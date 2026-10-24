@@ -1,0 +1,24 @@
+/* Skin for the vendored Animate UI / radix primitives. */
+.advanced-options[data-orientation] { border: 1px solid var(--line); border-radius: var(--r-m); background: rgba(255, 255, 255, .02); overflow: hidden; }
+.advanced-options [data-slot="accordion-item"], .advanced-options > div { border: 0 !important; }
+.advanced-options [data-slot="accordion-trigger"], .advanced-options button[aria-expanded] { width: 100%; justify-content: space-between !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; padding: 13px 16px !important; font-weight: 500 !important; color: var(--text-2) !important; min-height: 46px !important; }
+.advanced-options button[aria-expanded]:hover { color: #fff !important; background: rgba(255, 255, 255, .03) !important; }
+.advanced-options button[aria-expanded="true"] { color: rgb(var(--tone)) !important; }
+.advanced-options [data-slot="accordion-content"] > div, .advanced-options [role="region"] > div { display: grid; gap: 12px; padding: 2px 16px 16px !important; }
+
+/* Dialog overlay */
+[data-slot="dialog-overlay"], .fixed.inset-0.z-50 { background: rgba(2, 1, 6, .72) !important; backdrop-filter: blur(6px); }
+
+/* Sheet (admin user panel) */
+.user-sheet { background: rgba(14, 14, 16, .97) !important; border-left: 1px solid var(--line-2) !important; color: var(--text); width: min(520px, 100vw) !important; max-width: 100vw !important; overflow-y: auto; padding: 22px !important; }
+.user-sheet h2 { font-family: var(--f-display); font-size: 24px; }
+
+/* Tabs */
+.rvl [role="tablist"] { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(8, 8, 10, .55); border: 1px solid var(--line); margin-bottom: 14px; }
+.rvl [role="tab"] { border: 0 !important; background: transparent !important; min-height: 34px !important; padding: 6px 14px !important; color: var(--text-3) !important; }
+.rvl [role="tab"][data-state="active"] { color: #fff !important; background: rgba(255, 138, 61, .2) !important; box-shadow: inset 0 0 0 1px rgba(255, 138, 61, .45); }
+.rvl [role="tabpanel"] { display: grid; gap: 14px; }
+
+/* Progress (radix) */
+.rvl [role="progressbar"] { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.rvl [role="progressbar"] > * { background: var(--grad) !important; }

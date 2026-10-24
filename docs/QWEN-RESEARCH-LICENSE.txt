@@ -1,0 +1,12 @@
+Qwen RESEARCH LICENSE AGREEMENT
+Release Date: September 20, 2026
+
+This repository does not redistribute Qwen weights. Downloading or using
+Qwen-Image-2.1 means accepting the complete agreement published by its owner:
+
+https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE
+
+The grant is limited to NON-COMMERCIAL research or evaluation. Commercial use
+requires a separate license from Hangzhou Tongyi Laboratory Technology Co.,
+Ltd. Redistribution must retain the upstream agreement and attribution notice.
+
