@@ -1,7 +1,7 @@
 {
   "name": "media-lab-web",
   "private": true,
-  "version": "0.14.2",
+  "version": "0.15.0",
   "description": "Media Lab web studio — image, video, music and voice",
   "author": "Rinari",
   "type": "module",

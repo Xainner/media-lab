@@ -51,7 +51,7 @@ interface Window {
       preview(ref: ArtifactRef): Promise<string>
       jobPreview(jobId: string): Promise<string>
       saveUrl(url: string): Promise<ProviderConfig>
-      uploadMedia(sessionId: string): Promise<{ data: ArtifactRef } | null>
+      uploadMedia(sessionId: string, file?: File): Promise<{ data: ArtifactRef } | null>
       mediaUrl(uri: string): Promise<string>
       saveMedia(uri: string): Promise<{ cancelled: boolean; path?: string }>
     }
@@ -69,7 +69,8 @@ interface Window {
       showInFolder(filePath: string): Promise<boolean>
     }
     agent: {
-      improve(prompt: string, mode?: 't2i' | 'i2i' | 't2v' | 'i2v' | 'r2v' | 'song', references?: ArtifactRef[], seconds?: number): Promise<{ prompt: string; lyrics?: string }>
+      improve(prompt: string, mode?: 't2i' | 'i2i' | 'moss' | 't2v' | 'i2v' | 'r2v' | 'kandinsky' | 'song' | 'ace_song', references?: ArtifactRef[], seconds?: number): Promise<{
+        prompt: string; lyrics?: string; audio_prompt?: string; bpm?: number; key?: string; time_signature?: string; language?: string }>
       start(payload: { prompt: string; session: string; references: ArtifactRef[] }): Promise<any>
       get(payload: { id?: string; session?: string }): Promise<any>
       cancel(id: string, jobId?: string): Promise<any>

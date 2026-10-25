@@ -146,14 +146,18 @@ exact dimensions for each ratio in `generation_options.video_resolutions` below.
 The aligned 720p landscape is 1280×704, not 1280×720. Custom requires width/height
 in multiples of 32, with at most 1.1 MP per frame; dimensions are invalid with other presets.
 `r2v` accepts `references` (up to 9 images), `reference_videos` (up to 3 videos,
-2–15 seconds each) and `reference_audios` (up to 3 audio references,
-(1–15 seconds each). Video/audio references require r2v mode. Video references are
+2–15 seconds each) and `reference_audios` (up to 3 audio references, 2–15 seconds each),
+at most 12 files and at least one image or video (official H3 limits). Total reference
+video is at most 15 s, and total audio at most 15 s: the soundtrack of every reference video
+that has one counts and becomes an `<Audio>` label, so upload a silent copy of a video used only
+for motion or identity. Video/audio references require r2v mode. Video references are
 normalized to 24 fps with bounded dimensions; silent video does not invent audio.
 H3 `options.container`: mp4/mkv/webm; `codec`: h264/av1. WebM requires AV1;
 MP4 and MKV accept either. `bit_depth`: 8 or 10 (SDR, not HDR). CRF: 0–51 for
 H.264 and 0–63 for AV1; lower CRF means less compression and larger files.
 CRF unset uses encoder defaults. There is no independent audio codec/bitrate control for H3.
-`ref_image_size=match` is default; `max` may improve identity conditioning at higher cost.
+`ref_image_size=match` is default; `max` may improve identity conditioning at higher cost with
+`profile=base`. Keep `match` for `turbo` and `omni`: their distillation was trained that way.
 Seeds, profile, steps, seconds and ratio are top-level; sampling/shifts/encoding are `options`.
 
 ### Video control
@@ -171,10 +175,11 @@ source soundtrack on the result; false keeps H3's own audio. Profiles: `base` (a
 
 ### Music
 `model` picks the engine. `yue2` (default) is described below. `ace_step` is ACE-Step 1.5 XL
-Turbo: same `style` tags and `lyrics`, `max_duration` is the exact length (10–600 s), and
-optional `bpm`, `key` (e.g. `E minor`) and `language` (two-letter code) steer it; by default
-tempo and key come from a `95 BPM` / `E minor` tag in `style` (else 110 BPM, C major) and the
-language is guessed from the lyrics. Its 4B planner writes the audio codes and it renders in
+Turbo: `style` (at most 512 characters) and `lyrics` (at most 4096), `max_duration` is the
+exact length (10–600 s), and optional `bpm`, `key` (e.g. `E minor`), `time_signature` (`2`,
+`3`, `4` default, `6`) and `language` (two-letter code) steer it. Prefer the parameters: a
+`95 BPM` / `E minor` tag in `style` is used when they are unset (else 110 BPM, C major) and
+removed from the caption; the language is otherwise guessed (Spanish or English) from the lyrics. Its 4B planner writes the audio codes and it renders in
 8 steps, so it is the fast choice; `mode`, `abc`, `source_audio` (covers), `steps` and the
 YuE2 `options` except `format`/`audio_quality` do not apply. Check
 `capabilities.music.models.ace_step.ready`.
@@ -182,11 +187,11 @@ YuE2 `options` except `format`/`audio_quality` do not apply. Check
 YuE2: `mode=direct` generates from style/lyrics without a separate ABC-planning pass.
 `mode=full` generates a full ABC score first when no ABC/audio is provided;
 `mode=melody` plans melody ABC. A supplied nonempty `abc` is used unchanged.
-`source_audio` with full or melody uses SheetSage to extract ABC and takes
+`source_audio` with full or melody uses SheetSage2 to extract ABC and takes
 precedence over supplied ABC. Cover is this combination, not `mode=cover`.
 Check `cover_ready`. `source_audio` with direct is invalid.
 `options.score` applies only to automatically generated ABC; it does not change a
-supplied score or SheetSage output. `options.composition` controls music-token
+supplied score or SheetSage2 output. `options.composition` controls music-token
 generation; top-level `steps` (4–80, default 32) and `options.cfg/sampler/scheduler/denoise`
 control diffusion. `max_duration` (10–900, default 120) is a cap, not exact duration.
 `options.format=flac` is lossless and requires audio_quality unset.
@@ -239,7 +244,7 @@ removal take none. LoRAs are added in the web page from a Hugging Face or Civita
 `create_production` requires title, owned song, brief and 1–100 scenes. Analyze
 the actual song first. Scenes start at zero, have contiguous positive start/end times,
 each at most 15 seconds, and cover the whole song. Both prompts are required even
-when reusing media. A final scene shorter than 5 seconds is allowed: generate 5 then trim.
+when reusing media. Any scene may be shorter than 5 seconds: its clip is generated at 5 then trimmed.
 Optional scene `image` is owned PNG; scene `video` is owned MP4/MKV/WebM.
 If video is present, reuse it; otherwise use the image or generate a keyframe, then i2v.
 Reused short clips loop and longer ones trim to cover their scene; original files are preserved.
@@ -289,8 +294,8 @@ for scene clips do not alter the final MP4 preview or original-audio MKV master.
 | `sampler` | "res_multistep" | `euler`, `euler_cfg_pp`, `euler_ancestral`, `euler_ancestral_cfg_pp`, `heun`, `heunpp2`, `exp_heun_2_x0`, `exp_heun_2_x0_sde`, `dpm_2`, `dpm_2_ancestral`, `lms`, `dpm_fast`, `dpm_adaptive`, `dpmpp_2s_ancestral`, `dpmpp_2s_ancestral_cfg_pp`, `dpmpp_sde`, `dpmpp_sde_gpu`, `dpmpp_2m`, `dpmpp_2m_cfg_pp`, `dpmpp_2m_sde`, `dpmpp_2m_sde_gpu`, `dpmpp_2m_sde_heun`, `dpmpp_2m_sde_heun_gpu`, `dpmpp_3m_sde`, `dpmpp_3m_sde_gpu`, `ddpm`, `lcm`, `ipndm`, `ipndm_v`, `deis`, `cfgpp_ud10_ab`, `res_multistep`, `res_multistep_cfg_pp`, `res_multistep_ancestral`, `res_multistep_ancestral_cfg_pp`, `gradient_estimation`, `gradient_estimation_cfg_pp`, `er_sde`, `seeds_2`, `seeds_3`, `sa_solver`, `sa_solver_pece`, `ddim`, `uni_pc`, `uni_pc_bh2` | Sampler |
 | `scheduler` | simple; beta for Base r2v | `simple`, `sgm_uniform`, `karras`, `exponential`, `ddim_uniform`, `beta`, `normal`, `linear_quadratic`, `kl_optimal` | Noise schedule |
 | `denoise` | 1 | 0–1 | Denoising strength |
-| `shift_video` | Base: checkpoint defaults; Turbo: 12 | 0.01–100 | Video sigma shift |
-| `shift_audio` | Base: checkpoint defaults; Turbo: 3 | 0.01–100 | Audio sigma shift |
+| `shift_video` | Base: checkpoint defaults; turbo: 6; fused_turbo and omni: 12 | 0.01–100 | Video sigma shift |
+| `shift_audio` | Base: checkpoint defaults; turbo: 3; fused_turbo and omni: 3 | 0.01–100 | Audio sigma shift |
 | `ref_image_size` | "match" | `match`, `max` | Reference image sizing. max: stronger identity conditioning, more memory and processing time. |
 | `container` | "mp4" | `mp4`, `mkv`, `webm` | Container |
 | `codec` | "h264" | `h264`, `av1` | Codec |

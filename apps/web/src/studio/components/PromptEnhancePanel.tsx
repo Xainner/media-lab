@@ -9,7 +9,10 @@ const SENT: Record<ImproveMode, string> = {
   t2v: 'el prompt y la duración',
   i2v: 'el prompt, la duración y las previews de los fotogramas inicial y final si admite visión',
   r2v: 'el prompt, la duración y las previews numeradas de las imágenes de referencia si admite visión',
+  moss: 'el prompt',
+  kandinsky: 'la escena, la voz y los sonidos, y la preview del primer fotograma si admite visión',
   song: 'el estilo y la letra',
+  ace_song: 'la idea y la letra',
 }
 
 export default function PromptEnhancePanel({ prompt, onAccept, onLyrics, mode, references = [], seconds, needsReferences = mode === 'i2i' || mode === 'i2v', onAspectRatio }: {

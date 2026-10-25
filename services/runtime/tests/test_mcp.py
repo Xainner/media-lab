@@ -56,8 +56,8 @@ def test_protocol_discovery_guides_and_account_identity(lab):
         assert not guide.get('isError')
         assert 'image_prompt' in str(guide) and 'fused_turbo' in str(guide)
         resources = rpc(client, a, 'resources/list').json()['result']['resources']
-        assert resources[0]['uri'] == 'rinari://guides/prompts'
-        assert 'YuE2' in str(rpc(client, a, 'resources/read', {'uri': 'rinari://guides/prompts'}).json())
+        assert resources[0]['uri'] == 'media-lab://guides/all'
+        assert 'YuE2' in str(rpc(client, a, 'resources/read', {'uri': 'media-lab://guides/all'}).json())
         prompt = rpc(client, a, 'prompts/get', {'name': 'creative_brief', 'arguments': {'goal': 'Una gata bajo la lluvia'}})
         assert 'Una gata' in str(prompt.json()), prompt.text
         assert 'alice_job' in str(call(client, a, 'list_jobs'))
@@ -273,7 +273,7 @@ def test_official_external_client_modern_and_legacy_transport(lab):
                         assert 'list_jobs' in {tool.name for tool in tools.tools}
                         result = await external.call_tool('prompt_guide')
                         assert not result.is_error and 'YuE2' in str(result)
-                        resource = await external.read_resource('rinari://guides/prompts')
+                        resource = await external.read_resource('media-lab://guides/all')
                         assert 'fused_turbo' in str(resource)
     anyio.run(scenario)
 
@@ -295,14 +295,14 @@ def test_english_guides_cover_all_tools_formats_and_live_controls(complete_lab):
             assert f"`{tool['name']}`" in GUIDES['overview'], tool['name']
             assert not re.search(r'\b(Guía|Generar|Subir|propia|Permiso|español|Duración)\b', json.dumps(tool, ensure_ascii=False))
         assert {'check_prompt', 'account_preferences'} <= {tool['name'] for tool in tools}
-        for topic in ('all', 'overview', 'prompts', 'formats', 'controls', 'workflows', 'image', 'edit', 'video', 'music', 'director'):
+        for topic in ('all', 'overview', 'prompts', 'formats', 'controls', 'workflows', 'image', 'edit', 'video', 'music', 'sound', 'speech', 'director'):
             result = call(client, token, 'prompt_guide', {'topic': topic})
             assert result['content'][0]['text'] == GUIDES[topic]
-        for path, topic in [('prompts', 'all'), ('formats', 'formats'), ('controls', 'controls'), ('qwen-image', 'image'),
-                            ('qwen-edit', 'edit'), ('h3', 'video'), ('yue2', 'music'), ('director', 'director')]:
-            result = rpc(client, token, 'resources/read', {'uri': 'rinari://guides/' + path}).json()['result']
+        for topic in ('all', 'formats', 'controls', 'image', 'edit', 'video', 'music', 'sound', 'speech', 'director'):
+            result = rpc(client, token, 'resources/read', {'uri': 'media-lab://guides/' + topic}).json()['result']
             assert result['contents'][0]['text'] == GUIDES[topic]
-        for marker in ('integrated_multimodal_description', 'retention_analysis', '<d>[', 'is fully referenced', '[Pre-Chorus]', '<image2>'):
+        for marker in ('integrated_multimodal_description', 'retention_analysis', '<d>[', 'is fully referenced', '[Pre-Chorus]', '<image2>',
+                       'MOSS-Image · posters', 'FLUX 3 Image Klein', 'says: <S>', '[Chorus - anthemic]', 'TrackType: SFX', 'voice=design'):
             assert marker in GUIDES['prompts'], marker
         names = {p['name'] for p in rpc(client, token, 'prompts/list').json()['result']['prompts']}
         assert {'creative_brief', 'image_prompt', 'video_prompt', 'music_prompt', 'music_video'} <= names

@@ -245,7 +245,7 @@ class VideoControl(BaseModel):
 class VideoRequest(ModelRequest):
     options: VideoOptions | None = Field(default=None, description="Resolution, encoding and advanced sampling; unset = preview resolution and studio defaults.")
     reference_videos: list[ArtifactRef] = Field(default_factory=list, max_length=3, description="r2v only: owned videos of 2–15 s, labelled <Video 1>… in order.")
-    reference_audios: list[ArtifactRef] = Field(default_factory=list, max_length=3, description="r2v only: owned audio of 1–15 s, labelled <Audio j> after the soundtracks of reference videos.")
+    reference_audios: list[ArtifactRef] = Field(default_factory=list, max_length=3, description="r2v only: owned audio of 2–15 s (all audio, including reference-video soundtracks, at most 15 s in total), labelled <Audio j> after the soundtracks of reference videos.")
     prompt: str = Field(min_length=1, max_length=20000, description="English H3 prompt in the exact sectioned format for the mode (prompt_guide topic video). Run check_prompt with the same inputs first.")
     mode: Literal["t2v", "i2v", "r2v"] = Field(default="t2v", description="t2v: text only (a last_frame alone gives L2VA). i2v: needs first_frame, optional last_frame. r2v: references, reference_videos and/or reference_audios.")
     first_frame: ArtifactRef | None = Field(default=None, description="i2v: owned image that opens the clip.")
@@ -261,7 +261,7 @@ class VideoRequest(ModelRequest):
     loras: list[LoraUse] = Field(default_factory=list, max_length=4, description=LORAS_HELP)
     model: Literal["h3", "kandinsky6"] = Field(default="h3", description="h3: MiniMax H3 (everything above). kandinsky6: Kandinsky 6.0 Lite Distill, a 5 s clip at 864x480 (16:9 or 9:16) with synchronized 44 kHz audio and lip-synced speech, from text (t2v) or a first_frame (i2v); write spoken lines in the prompt as <S>exact words<E> and the voice/sounds in audio_prompt. No references, last_frame, control, LoRAs, options, profile or steps. Check capabilities.video.models.kandinsky6.")
     audio_prompt: str | None = Field(default=None, max_length=4000, description="kandinsky6 only: the voice (gender, age, tone, accent) and the other sounds, ambience or music of the clip.")
-    literal_prompt: bool = Field(default=False, description="kandinsky6 only: send prompt and audio_prompt unchanged instead of letting the official beautifier (Qwen3.5 9B) expand them into English captions.")
+    literal_prompt: bool = Field(default=False, description="kandinsky6 only: send prompt and audio_prompt unchanged instead of letting the official beautifier (Qwen3.5 9B) expand them into full captions (it keeps the language you wrote in, so write English).")
 
     @model_validator(mode="after")
     def profile_steps(self):
@@ -309,6 +309,7 @@ class SongRequest(ModelRequest):
     bpm: int | None = Field(default=None, ge=40, le=240, description="ace_step only: tempo. Default: a 'NN BPM' tag in style, else 110.")
     key: str | None = Field(default=None, max_length=12, description="ace_step only: key such as 'E minor'. Default: a key named in style, else C major.")
     language: str | None = Field(default=None, pattern=r"^[a-z]{2}$", description="ace_step only: sung language code (es, en, pt, …). Default: guessed from the lyrics.")
+    time_signature: Literal["2", "3", "4", "6"] | None = Field(default=None, description="ace_step only: beats per bar, 2 (2/4), 3 (3/4, waltz), 4 (4/4, default) or 6 (6/8).")
 
     @model_validator(mode="after")
     def ace_scope(self):
@@ -317,6 +318,9 @@ class SongRequest(ModelRequest):
                 raise ValueError("ACE-Step no hace covers ni usa partituras ABC; usa YuE2")
             if self.max_duration > 600:
                 raise ValueError("ACE-Step genera hasta 10 minutos")
+            # ACE-Step's documented input limits.
+            if len(self.style) > 512 or len(self.lyrics) > 4096:
+                raise ValueError("ACE-Step admite hasta 512 caracteres de estilo y 4096 de letra")
         return self
 
 
@@ -470,7 +474,8 @@ def compile_prompt(prompt: str, transparent: bool) -> str:
     prompt = prompt.strip()
     if not transparent:
         return prompt
+    # Qwen-Image-2.1's documented transparency wording, verbatim.
     return (
-        "This is an RGBA format image with transparency. "
-        f"{prompt}. The image has an alpha channel and a transparent background."
+        "This is an RGBA image with transparency. "
+        f"{prompt.rstrip('.')}. The image has alpha channel and the background is transparent."
     )
