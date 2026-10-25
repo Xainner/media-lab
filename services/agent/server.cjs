@@ -3,6 +3,8 @@ const { improveSystem, parseImproved, improveTokens, directorSystem, reviewSyste
 // Private Node engine. Provider networking/secrets remain in the authenticated Python backend.
 const http = require('node:http');
 const https = require('node:https');
+const net = require('node:net');
+const tls = require('node:tls');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -18,6 +20,10 @@ if (key.length !== 32) throw new Error('Service key must be 32 bytes');
 const serviceKey = key.toString('hex');
 const origin = new URL(process.env.PUBLIC_ORIGIN || 'https://media.example.com');
 const ca = fs.readFileSync(process.env.ORIGIN_CA_FILE);
+// SNI cannot carry an IP origin (LAN installs); the certificate is still checked against it.
+const originTls = net.isIP(origin.hostname)
+  ? { checkServerIdentity: (_host, cert) => tls.checkServerIdentity(origin.hostname, cert) }
+  : { servername: origin.hostname };
 const directory = process.env.AGENT_STATE_ROOT;
 const engines = new Map();
 const blockedUsers = new Set();
@@ -31,7 +37,7 @@ function backend(uid, method, route, body, idempotencyKey) {
   return new Promise((resolve, reject) => {
     const raw = body === undefined ? undefined : JSON.stringify(body);
     const request = https.request({ hostname: '127.0.0.1', port: Number(process.env.RUNTIME_PORT || 8390),
-      servername: origin.hostname, ca, method, path: route,
+      ...originTls, ca, method, path: route,
       headers: { Host: origin.host, 'X-Service-Key': serviceKey, 'X-Owner': uid,
         ...(raw ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(raw) } : {}),
         ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) }, timeout: 240000 }, response => {
