@@ -200,7 +200,7 @@ lifecycle are in [`docs/MCP.md`](docs/MCP.md); every model control is in
 | Driver | NVIDIA 595 | CUDA 13 (driver 580 or newer): the ComfyUI image starts from `pytorch/pytorch:2.12.1-cuda13.0-cudnn9-devel`. |
 | OS | Ubuntu Linux | Any Linux with Docker Engine, Docker Compose **2.24.4+** and the NVIDIA Container Toolkit. |
 | Disk | ~370 GB free | ~44–326 GB for models depending on the groups, ~40 GB for images, plus your library. |
-| Network | — | A host name for the HTTPS origin; a reverse proxy with a public certificate is recommended. |
+| Network | — | A host name (or, LAN only, a fixed IPv4) for the HTTPS origin; a reverse proxy with a public certificate is recommended. |
 | Accounts | — | A Hugging Face account and read token for gated models (FLUX 3 Klein). |
 
 Rough timings on one RTX 3090 from the 0.13.0 validation: Turbo/MOSS image 25–35 s, ACE-Step
@@ -254,7 +254,9 @@ origin certificate:
   Proxy Manager example.
 - **Direct on the LAN.** Use `--listen 0.0.0.0` and an origin with the port, such as
   `https://medialab.lan:8390`, make the name resolve to the server, trust `origin-ca.crt` on
-  your devices and firewall port 8390.
+  your devices and firewall port 8390. A LAN-only instance may use the server's IPv4 address
+  instead of a name (`https://192.168.1.20:8390`); the certificate then names that address, so
+  keep it fixed (a DHCP reservation) or re-run the installer with the new one.
 
 | Setting | Option | Default |
 |---|---|---|
