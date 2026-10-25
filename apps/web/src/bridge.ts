@@ -86,6 +86,10 @@ async function preview(route: string, hash: string) {
   return value
 }
 
+const MEDIA_TYPES = ['audio/flac', 'audio/wav', 'audio/mpeg', 'audio/ogg', 'audio/opus', 'video/mp4', 'video/webm', 'video/x-matroska']
+// Browsers report some of these as empty or x- types (.mkv, .opus, audio/x-wav).
+const MEDIA_EXTENSIONS = /\.(flac|wav|mp3|ogg|opus|mp4|webm|mkv)$/i
+
 async function uploadFile(file: File | Blob, sessionId: string, media = false) {
   const epoch = accountEpoch
   const data = new FormData()
@@ -170,8 +174,11 @@ window.visualLab = {
       urls.set(key, value); return value
     },
     saveUrl: unsupported,
-    uploadMedia: sessionId => new Promise((resolve,reject) => {
-      const input = document.createElement('input'); input.type = 'file'; input.accept = 'audio/flac,audio/wav,audio/mpeg,audio/ogg,audio/opus,video/mp4,video/webm,video/x-matroska'
+    uploadMedia: (sessionId, file) => file
+      // A dropped file skips the picker; the runtime still validates the content.
+      ? (MEDIA_TYPES.includes(file.type) || MEDIA_EXTENSIONS.test(file.name) ? uploadFile(file, sessionId, true) : Promise.reject(new Error('Ese tipo de audio o vídeo no se admite.')))
+      : new Promise((resolve,reject) => {
+      const input = document.createElement('input'); input.type = 'file'; input.accept = MEDIA_TYPES.join(',')
       input.oncancel = () => resolve(null)
       input.onchange = () => { const file = input.files?.[0]; if (!file) return resolve(null); void uploadFile(file, sessionId, true).then(resolve).catch(reject) }
       input.click()

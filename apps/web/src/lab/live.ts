@@ -252,7 +252,13 @@ export async function uploadImages(files: File[]) {
   return result.refs
 }
 
-export const uploadAudio = () => window.visualLab.runtime.uploadMedia(newSession()).then(r => r?.data as ArtifactRef | undefined)
+/** What a dropped file is for: a reference image, or an audio/video source. */
+export const droppedKind = (file: File): 'image' | 'media' | null =>
+  /^image\//.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name) ? 'image'
+    : /^(audio|video)\//.test(file.type) || /\.(flac|wav|mp3|ogg|opus|mp4|webm|mkv|mov)$/i.test(file.name) ? 'media' : null
+
+/** Opens the file picker, or uploads a dropped audio or video file. */
+export const uploadAudio = (file?: File) => window.visualLab.runtime.uploadMedia(newSession(), file).then(r => r?.data as ArtifactRef | undefined)
 export const download = (ref: ArtifactRef) => window.visualLab.runtime.saveMedia(ref.uri)
 
 export type FaceStrength = 'light' | 'medium' | 'strong'
