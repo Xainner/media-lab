@@ -68,6 +68,16 @@ Se revisaron contra sus fuentes:
 - **FLUX 3 Klein no usa el botón**, igual que Stable Audio 3 y Qwen3-TTS: su upsampler oficial
   ya reescribe en inglés.
 
+## Arrastrar y soltar en el composer
+
+- **Las imágenes** van a las referencias del modo.
+- **El audio o el vídeo** van a la fuente del modo: la canción del cover o de Separar pistas, la
+  voz a clonar, el vídeo de los swaps o de Seguir vídeo. Antes solo entraban con el botón.
+- **Si el modo no usa ese tipo de archivo**, se avisa en lugar de subirlo.
+- **Al arrastrar**, un resaltado dice qué se puede soltar.
+- **Un archivo soltado fuera del composer** ya no se abre en la pestaña: antes se perdía lo
+  escrito.
+
 ## Runtime
 
 - **ACE-Step:**

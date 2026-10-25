@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { improve, mentioned, requests, speechTags, withCharacters, type Submission } from './live'
+import { droppedKind, improve, mentioned, requests, speechTags, withCharacters, type Submission } from './live'
 
 const ref = { uri: 'artifact://s/images/a.png', sha256: 'a' }
 const base = (patch: Partial<Submission>): Submission => ({ kind: 'image', prompt: 'un faro', modelId: 'qwen-quality', values: { aspect: '1:1', quality: 'Calidad' }, count: 1, refs: [], ...patch })
@@ -192,4 +192,14 @@ test('Stable Audio and Qwen3-TTS map the audio chips', () => {
   const clone = requests(base({ kind: 'audio', modelId: 'qwen3-tts', prompt: 'Hola', source: REF, consent: true, values: { voice: 'Clonar voz', language: 'Automático' } }))[0].body
   expect(clone).toMatchObject({ voice: 'clone', reference: REF, consent: true, language: 'auto' })
   expect(clone).not.toHaveProperty('speaker')
+})
+
+test('dropped files go to references or to the audio/video source by type, with or without a browser MIME type', () => {
+  const file = (name: string, type = '') => new File(['x'], name, { type })
+  expect(droppedKind(file('a.png', 'image/png'))).toBe('image')
+  expect(droppedKind(file('foto.JPG'))).toBe('image')
+  expect(droppedKind(file('song.mp3', 'audio/mpeg'))).toBe('media')
+  expect(droppedKind(file('voz.wav', 'audio/x-wav'))).toBe('media')
+  expect(droppedKind(file('clip.mkv'))).toBe('media')
+  expect(droppedKind(file('notes.pdf', 'application/pdf'))).toBeNull()
 })

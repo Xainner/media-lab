@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { AtSign, AudioWaveform, Camera, Check, ChevronRight, Clock3, Film, Gauge, Globe, Layers, Loader2, Mic, Minus, Move3d, Music2, Monitor, Paperclip, Plus, RectangleHorizontal, ScanSearch, ShieldCheck, Sparkles, SwatchBook, UserRound, WandSparkles, X, type LucideIcon } from 'lucide-react'
 import { getEnhancerMode, setEnhancerMode, type ArtifactRef } from '../studio/lib/api'
 import { FOLLOWS, GUIDES, K6_ASPECTS, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, type Modality, type Model } from './data'
-import { improve, loraBase, mentioned, uploadAudio, uploadImages, useCharacters, useMediaSrc, useProvider, withCharacters, type Caps, type Character, type Lora, type LoraPick, type Submission } from './live'
+import { droppedKind, improve, loraBase, mentioned, uploadAudio, uploadImages, useCharacters, useMediaSrc, useProvider, withCharacters, type Caps, type Character, type Lora, type LoraPick, type Submission } from './live'
 
 const statusLabel = { ready: '', new: 'NUEVO', soon: 'PRONTO' }
 const maxRefs: Record<Modality, number> = { image: 10, video: 9, audio: 0 }
@@ -121,6 +121,15 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const provider = useProvider()
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  // Nested drag enter/leave pairs; above zero a file is being dragged over the composer.
+  const [dragging, setDragging] = useState(0)
+  useEffect(() => {
+    // A file dropped outside the composer would otherwise open in the tab and lose what was typed.
+    const guard = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault() }
+    const reset = () => setDragging(0)
+    window.addEventListener('dragover', guard); window.addEventListener('drop', guard); window.addEventListener('drop', reset); window.addEventListener('dragend', reset)
+    return () => { window.removeEventListener('dragover', guard); window.removeEventListener('drop', guard); window.removeEventListener('drop', reset); window.removeEventListener('dragend', reset) }
+  }, [])
   const [loras, setLoras] = useState<LoraPick[]>([])
   // Typing @word opens the list filtered by word; the chip opens it unfiltered.
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null)
@@ -262,16 +271,32 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     }
     catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setUploading(false) }
   }
-  const attachSource = async () => {
+  const attachSource = async (file?: File) => {
     setUploading(true); setError('')
     try {
-      const ref = await uploadAudio()
+      const ref = await uploadAudio(file)
       if (ref && split && isVideo(ref.uri)) throw new Error('Elige una canción o un audio, no un vídeo.')
       if (ref && tts) setConsent(false)
       if (ref && follow && !isVideo(ref.uri)) throw new Error('Elige un vídeo de 2 a 15 segundos.')
       if (ref && swap && !isVideo(ref.uri)) throw new Error(swap === 'remove' ? 'Elige un vídeo de 1 a 10 segundos (mejor hasta 5, una sola toma).' : 'Elige un vídeo de 2 a 15 segundos (mejor hasta 5, una sola toma).')
       if (ref) setSource(ref)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setUploading(false) }
+  }
+  // Dropped images become references and a dropped audio or video becomes the mode's source, each only where the mode takes it.
+  const takesSource = cover || split || voice === 'clone' || !!swap || follow
+  const dropHint = swap === 'remove' ? 'Suelta el vídeo o el fotograma limpio' : swap ? 'Suelta el vídeo original o la imagen del personaje'
+    : follow ? 'Suelta el vídeo a seguir o imágenes de referencia' : voice === 'clone' ? 'Suelta el audio o vídeo con la voz'
+    : cover || split ? 'Suelta la canción' : limit ? (limit === 1 ? 'Suelta la imagen' : 'Suelta las imágenes') : 'Este modo no usa archivos'
+  const drop = (files: File[]) => {
+    setDragging(0)
+    const images = files.filter(f => droppedKind(f) === 'image'), media = files.filter(f => droppedKind(f) === 'media')
+    if (!images.length && !media.length) return setError('Suelta imágenes PNG, JPEG o WebP, o un audio o vídeo.')
+    const refused = (images.length && !limit) || (media.length && !takesSource)
+    if (refused) setError(media.length && !takesSource
+      ? (modality === 'audio' ? 'Para usar una canción o una voz elige Cover, Separar pistas o Clonar voz.' : 'Este modo no usa audio ni vídeo.')
+      : 'Este modelo o modo no usa imágenes.')
+    if (media.length && takesSource) void attachSource(media[0])
+    if (images.length && limit) void attach(images)
   }
   const placeholder = swap ? `${swap === 'remove' ? '¿A quién quitar?' : swap === 'head' ? '¿A quién le cambias la cabeza?' : '¿A quién reemplazar?'} Opcional, p. ej. «el chico de la sudadera amarilla»`
     : guided ? 'Describe la imagen nueva completa; la foto guía solo marca la pose, los bordes o la profundidad…'
@@ -284,7 +309,10 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     : k6 ? 'Describe la escena y lo que pasa; lo que dicen, entre comillas: «Hola, ¿qué tal?»'
     : song && enhance ? 'Describe tu canción: tema, género, ánimo, voz e idioma. La IA escribe el estilo y la letra…'
     : { image: refs.length ? 'Describe qué cambiar en la imagen…' : 'Describe la imagen que imaginas…', video: 'Describe la escena, el movimiento de cámara y el sonido…', audio: 'Estilo: género, ánimo, instrumentos, voz…' }[modality]
-  return <div className="ml-composer" onDragOver={e => { if (limit) e.preventDefault() }} onDrop={e => { if (!limit) return; e.preventDefault(); void attach(Array.from(e.dataTransfer.files)) }}>
+  const files = (e: React.DragEvent) => e.dataTransfer.types.includes('Files')
+  return <div className={`ml-composer ${dragging ? 'is-dropping' : ''} ${dragging && !limit && !takesSource ? 'is-refusing' : ''}`} data-drop={dropHint}
+    onDragEnter={e => { if (files(e)) setDragging(n => n + 1) }} onDragLeave={e => { if (files(e)) setDragging(n => Math.max(0, n - 1)) }}
+    onDragOver={e => { if (files(e)) e.preventDefault() }} onDrop={e => { if (!files(e)) return; e.preventDefault(); drop(Array.from(e.dataTransfer.files)) }}>
     {(refs.length > 0 || uploading || source || picked.length > 0 || people.length > 0) && <div className="ml-refs">
       {refs.map((r, i) => <RefThumb key={r.sha256 + i} value={r} onRemove={() => setRefs(v => v.filter((_, k) => k !== i))} />)}
       {source && <span className="ml-ref ml-ref-audio" title={swap ? 'Vídeo original' : 'Canción'}>{isVideo(source.uri) ? <Film size={16} /> : <Music2 size={16} />}<button type="button" aria-label={isVideo(source.uri) ? 'Quitar vídeo' : 'Quitar audio'} onClick={() => setSource(null)}><X size={12} /></button></span>}

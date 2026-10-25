@@ -51,7 +51,7 @@ interface Window {
       preview(ref: ArtifactRef): Promise<string>
       jobPreview(jobId: string): Promise<string>
       saveUrl(url: string): Promise<ProviderConfig>
-      uploadMedia(sessionId: string): Promise<{ data: ArtifactRef } | null>
+      uploadMedia(sessionId: string, file?: File): Promise<{ data: ArtifactRef } | null>
       mediaUrl(uri: string): Promise<string>
       saveMedia(uri: string): Promise<{ cancelled: boolean; path?: string }>
     }
