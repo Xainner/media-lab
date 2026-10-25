@@ -78,6 +78,14 @@ Se revisaron contra sus fuentes:
 - **Un archivo soltado fuera del composer** ya no se abre en la pestaña: antes se perdía lo
   escrito.
 
+## Modo Escalar en el composer de vídeo
+
+- **Dónde:** `Modo → Escalar`, que solo aparece si FlashVSR está listo.
+- **Cómo:** subes o sueltas un vídeo, eliges ×2 o ×4 y Rápido o Calidad, y pulsas **Escalar**.
+  No usa texto, IA ni modelo.
+- **Explorar:** la tarjeta «Escalar vídeo» abre este modo en vez de la biblioteca.
+- **Biblioteca:** el botón Escalar del visor sigue funcionando igual.
+
 ## Runtime
 
 - **ACE-Step:**

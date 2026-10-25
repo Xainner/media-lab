@@ -5,7 +5,7 @@ import { api } from '../bridge'
 import { DISTANCES, FOLLOWS, GUIDES, HEIGHTS, LANGUAGES, ORBITS, RESOLUTIONS, ratioOf, SOUND_KINDS, SPEAKERS, SWAP_MODES, VOICES, type Art, type Modality } from './data'
 
 export type LabJob = { id: string; status: string; pct: number; queue?: number; error?: string; prompt: string; ratio: number; kind: Modality; model: string; ref?: ArtifactRef; more?: { ref: ArtifactRef; prompt: string }[] }
-export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
+export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; upscale: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
   flux3: boolean; kandinsky6: boolean; sound: Record<string, boolean>; speech: Record<string, boolean> }
 
 const operations: Record<Modality, string[]> = { image: ['generate', 'edit'], video: ['video', 'swap', 'face_refine', 'remove'], audio: ['song', 'stems', 'sound', 'speech'] }
@@ -55,14 +55,14 @@ export function useMediaSrc(ref?: ArtifactRef) {
 }
 
 export function useCaps() {
-  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, kandinsky6: false, sound: {}, speech: {} })
+  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, upscale: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, kandinsky6: false, sound: {}, speech: {} })
   useEffect(() => {
     let live = true
     runtime('GET', '/v1/capabilities').then(c => {
       if (!live) return
       const turbo = c.model_variants?.turbo?.precisions || {}
       setCaps({ turbo: Boolean(turbo.int8 || turbo.bf16), h3Turbo: Boolean(c.video?.profiles?.turbo?.ready), omni: Boolean(c.video?.profiles?.omni?.ready), fusedTurbo: Boolean(c.video?.profiles?.fused_turbo?.ready), bf16: Boolean(c.model_precisions?.bf16), turboPrecision: turbo.int8 ? 'int8' : 'bf16',
-        swap: { character: Boolean(c.swap?.modes?.character?.ready), head: Boolean(c.swap?.modes?.head?.ready), remove: Boolean(c.remove?.ready), scail: Boolean(c.swap?.modes?.scail?.ready) }, stems: Boolean(c.stems?.ready), faceRefine: Boolean(c.face_refine?.ready), ace: Boolean(c.music?.models?.ace_step?.ready), moss: Boolean(c.image_models?.moss?.ready),
+        swap: { character: Boolean(c.swap?.modes?.character?.ready), head: Boolean(c.swap?.modes?.head?.ready), remove: Boolean(c.remove?.ready), scail: Boolean(c.swap?.modes?.scail?.ready) }, stems: Boolean(c.stems?.ready), faceRefine: Boolean(c.face_refine?.ready), upscale: Boolean(c.upscale?.ready), ace: Boolean(c.music?.models?.ace_step?.ready), moss: Boolean(c.image_models?.moss?.ready),
         control: c.image_control?.modes || {}, camera: Boolean(c.image_camera?.ready), cutout: Boolean(c.image_remove_background?.ready), follow: c.video?.control?.modes || {}, loras: Boolean(c.loras?.ready),
         flux3: Boolean(c.image_models?.flux3?.ready), kandinsky6: Boolean(c.video?.models?.kandinsky6?.ready),
         sound: Object.fromEntries(Object.entries(c.sound?.kinds || {}).map(([k, v]: [string, any]) => [k, Boolean(v?.ready)])), speech: c.speech?.voices || {} })
@@ -163,6 +163,8 @@ export function requests(s: Submission): { path: string; body: any; operation: s
   }
   if (s.kind === 'audio' && s.values.type === 'Separar pistas')
     return [{ path: '/v1/jobs/stems', operation: 'stems', body: { audio: s.source, stems: s.values.stems === '4 pistas' ? 'four' : 'two', session_id } }]
+  if (s.kind === 'video' && s.values.mode === 'Escalar')
+    return [{ path: '/v1/jobs/upscale', operation: 'upscale', body: { video: s.source, scale: s.values.scale === '×4' ? 4 : 2, quality: s.values.finish === 'Calidad' ? 'quality' : 'fast', session_id } }]
   if (s.kind === 'video' && SWAP_MODES[s.values.mode] === 'remove') {
     // The prompt says who to erase; an attached image is the clean first frame.
     return [{ path: '/v1/jobs/remove', operation: 'remove', body: { video: s.source, target: s.prompt, clean_frame: s.refs[0] ?? null, session_id } }]
@@ -213,7 +215,7 @@ export function useProvider() {
 
 /** Rewrite the submission's prompt with the viewer's provider, following the target model's guide. Covers have no guide and pass through. */
 export async function improve(s: Submission): Promise<Submission> {
-  if (s.kind === 'video' && SWAP_MODES[s.values.mode]) return s
+  if (s.kind === 'video' && (SWAP_MODES[s.values.mode] || s.values.mode === 'Escalar')) return s
   // These models rewrite or read the text themselves: FLUX's and Stable Audio's official upsamplers, the exact words of a voice.
   if (['stable-audio3', 'qwen3-tts'].includes(s.modelId) || (s.modelId === 'flux3-klein' && (s.values.mode || 'Crear') === 'Crear')) return s
   if (s.kind === 'image' && (s.values.mode === 'Ángulo' || s.values.mode === 'Quitar fondo')) return s

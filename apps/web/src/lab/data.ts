@@ -28,7 +28,7 @@ export const apps = [
   { id: 'musicvideo', title: 'Videoclip', blurb: 'Canción + escenas = videoclip con el Director.', art: art('app-musicvideo'), size: 'tall' },
   { id: 'character', title: 'Personaje', blurb: 'Un personaje consistente en cada escena.', art: art('app-character'), size: 'square' },
   { id: 'camera', title: 'Movimientos de cámara', blurb: 'Órbitas, travellings y ángulos nuevos.', art: art('app-camera'), size: 'square' },
-  { id: 'upscale', title: 'Escalar vídeo', blurb: 'Abre un vídeo de tu biblioteca y pulsa Escalar: más resolución con FlashVSR.', art: art('app-upscale'), size: 'square' },
+  { id: 'upscale', title: 'Escalar vídeo', blurb: 'Sube o suelta un vídeo y FlashVSR lo escala ×2 o ×4, con su audio original.', art: art('app-upscale'), size: 'square' },
   { id: 'agent', title: 'Agente', blurb: 'Pídelo en una frase y el agente lo produce.', art: art('app-agent'), size: 'wide' },
 ] as const
 
@@ -81,12 +81,14 @@ export const settings: Record<Modality, Choice[]> = {
     { id: 'quality', label: 'Calidad', options: ['Calidad', 'Borrador'] },
   ],
   video: [
-    { id: 'mode', label: 'Modo', options: ['Texto', 'Imagen inicial', 'Referencias', 'Seguir vídeo', 'Cambiar personaje', 'Cambiar cabeza', 'Quitar persona'] },
+    { id: 'mode', label: 'Modo', options: ['Texto', 'Imagen inicial', 'Referencias', 'Seguir vídeo', 'Cambiar personaje', 'Cambiar cabeza', 'Quitar persona', 'Escalar'] },
     { id: 'follow', label: 'Seguir', options: ['Movimiento', 'Bordes', 'Profundidad'] },
     { id: 'engine', label: 'Motor', options: ['H3', 'SCAIL-2'] },
     { id: 'aspect', label: 'Formato', options: ['16:9', '9:16', '1:1'] },
     { id: 'duration', label: 'Duración', options: ['5 s', '10 s', '15 s'] },
     { id: 'resolution', label: 'Resolución', options: ['Vista previa', '480p', '720p', 'Nativa'] },
+    { id: 'scale', label: 'Escala', options: ['×2', '×4'] },
+    { id: 'finish', label: 'Acabado', options: ['Rápido', 'Calidad'] },
   ],
   audio: [
     { id: 'type', label: 'Tipo', options: ['Canción', 'Instrumental', 'Cover', 'Separar pistas'] },
