@@ -203,3 +203,12 @@ test('dropped files go to references or to the audio/video source by type, with 
   expect(droppedKind(file('clip.mkv'))).toBe('media')
   expect(droppedKind(file('notes.pdf', 'application/pdf'))).toBeNull()
 })
+
+test('the Escalar mode sends the source clip to FlashVSR, never through the IA pass', async () => {
+  const clip = { uri: 'artifact://s/videos/clip.mp4', sha256: 'c' }
+  const up = (values: Record<string, string>) => base({ kind: 'video', prompt: '', modelId: 'kandinsky6', values: { mode: 'Escalar', ...values }, source: clip })
+  expect(requests(up({}))).toEqual([{ path: '/v1/jobs/upscale', operation: 'upscale', body: expect.objectContaining({ video: clip, scale: 2, quality: 'fast' }) }])
+  expect(requests(up({ scale: '×4', finish: 'Calidad' }))[0].body).toMatchObject({ scale: 4, quality: 'quality' })
+  vi.stubGlobal('visualLab', { agent: { improve: async () => { throw new Error('no') } } })
+  expect(await improve(up({}))).toMatchObject({ prompt: '' })
+})

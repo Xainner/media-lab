@@ -175,7 +175,8 @@ export default function Lab({ current, health, groups, onLogout, classic, tone }
   const openApp = (id: AppId) => {
     if (id === 'cover') { setSeed({ kind: 'audio', prompt: '', mode: 'Cover', nonce: Date.now() }); navigate('/audio') }
     else if (id === 'camera') { setSeed({ kind: 'image', prompt: '', mode: 'Ángulo', nonce: Date.now() }); navigate('/image') }
-    else navigate(({ musicvideo: '/director', character: '/characters', upscale: '/library', agent: '/agent' } as const)[id], id === 'upscale' ? { state: { kind: 'videos' } } : undefined)
+    else if (id === 'upscale') { setSeed({ kind: 'video', prompt: '', mode: 'Escalar', nonce: Date.now() }); navigate('/video') }
+    else navigate(({ musicvideo: '/director', character: '/characters', agent: '/agent' } as const)[id])
   }
   const wantedKind = (useLocation().state as { kind?: string } | null)?.kind
   const scroller = useRef<HTMLDivElement>(null)
