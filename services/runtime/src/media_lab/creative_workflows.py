@@ -768,8 +768,15 @@ def ace_tempo(style: str) -> tuple[int, str]:
     return (min(240, max(40, int(bpm.group(1)))) if bpm else 110), (named if named in ACE_KEYS else "C major")
 
 
+def ace_caption(style: str) -> str:
+    """The style without the BPM and key it names: ACE-Step takes those as parameters, not caption tags."""
+    caption = re.sub(r"\b\d{2,3}\s*bpm\b|\b[A-G][#b]?\s*(?:major|minor|mayor|menor)\b", "", style, flags=re.I)
+    caption = re.sub(r"\s*,(\s*,)+", ",", caption)
+    return re.sub(r"\s{2,}", " ", caption).strip(" ,") or style
+
+
 def ace_step_workflow(style: str, lyrics: str, seconds: float, seed: int, bpm: int, key: str, language: str,
-                      fmt: str = "flac", quality: str | None = None) -> dict:
+                      fmt: str = "flac", quality: str | None = None, time_signature: str = "4") -> dict:
     graph = {
         "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": ACE_DIT, "weight_dtype": "default"}},
         "clip": {"class_type": "DualCLIPLoader", "inputs": {
@@ -778,7 +785,7 @@ def ace_step_workflow(style: str, lyrics: str, seconds: float, seed: int, bpm: i
         "shift": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["unet", 0], "shift": 3.0}},
         "music": {"class_type": "TextEncodeAceStepAudio1.5", "inputs": {
             "clip": ["clip", 0], "tags": style, "lyrics": lyrics, "seed": seed, "bpm": bpm, "duration": seconds,
-            "timesignature": "4", "language": language, "keyscale": key, "generate_audio_codes": True,
+            "timesignature": time_signature, "language": language, "keyscale": key, "generate_audio_codes": True,
             "cfg_scale": 2.0, "temperature": 0.85, "top_p": 0.9, "top_k": 0, "min_p": 0.0}},
         "negative": {"class_type": "ConditioningZeroOut", "inputs": {"conditioning": ["music", 0]}},
         "latent": {"class_type": "EmptyAceStep1.5LatentAudio", "inputs": {"seconds": seconds, "batch_size": 1}},
