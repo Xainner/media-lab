@@ -151,7 +151,7 @@ Commands:
 
 Options:
   --origin URL           Public HTTPS origin users open, e.g. https://media.example.com
-                         (a host name, optionally with :port; required on first install).
+                         (a host name or LAN IPv4, optionally with :port; required on first install).
   --models LIST          Comma-separated groups or a preset: minimal, recommended, all.
                          Dependencies are added automatically and groups add to the ones
                          installed before (nothing is deleted). Default: recommended.
@@ -339,13 +339,23 @@ has_group() { [[ " $MODEL_GROUPS " == *" $1 "* ]]; }
 # ---------------------------------------------------------------------------------------------
 # Origin
 # ---------------------------------------------------------------------------------------------
-ORIGIN_HOST="" ORIGIN_NETLOC=""
+ORIGIN_HOST="" ORIGIN_NETLOC="" ORIGIN_SAN=""
 parse_origin() {
   [[ $ORIGIN =~ ^https://([a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*)(:([0-9]+))?$ ]] \
-    || die "--origin must be an exact https origin with a lower-case host name, e.g. https://media.example.com (no path, no IP address)"
+    || die "--origin must be an exact https origin with a lower-case host name or IPv4 address, e.g. https://media.example.com (no path)"
   ORIGIN_HOST="${BASH_REMATCH[1]}"
   ORIGIN_NETLOC="${ORIGIN#https://}"
-  [[ ! $ORIGIN_HOST =~ ^[0-9.]+$ ]] || die "--origin needs a host name, not an IP address (add one to DNS or /etc/hosts)"
+  ORIGIN_SAN="DNS:$ORIGIN_HOST"
+  if [[ $ORIGIN_HOST =~ ^[0-9.]+$ ]]; then
+    # A LAN-only instance may be opened by its address; the certificate then names the IP.
+    local octet parts
+    IFS=. read -r -a parts <<<"$ORIGIN_HOST"
+    [[ ${#parts[@]} == 4 ]] || die "--origin has an invalid IPv4 address: $ORIGIN_HOST"
+    for octet in "${parts[@]}"; do
+      [[ $octet =~ ^(0|[1-9][0-9]{0,2})$ && $octet -le 255 ]] || die "--origin has an invalid IPv4 address: $ORIGIN_HOST"
+    done
+    ORIGIN_SAN="IP:$ORIGIN_HOST"
+  fi
 }
 
 ask_origin() {
@@ -353,7 +363,7 @@ ask_origin() {
     echo
     info "Media Lab is served over HTTPS at one exact origin: the address people type in the browser."
     info "Behind a reverse proxy use its public name (https://media.example.com); for direct LAN"
-    info "access use a name that resolves to this server plus the port (https://medialab.lan:$PORT)."
+    info "access use a name that resolves to this server, or its LAN IPv4, plus the port (https://medialab.lan:$PORT)."
     read -r -p "Public origin: " ORIGIN
   fi
   [[ -n $ORIGIN ]] || die "--origin is required on the first install (e.g. --origin https://media.example.com)"
@@ -595,7 +605,7 @@ cert_needs_issue() {
   local crt="$SECRETS_DIR/origin.crt"
   [[ -f $crt ]] || return 0
   openssl x509 -in "$crt" -noout -checkend $((30 * 86400)) >/dev/null || return 0
-  openssl x509 -in "$crt" -noout -ext subjectAltName 2>/dev/null | grep -qwF "DNS:$ORIGIN_HOST" || return 0
+  openssl x509 -in "$crt" -noout -ext subjectAltName 2>/dev/null | sed 's/IP Address:/IP:/g' | grep -qwF "$ORIGIN_SAN" || return 0
   return 1
 }
 
@@ -609,7 +619,7 @@ issue_cert() {
   (
     umask 077
     ext="$(mktemp)"
-    printf '%s\n' "subjectAltName=DNS:$ORIGIN_HOST,DNS:localhost" "basicConstraints=critical,CA:FALSE" \
+    printf '%s\n' "subjectAltName=$ORIGIN_SAN,DNS:localhost" "basicConstraints=critical,CA:FALSE" \
       "keyUsage=critical,digitalSignature,keyEncipherment" "extendedKeyUsage=serverAuth" \
       "subjectKeyIdentifier=hash" "authorityKeyIdentifier=keyid,issuer" >"$ext"
     [[ -s $dir/origin.key ]] || openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$dir/origin.key" 2>/dev/null
@@ -739,7 +749,7 @@ $comfy_common
       - $FUSED_DIR:/fused-models/diffusion_models:ro
       - $FUSED_DIR/minimax_h3/vae:/fused-models/vae:ro
     healthcheck:
-      test: [\"CMD\", \"curl\", \"-fsS\", \"--cacert\", \"/run/media-lab/origin-ca.crt\", \"--resolve\", \"$ORIGIN_HOST:$PORT:$resolve\", \"-H\", \"Host: $ORIGIN_NETLOC\", \"https://$ORIGIN_HOST:$PORT/health\"]
+      test: [\"CMD\", \"curl\", \"-fsS\", \"--cacert\", \"/run/media-lab/origin-ca.crt\", \"--connect-to\", \"$ORIGIN_HOST:$PORT:$resolve:$PORT\", \"-H\", \"Host: $ORIGIN_NETLOC\", \"https://$ORIGIN_HOST:$PORT/health\"]
   agent:
     environment:
       PUBLIC_ORIGIN: $ORIGIN

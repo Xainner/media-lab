@@ -15,9 +15,10 @@ for a new host. `README.md` explains the product and every option.
 2. **One Media Lab per host.** Compose project and container names are fixed. If a Media Lab
    stack already runs there (for example the reference host deployed with
    `deploy/media-lab.sh` and `deploy/.web.env`), stop and ask; the installer refuses anyway.
-3. **Choose the origin with the user**: the exact HTTPS address people will open, a host name
-   (not an IP), e.g. `https://media.example.com` behind their reverse proxy, or
-   `https://medialab.lan:8390` with `--listen 0.0.0.0` for direct LAN access.
+3. **Choose the origin with the user**: the exact HTTPS address people will open, a host name,
+   e.g. `https://media.example.com` behind their reverse proxy, or
+   `https://medialab.lan:8390` with `--listen 0.0.0.0` for direct LAN access. A LAN-only
+   instance may use the server's fixed IPv4 (`https://192.168.1.20:8390`) instead of a name.
 4. **Choose the model groups with the user.** Run `deploy/install.sh list-models` and show the
    table: sizes go from ~44 GB (`minimal`) to ~326 GB (`all`), ~230 GB for `recommended`.
 5. **Licences are the user's decision, not yours.** Tell the user which licences the chosen
