@@ -18,8 +18,9 @@ The web interface can remain in Spanish.
    the credential; store them accordingly and adapt the structure to your client.
 5. Reconnect the client after server updates to refresh cached instructions/tools.
    Have the agent read `capabilities` and `prompt_guide` before generation.
-6. Always use the public https URL, also from the local network: the server checks the
-   Host header and does not answer on IP addresses or other names.
+6. Always use the studio's exact https origin, also from the local network: the server
+   checks the Host header and does not answer on other names or addresses. A LAN-only
+   install whose origin is an IPv4 (`https://192.168.1.20:8390`) is reached at that address.
 
 The web page also offers copyable English **agent instructions** (no token inside) that
 explain the remote server and the file flow; paste them into the agent's own instructions.
@@ -102,8 +103,8 @@ not passwords, tokens or provider keys.
 
 ## Media and execution
 
-The server is remote: models, GPUs and encoders run on Saturno and agents install
-nothing. Files move by owned `{uri, sha256}` references.
+The server is remote: models, GPUs and encoders run on the studio's host and agents
+install nothing. Files move by owned `{uri, sha256}` references.
 
 **Sending files (0.10.0).** An LLM cannot practically write megabytes of base64 into a
 tool call and usually does not hold the Bearer token its client uses, so files travel
