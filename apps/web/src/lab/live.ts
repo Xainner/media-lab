@@ -8,7 +8,8 @@ export type LabJob = { id: string; status: string; pct: number; queue?: number; 
 export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; upscale: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
   flux3: boolean; kandinsky6: boolean; sound: Record<string, boolean>; speech: Record<string, boolean> }
 
-const operations: Record<Modality, string[]> = { image: ['generate', 'edit'], video: ['video', 'swap', 'face_refine', 'remove'], audio: ['song', 'stems', 'sound', 'speech'] }
+/** Job operations each composer view lists after a reload; every request() operation must appear here. */
+export const operations: Record<Modality, string[]> = { image: ['generate', 'edit'], video: ['video', 'swap', 'face_refine', 'remove', 'upscale'], audio: ['song', 'stems', 'sound', 'speech'] }
 const ACTIVE = ['queued', 'running']
 
 function modelLabel(job: Job & { request?: any }) {

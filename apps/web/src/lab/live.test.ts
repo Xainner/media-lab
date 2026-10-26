@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { droppedKind, improve, mentioned, requests, speechTags, withCharacters, type Submission } from './live'
+import { droppedKind, improve, mentioned, operations, requests, speechTags, withCharacters, type Submission } from './live'
 
 const ref = { uri: 'artifact://s/images/a.png', sha256: 'a' }
 const base = (patch: Partial<Submission>): Submission => ({ kind: 'image', prompt: 'un faro', modelId: 'qwen-quality', values: { aspect: '1:1', quality: 'Calidad' }, count: 1, refs: [], ...patch })
@@ -209,6 +209,8 @@ test('the Escalar mode sends the source clip to FlashVSR, never through the IA p
   const up = (values: Record<string, string>) => base({ kind: 'video', prompt: '', modelId: 'kandinsky6', values: { mode: 'Escalar', ...values }, source: clip })
   expect(requests(up({}))).toEqual([{ path: '/v1/jobs/upscale', operation: 'upscale', body: expect.objectContaining({ video: clip, scale: 2, quality: 'fast' }) }])
   expect(requests(up({ scale: '×4', finish: 'Calidad' }))[0].body).toMatchObject({ scale: 4, quality: 'quality' })
+  // Reloading the video view must keep listing (and following) upscale jobs.
+  expect(operations.video).toContain('upscale')
   vi.stubGlobal('visualLab', { agent: { improve: async () => { throw new Error('no') } } })
   expect(await improve(up({}))).toMatchObject({ prompt: '' })
 })
