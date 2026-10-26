@@ -1,6 +1,6 @@
 import AdvancedOptions from '../components/AdvancedOptions'
-const agentStates: Record<string,string> = {running:'Creando',recovering:'Recuperando',completed:'Completado',paused:'En pausa',failed:'Error',cancelled:'Cancelado',budget:'Límite alcanzado'}
-const toolNames: Record<string,string> = {generate_image:'Crear imagen',edit_image:'Editar imagen',generate_video:'Crear vídeo',generate_song:'Crear música',produce_music_video:'Producir videoclip'}
+const agentStates: Record<string,MessageKey> = {running:'agent.chat.state.running',recovering:'agent.chat.state.recovering',completed:'agent.chat.state.completed',paused:'agent.chat.state.paused',failed:'agent.chat.state.failed',cancelled:'agent.chat.state.cancelled',budget:'agent.chat.state.budget'}
+const toolNames: Record<string,MessageKey> = {generate_image:'agent.chat.tool.generateImage',edit_image:'agent.chat.tool.editImage',generate_video:'agent.chat.tool.generateVideo',generate_song:'agent.chat.tool.generateSong',produce_music_video:'agent.chat.tool.produceMusicVideo'}
 import MediaPreview from '../components/MediaPreview'
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles } from 'lucide-react'
@@ -9,6 +9,7 @@ import JobProgress from '../components/JobProgress'
 import { SemanticData } from '../components/SemanticData'
 import { CreativeResult } from './CreativeJob'
 import { Action } from '../components/Kit'
+import { t, type MessageKey } from '../../i18n'
 import { formatUploadErrors, newSession, runtime, uploadFiles, type ArtifactRef, type Job } from '../lib/api'
 
 function ImageResult({ media, job }: { media: ArtifactRef; job: any }) {
@@ -18,7 +19,7 @@ function ImageResult({ media, job }: { media: ArtifactRef; job: any }) {
     void window.visualLab.runtime.preview(media).then(value => { if (live) setPreview(value) }).catch(() => {})
     return () => { live = false }
   }, [media.uri, media.sha256])
-  return <div>{preview && <img src={preview} alt="Resultado generado" style={{ maxWidth: '100%' }} />}
+  return <div>{preview && <img src={preview} alt={t('agent.chat.resultAlt')} style={{ maxWidth: '100%' }} />}
     <ExportActions media={media} operation={job.operation === 'edit' ? 'edit' : 'generate'} seed={job.data?.seed ?? job.settings?.seed} />
   </div>
 }
@@ -102,13 +103,13 @@ export default function AgentView({ active }: { active: boolean }) {
   }
   return <div className="agent">
     <section className="agent-feed glass">
-      <div className="agent-feed-head"><div><p className="eyebrow">Agente externo · estudio completo</p><h2>Describe lo que quieres crear</h2></div><button className="ghost" disabled={busy} onClick={() => void clear()}>NUEVA SESIÓN</button></div>
-      {!ready && <div className="proposal"><p>Configura y prueba un proveedor con Chat Completions y herramientas en Proveedores IA. Los modos directos siguen disponibles.</p><button onClick={() => {
+      <div className="agent-feed-head"><div><p className="eyebrow">{t('agent.chat.eyebrow')}</p><h2>{t('agent.chat.heading')}</h2></div><button className="ghost" disabled={busy} onClick={() => void clear()}>{t('agent.chat.newSession')}</button></div>
+      {!ready && <div className="proposal"><p>{t('agent.chat.providerMissing')}</p><button onClick={() => {
         setSending(true); void window.visualLab.provider.test().then(() => window.visualLab.provider.get()).then(setProvider).catch(e => setError(String(e))).finally(() => setSending(false))
-      }} disabled={sending}>PROBAR PROVEEDOR</button></div>}
-      {ready && !provider?.capabilities?.vision && <p className="hint">Herramientas disponibles. Revisión visual desactivada: el proveedor no admite visión.</p>}
+      }} disabled={sending}>{t('agent.chat.testProvider')}</button></div>}
+      {ready && !provider?.capabilities?.vision && <p className="hint">{t('agent.chat.noVision')}</p>}
       <div className="messages">
-        {!legacy.length && !runs.length && <div className="agent-hello"><div><b>Encadena el Lab con un mensaje</b><p>Pide una imagen, una edición con tus referencias, un vídeo con sonido, una canción o un videoclip completo. El agente elige las herramientas, escribe los prompts y te enseña cada paso.</p></div></div>}
+        {!legacy.length && !runs.length && <div className="agent-hello"><div><b>{t('agent.chat.helloTitle')}</b><p>{t('agent.chat.helloBody')}</p></div></div>}
         {legacy.filter(m => m.role !== 'tool' && (!runs.length || m.created_at < runs[0].createdAt / 1000)).map((m, i) => <div className={`message ${m.role}`} key={`legacy-${i}`}>{m.role === 'assistant' && <Avatar/>}<div className="bubble"><p>{m.content}</p>
           {(m.media || []).map((media: ArtifactRef) => /\/(images|references)\//.test(media.uri)
             ? <ImageResult key={media.uri} media={media} job={{}} /> : <CreativeResult key={media.uri} media={media} />)}
@@ -116,51 +117,51 @@ export default function AgentView({ active }: { active: boolean }) {
         {runs.map(run => <div className="run" key={run.id}>
           <div className="message user"><div className="bubble"><p style={{ whiteSpace: 'pre-wrap' }}>{run.request}</p></div></div>
           <div className="message assistant"><Avatar live={['running', 'recovering'].includes(run.status)}/><div className="bubble">
-            <div className="run-meta"><span className={`status-badge status-${run.status}`}>{agentStates[run.status]||run.status}</span><small>{run.turns.length} pasos creativos</small></div>
+            <div className="run-meta"><span className={`status-badge status-${run.status}`}>{agentStates[run.status] ? t(agentStates[run.status]) : run.status}</span><small>{t('agent.chat.steps', { count: run.turns.length })}</small></div>
             {(run.notices || []).map((notice: string) => <p className="hint" key={notice}>{notice}</p>)}
-            {run.turns.length > 0 && <ol className="agent-steps">{run.turns.map((turn: any, index: number) => <li key={turn.id} className={turn.status === 'done' ? 'is-done' : 'is-live'}><details className="agent-step"><summary>Paso {index + 1} · {toolNames[turn.tool]||turn.tool.replaceAll('_',' ')} · {turn.status === 'done' ? 'Completado' : 'En proceso'}</summary><label>INSTRUCCIONES Y PROMPT UTILIZADO</label><SemanticData value={turn.arguments}/>{turn.result && <><label>RESULTADO</label><SemanticData value={turn.result}/></>}</details></li>)}</ol>}
+            {run.turns.length > 0 && <ol className="agent-steps">{run.turns.map((turn: any, index: number) => <li key={turn.id} className={turn.status === 'done' ? 'is-done' : 'is-live'}><details className="agent-step"><summary>{t('agent.chat.step', { n: index + 1, tool: toolNames[turn.tool] ? t(toolNames[turn.tool]) : turn.tool.replaceAll('_',' '), status: t(turn.status === 'done' ? 'agent.chat.stepDone' : 'agent.chat.stepLive') })}</summary><label>{t('agent.chat.stepArguments')}</label><SemanticData value={turn.arguments}/>{turn.result && <><label>{t('agent.chat.stepResult')}</label><SemanticData value={turn.result}/></>}</details></li>)}</ol>}
             {Object.values(run.jobs).filter((j: any) => j.runId === run.id).map((j: any) => <div className="run-job" key={j.id}>
               <JobProgress job={{ ...j, session_id: run.session, activity: [], result: { media: j.media || [], data: {} } } as Job} onCancel={() => void action('cancel', run.id, j.id)} />
               {(j.media || []).map((media: ArtifactRef) => /\/(images|references)\//.test(media.uri) ? <ImageResult key={media.uri} media={media} job={j} /> : <CreativeResult key={media.uri} media={media} />)}
               {j.error && <p className="error">{j.error}</p>}
             </div>)}
             {run.final && <div className="run-final"><SemanticData value={run.final}/></div>}{run.error && <p className="error">{run.error}</p>}
-            {run.exported?.path && <p>Guardado: {run.exported.path} <button onClick={() => void window.visualLab.export.showInFolder(run.exported.path)}>MOSTRAR EN CARPETA</button></p>}
-            {run.exported?.prepared && <div><p>Exportación preparada. Pulsa Descargar para solicitarla al navegador; aún no se ha guardado en tu equipo.</p>
+            {run.exported?.path && <p>{t('agent.chat.saved', { path: run.exported.path })} <button onClick={() => void window.visualLab.export.showInFolder(run.exported.path)}>{t('agent.chat.showInFolder')}</button></p>}
+            {run.exported?.prepared && <div><p>{t('agent.chat.exportPrepared')}</p>
               {/\/(images|references)\//.test(run.exported.download.media.uri)
                 ? <ExportActions media={run.exported.download.media} /> : <CreativeResult media={run.exported.download.media} />}
             </div>}
             <div className="button-row">
-              {['running', 'recovering'].includes(run.status) && <button className="danger" onClick={() => void action('cancel', run.id)}>CANCELAR EJECUCIÓN</button>}
-              {['paused', 'failed', 'budget'].includes(run.status) && <button disabled={busy || !ready} onClick={() => void action('continue', run.id)}>CONTINUAR SOLICITUD AUTORIZADA</button>}
+              {['running', 'recovering'].includes(run.status) && <button className="danger" onClick={() => void action('cancel', run.id)}>{t('agent.chat.cancelRun')}</button>}
+              {['paused', 'failed', 'budget'].includes(run.status) && <button disabled={busy || !ready} onClick={() => void action('continue', run.id)}>{t('agent.chat.continueRun')}</button>}
             </div>
           </div></div>
         </div>)}
       </div>
       <div className="composer">
-        <label htmlFor="agent-request" className="field-label">SOLICITUD</label>
-        <textarea id="agent-request" rows={4} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void send() } }} placeholder="Crea una imagen, edita referencias, genera vídeo o música, o produce un videoclip…" />
-        {refs.length > 0 && <div className="refs">{refs.map((ref, index) => <div className={`ref ${index === 0 ? 'is-target' : ''}`} key={`${ref.uri}-${index}`}><MediaPreview media={ref} label={`Referencia ${index+1}`}/><span className="ref-tag">{index === 0 ? 'Objetivo' : `Ref ${index + 1}`}</span>
-          <div className="ref-tools"><button aria-label={`Mover referencia ${index + 1} antes`} disabled={!index} onClick={() => setRefs(current => { const copy = [...current]; [copy[index - 1], copy[index]] = [copy[index], copy[index - 1]]; return copy })}>↑</button>
-          <button aria-label={`Mover referencia ${index + 1} después`} disabled={index === refs.length - 1} onClick={() => setRefs(current => { const copy = [...current]; [copy[index + 1], copy[index]] = [copy[index], copy[index + 1]]; return copy })}>↓</button>
-          <button className="danger" aria-label={`Quitar referencia ${index + 1}`} onClick={() => setRefs(current => current.filter((_, i) => i !== index))}>×</button></div>
+        <label htmlFor="agent-request" className="field-label">{t('agent.chat.requestLabel')}</label>
+        <textarea id="agent-request" rows={4} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void send() } }} placeholder={t('agent.chat.requestPlaceholder')} />
+        {refs.length > 0 && <div className="refs">{refs.map((ref, index) => <div className={`ref ${index === 0 ? 'is-target' : ''}`} key={`${ref.uri}-${index}`}><MediaPreview media={ref} label={t('agent.chat.refLabel', { n: index + 1 })}/><span className="ref-tag">{index === 0 ? t('agent.chat.refTarget') : t('agent.chat.refTag', { n: index + 1 })}</span>
+          <div className="ref-tools"><button aria-label={t('agent.chat.refMoveUp', { n: index + 1 })} disabled={!index} onClick={() => setRefs(current => { const copy = [...current]; [copy[index - 1], copy[index]] = [copy[index], copy[index - 1]]; return copy })}>↑</button>
+          <button aria-label={t('agent.chat.refMoveDown', { n: index + 1 })} disabled={index === refs.length - 1} onClick={() => setRefs(current => { const copy = [...current]; [copy[index + 1], copy[index]] = [copy[index], copy[index + 1]]; return copy })}>↓</button>
+          <button className="danger" aria-label={t('agent.chat.refRemove', { n: index + 1 })} onClick={() => setRefs(current => current.filter((_, i) => i !== index))}>×</button></div>
         </div>)}</div>}
         <div className="composer-bar">
-          <label className="btn ghost composer-attach" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!uploading)void upload(Array.from(e.dataTransfer.files))}}>{uploading ? 'Subiendo…' : '+ Imágenes'}<input hidden type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={uploading || refs.length >= 16} onChange={e => { void upload(Array.from(e.target.files || [])); e.target.value = '' }} /></label>
-          <button className="ghost" disabled={uploading || refs.length >= 16} onClick={() => void audio()}>ADJUNTAR AUDIO</button>
-          <span className="composer-hint">Ctrl + Enter para enviar</span>
-          <Action disabled={!ready || busy || uploading || !input.trim()} onClick={() => void send()}>{busy ? 'EJECUTANDO…' : 'ENVIAR Y EJECUTAR'}</Action>
+          <label className="btn ghost composer-attach" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!uploading)void upload(Array.from(e.dataTransfer.files))}}>{uploading ? t('agent.chat.uploading') : t('agent.chat.addImages')}<input hidden type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={uploading || refs.length >= 16} onChange={e => { void upload(Array.from(e.target.files || [])); e.target.value = '' }} /></label>
+          <button className="ghost" disabled={uploading || refs.length >= 16} onClick={() => void audio()}>{t('agent.chat.attachAudio')}</button>
+          <span className="composer-hint">{t('agent.chat.sendHint')}</span>
+          <Action disabled={!ready || busy || uploading || !input.trim()} onClick={() => void send()}>{busy ? t('agent.chat.running') : t('agent.chat.send')}</Action>
         </div>
         {error && <p className="error">{error}</p>}
       </div>
     </section>
     <aside className="agent-side">
       <div className="glass agent-panel">
-        <h3>Desde tu biblioteca</h3>
-        <div className="search-row"><input aria-label="Buscar biblioteca" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void searchLibrary() }} placeholder="Buscar imágenes, canciones, vídeos…" /><button onClick={() => void searchLibrary()}>BIBLIOTECA</button></div>
-        {showLibrary && <div className="agent-library">{library.map(item => <button className="agent-library-card" key={item.uri} disabled={refs.length >= 16} onClick={() => { setRefs(current => [...current, item].slice(0, 16)); setShowLibrary(false) }}><MediaPreview media={item}/><span>{(item as any).title || (item as any).prompt || 'Referencia multimedia'}</span></button>)}</div>}
-        <p className="hint">Al enviar, autorizas al agente a ejecutar tu idea con tus herramientas multimedia.</p>
-        <AdvancedOptions title="Qué se comparte y cómo trabaja el agente"><p className="hint">Enviar autoriza ejecutar tu solicitud y adaptar los prompts. El proveedor recibe texto y previews reducidas; audio sólo como análisis técnico. No hay correcciones automáticas. Perfil predeterminado: BF16 · 40 pasos · ~1 MP.</p></AdvancedOptions>
+        <h3>{t('agent.chat.libraryHeading')}</h3>
+        <div className="search-row"><input aria-label={t('agent.chat.librarySearchLabel')} value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void searchLibrary() }} placeholder={t('agent.chat.librarySearchPlaceholder')} /><button onClick={() => void searchLibrary()}>{t('agent.chat.libraryButton')}</button></div>
+        {showLibrary && <div className="agent-library">{library.map(item => <button className="agent-library-card" key={item.uri} disabled={refs.length >= 16} onClick={() => { setRefs(current => [...current, item].slice(0, 16)); setShowLibrary(false) }}><MediaPreview media={item}/><span>{(item as any).title || (item as any).prompt || t('agent.chat.libraryItemFallback')}</span></button>)}</div>}
+        <p className="hint">{t('agent.chat.authorizeHint')}</p>
+        <AdvancedOptions title={t('agent.chat.sharingTitle')}><p className="hint">{t('agent.chat.sharingBody')}</p></AdvancedOptions>
       </div>
     </aside>
   </div>

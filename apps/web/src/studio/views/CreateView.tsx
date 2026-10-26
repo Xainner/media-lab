@@ -8,6 +8,7 @@ import GenerationCanvas, { aspectFromRatio } from '../components/GenerationCanva
 import { Action, Actions, EmptyStage, Step, Tool } from '../components/Kit'
 import { ImageModelPicker, PrecisionSelect, TURBO_FIXED, useImageModel, variantLabel, variantOptions } from '../components/ImageModel'
 import { cancelJob, clearRecoveryValue, enhancePrompt, getEnhancerMode, isAbortError, runtime, waitJob, type ArtifactRef, type EnhancerMode, type Job } from '../lib/api'
+import { t, type MessageKey } from '../../i18n'
 
 type AspectPreset = { id: string; label: string; orientation: string; width: number; height: number }
 const FALLBACK_PRESETS: AspectPreset[] = [
@@ -21,6 +22,13 @@ const FALLBACK_PRESETS: AspectPreset[] = [
   { id: '5:4', label: 'Social horizontal', orientation: 'landscape', width: 1120, height: 896 },
   { id: '4:5', label: 'Social vertical', orientation: 'portrait', width: 896, height: 1120 },
 ]
+// The runtime sends Spanish preset names; known ratios are shown in the active language, unknown ones as received.
+const PRESET_LABELS: Record<string, MessageKey> = {
+  '1:1': 'studio.create.preset.square', '16:9': 'studio.create.preset.landscape', '9:16': 'studio.create.preset.story',
+  '4:3': 'studio.create.preset.classicLandscape', '3:4': 'studio.create.preset.classicPortrait', '3:2': 'studio.create.preset.photoLandscape',
+  '2:3': 'studio.create.preset.photoPortrait', '5:4': 'studio.create.preset.socialLandscape', '4:5': 'studio.create.preset.socialPortrait',
+}
+const presetLabel = (p: AspectPreset) => PRESET_LABELS[p.id] ? t(PRESET_LABELS[p.id]) : p.label
 
 export default function CreateView({ active }: { active: boolean }) {
   const modelOptions = useModelOptions()
@@ -116,13 +124,13 @@ export default function CreateView({ active }: { active: boolean }) {
     try {
       const requestedSeed = seed.trim() ? Number(seed) : null
       if (!compare && requestedSeed !== null && (!Number.isSafeInteger(requestedSeed) || requestedSeed < 0)) {
-        throw new Error('La seed debe ser un entero entre 0 y 9007199254740991.')
+        throw new Error(t('studio.create.seedInvalid'))
       }
       let finalPrompt = prompt.trim()
       if (!compare && !skipEnhance && enhancer === 'external') {
         setEnhancing(true)
         try { finalPrompt = (await enhancePrompt(enhancer, finalPrompt, 't2i')).trim() || finalPrompt }
-        catch (error: any) { throw new Error(`No se pudo mejorar el prompt (proveedor externo): ${error.message}`) }
+        catch (error: any) { throw new Error(t('studio.shared.enhanceFailed', { message: error.message })) }
         finally { setEnhancing(false) }
         if (controller.signal.aborted) return
         setUsedPrompt(finalPrompt)
@@ -160,7 +168,7 @@ export default function CreateView({ active }: { active: boolean }) {
     setCancelError('')
     setCancelling(true)
     try { await cancelJob(id) }
-    catch (error: any) { setCancelError(`No se pudo cancelar: ${error.message}`) }
+    catch (error: any) { setCancelError(t('studio.shared.cancelFailed', { message: error.message })) }
     finally { setCancelling(false) }
   }
 
@@ -168,51 +176,51 @@ export default function CreateView({ active }: { active: boolean }) {
   const blocked = !!optionError || !prompt.trim() || recovering || enhancing || busyJob
   const preset = presets.find(p => p.id === ratio)
   return <Tool console={<>
-    <Step n="01" title="Describe tu imagen" hint="Cuanto más concreto, mejor: sujeto, composición, luz, materiales y texto visible entre comillas.">
-      <label htmlFor="create-prompt" className="field-label">DESCRIPCIÓN</label>
-      <textarea id="create-prompt" className="prompt-input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Una ilustración nocturna de una ciudad flotante sobre nubes violetas, con un letrero que dice “Abierto”…" rows={7} />
-      <div className="prompt-meta"><span>{prompt.trim() ? prompt.trim().split(/\s+/).length : 0} palabras</span>{enhancer === 'external' && <span className="tag">Mejora automática activa</span>}</div>
+    <Step n="01" title={t('studio.create.describeTitle')} hint={t('studio.create.describeHint')}>
+      <label htmlFor="create-prompt" className="field-label">{t('studio.create.promptLabel')}</label>
+      <textarea id="create-prompt" className="prompt-input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={t('studio.create.promptPlaceholder')} rows={7} />
+      <div className="prompt-meta"><span>{t('studio.create.words', { count: prompt.trim() ? prompt.trim().split(/\s+/).length : 0 })}</span>{enhancer === 'external' && <span className="tag">{t('studio.create.autoEnhanceOn')}</span>}</div>
       {enhancer === 'manual' && <PromptEnhancePanel prompt={prompt} onAccept={setPrompt} mode="t2i" onAspectRatio={value => { if (presets.some(p => p.id === value)) setRatio(value) }} />}
     </Step>
-    <Step n="02" title="Formato y orientación" aside={preset ? `${preset.width}×${preset.height}` : undefined}>
+    <Step n="02" title={t('studio.create.formatTitle')} aside={preset ? `${preset.width}×${preset.height}` : undefined}>
       <div className="aspect-grid">{presets.map(p => <button type="button" key={p.id} className={`aspect-card ${ratio === p.id ? 'is-on' : ''}`} aria-pressed={ratio === p.id} onClick={() => setRatio(p.id)}>
         <i style={{ aspectRatio: p.id.replace(':', ' / ') }} />
-        <span><b>{p.label}</b><small>{p.id}</small></span>
+        <span><b>{presetLabel(p)}</b><small>{p.id}</small></span>
       </button>)}</div>
     </Step>
-    <Step n="03" title="Calidad y modelo" aside={turbo ? '8 pasos' : undefined}>
+    <Step n="03" title={t('studio.create.qualityTitle')} aside={turbo ? t('studio.shared.steps8') : undefined}>
       <ImageModelPicker state={model} />
-      {turbo && <p className="hint">Turbo usa su propio calendario fijo de 8 pasos: mismas instrucciones, resultado en segundos. Para el máximo detalle vuelve a Qwen 2.1.</p>}
+      {turbo && <p className="hint">{t('studio.create.turboHint')}</p>}
       <div className="field-row">
-        {!turbo && <label>Calidad de generación<select aria-label="Calidad de generación" value={quality} onChange={e => setQuality(e.target.value)}><option value="draft">Borrador · 25 pasos · más rápido</option><option value="quality">Calidad · 40 pasos · más detalle</option></select></label>}
-        <label>Resolución<select aria-label="Resolución" value={twoK ? tier : '1mp'} onChange={e => setTier(e.target.value)}><option value="1mp">1 MP</option>{twoK && precision === 'int8' && <option value="2k">2K nativo · experimental</option>}</select></label>
+        {!turbo && <label>{t('studio.shared.qualityLabel')}<select aria-label={t('studio.shared.qualityLabel')} value={quality} onChange={e => setQuality(e.target.value)}><option value="draft">{t('studio.create.qualityDraft')}</option><option value="quality">{t('studio.create.qualityFull')}</option></select></label>}
+        <label>{t('studio.shared.resolution')}<select aria-label={t('studio.shared.resolution')} value={twoK ? tier : '1mp'} onChange={e => setTier(e.target.value)}><option value="1mp">1 MP</option>{twoK && precision === 'int8' && <option value="2k">{t('studio.create.native2k')}</option>}</select></label>
       </div>
       <AdvancedOptions>
         <div className="field-row">
           <PrecisionSelect state={model} onChange={value => { if (value === 'bf16') setTier('1mp') }} />
-          <label>Semilla · opcional<input aria-label="Semilla" type="number" min="0" max="9007199254740991" value={seed} onChange={e => setSeed(e.target.value)} placeholder="Aleatoria" /></label>
+          <label>{t('studio.create.seedLabel')}<input aria-label={t('studio.create.seedAria')} type="number" min="0" max="9007199254740991" value={seed} onChange={e => setSeed(e.target.value)} placeholder={t('studio.create.seedPlaceholder')} /></label>
         </div>
-        <label className="toggle"><input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} /><i /> Salida RGBA transparente</label>
+        <label className="toggle"><input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} /><i /> {t('studio.create.transparent')}</label>
       </AdvancedOptions>
       <ModelOptions state={modelOptions} kind="image" omit={turbo ? TURBO_FIXED : []}/>
-      <p className="hint">{modelOptions.catalog?.notes.image}{!turbo && modelOptions.values.steps ? ` Pasos efectivos: ${modelOptions.values.steps}.` : ''}</p>
+      <p className="hint">{modelOptions.catalog?.notes.image}{!turbo && modelOptions.values.steps ? t('studio.create.effectiveSteps', { steps: modelOptions.values.steps }) : ''}</p>
     </Step>
     {optionError && <p className="error" role="alert">{optionError}</p>}
-    <Actions note={enhancer === 'external' ? 'Al generar, el prompt se envía al proveedor externo para mejorarlo.' : enhancer === 'off' ? 'Se genera con el prompt exacto.' : 'Generar directamente no envía el prompt al proveedor externo. La mejora manual sí lo hace, sólo al pulsarla.'}>
-      <Action onClick={() => void generate()} disabled={blocked}>{enhancing ? 'MEJORANDO PROMPT…' : 'GENERAR'}</Action>
-      {enhancer === 'external' && <button className="ghost" onClick={() => void generate(false, true)} disabled={blocked}>GENERAR SIN MEJORA</button>}
+    <Actions note={t(enhancer === 'external' ? 'studio.create.noteExternal' : enhancer === 'off' ? 'studio.create.noteOff' : 'studio.create.noteManual')}>
+      <Action onClick={() => void generate()} disabled={blocked}>{enhancing ? t('studio.shared.enhancing') : t('studio.create.generate')}</Action>
+      {enhancer === 'external' && <button className="ghost" onClick={() => void generate(false, true)} disabled={blocked}>{t('studio.create.generateRaw')}</button>}
     </Actions>
   </>} stage={<>
-    {!job && !media && <EmptyStage pose="paint" title="El lienzo está listo">Describe tu idea y pulsa Generar. Verás la imagen tomar forma aquí, en vivo.</EmptyStage>}
+    {!job && !media && <EmptyStage pose="paint" title={t('studio.create.emptyTitle')}>{t('studio.create.emptyBody')}</EmptyStage>}
     <GenerationCanvas job={job} aspect={aspectFromRatio(ratio)} />
     <JobProgress job={job} onCancel={cancel} actionError={cancelError} cancelDisabled={cancelling} />
-    {usedPrompt && <div className="proposal"><label>PROMPT MEJORADO USADO</label><p className="proposal-text">{usedPrompt}</p></div>}
-    {media && <><p className="eyebrow">Resultado {variantLabel(meta?.model_variant)} · {meta?.model_precision?.toUpperCase()}</p><ArtifactResult media={media} meta={meta} fresh />
+    {usedPrompt && <div className="proposal"><label>{t('studio.shared.usedPrompt')}</label><p className="proposal-text">{usedPrompt}</p></div>}
+    {media && <><p className="eyebrow">{t('studio.create.result', { variant: variantLabel(meta?.model_variant), precision: meta?.model_precision?.toUpperCase() ?? '' })}</p><ArtifactResult media={media} meta={meta} fresh />
       {!comparison && <div className="button-row">
-        {comparisonRequest('variant') && <button className="ghost" onClick={() => void generate('variant')} disabled={recovering || busyJob}>COMPARAR CON {meta?.model_variant === 'turbo' ? 'QWEN 2.1' : 'TURBO'} · MISMA SEED</button>}
-        {comparisonRequest('precision') && <button className="ghost" onClick={() => void generate('precision')} disabled={recovering || busyJob}>COMPARAR CON {meta?.model_precision === 'bf16' ? 'INT8' : 'BF16'} · MISMO PROMPT Y SEED</button>}
+        {comparisonRequest('variant') && <button className="ghost" onClick={() => void generate('variant')} disabled={recovering || busyJob}>{t('studio.create.compareVariant', { model: meta?.model_variant === 'turbo' ? 'QWEN 2.1' : 'TURBO' })}</button>}
+        {comparisonRequest('precision') && <button className="ghost" onClick={() => void generate('precision')} disabled={recovering || busyJob}>{t('studio.create.comparePrecision', { precision: meta?.model_precision === 'bf16' ? 'INT8' : 'BF16' })}</button>}
       </div>}
     </>}
-    {comparison && <><p className="eyebrow">Comparación {variantLabel(comparison.meta?.model_variant)} · {comparison.meta?.model_precision?.toUpperCase()}</p><ArtifactResult media={comparison.media} meta={comparison.meta} fresh /></>}
+    {comparison && <><p className="eyebrow">{t('studio.create.comparison', { variant: variantLabel(comparison.meta?.model_variant), precision: comparison.meta?.model_precision?.toUpperCase() ?? '' })}</p><ArtifactResult media={comparison.media} meta={comparison.meta} fresh /></>}
   </>} />
 }

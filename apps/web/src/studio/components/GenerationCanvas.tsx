@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ANIMATION_EVENT, getAnimationMode, type AnimationMode, type Job } from '../lib/api'
+import { t } from '../../i18n'
 
 export function useAnimationMode(): AnimationMode {
   const [mode, setMode] = useState<AnimationMode>(getAnimationMode)
@@ -45,7 +46,7 @@ export default function GenerationCanvas({ job, aspect = 1 }: { job: Job | null;
   const queued = job.status === 'queued'
   const blur = Math.round(22 - pct * 0.2)
   const ratio = Math.min(2.4, Math.max(0.42, aspect || 1))
-  const label = queued ? `En cola · posición ${job.queue_position ?? 0}` : pct > 0 ? 'Creando imagen' : 'Preparando el lienzo'
+  const label = queued ? t('shell.canvas.queued', { position: job.queue_position ?? 0 }) : pct > 0 ? t('shell.canvas.creating') : t('shell.canvas.preparing')
 
   return (
     <div className="gen-canvas" style={{ aspectRatio: String(ratio) }}>

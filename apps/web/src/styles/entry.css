@@ -61,3 +61,4 @@ html.motion-off .entry-column { animation: none; }
   .entry-wall { left: -10%; right: -10%; top: -20%; grid-template-columns: repeat(3, 1fr); }
   .entry-column:nth-child(4) { display: none; }
 }
+.entry-language { justify-self: start; margin-top: -8px; }

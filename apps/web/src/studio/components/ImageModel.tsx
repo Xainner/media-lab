@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { runtime } from '../lib/api'
+import { t } from '../../i18n'
 import { Segmented } from './Kit'
 
 export type Variant = 'base' | 'turbo'
@@ -55,15 +56,15 @@ export const variantLabel = (variant?: string) => variant === 'turbo' ? 'Turbo' 
 
 export function ImageModelPicker({ state }: { state: ImageModelState }) {
   if (!state.turboReady) return null
-  return <Segmented<Variant> label="Modelo de imagen" value={state.variant} onChange={state.setVariant} options={[
-    { value: 'base', label: 'Qwen 2.1', hint: 'Máxima calidad · 25–40 pasos' },
-    { value: 'turbo', label: 'Turbo', hint: 'Rápido · 8 pasos' },
+  return <Segmented<Variant> label={t('shell.imageModel.label')} value={state.variant} onChange={state.setVariant} options={[
+    { value: 'base', label: 'Qwen 2.1', hint: t('shell.imageModel.baseHint') },
+    { value: 'turbo', label: 'Turbo', hint: t('shell.imageModel.turboHint') },
   ]} />
 }
 
 export function PrecisionSelect({ state, onChange }: { state: ImageModelState; onChange?: (value: Precision) => void }) {
-  return <label>Pesos de difusión<select aria-label="Precisión del modelo" value={state.precision} onChange={e => { state.setPrecision(e.target.value as Precision); onChange?.(e.target.value as Precision) }}>
-    <option value="int8">INT8 · actual</option>
-    {state.bf16 && <option value="bf16">BF16 · experimental</option>}
+  return <label>{t('shell.imageModel.weights')}<select aria-label={t('shell.imageModel.precision')} value={state.precision} onChange={e => { state.setPrecision(e.target.value as Precision); onChange?.(e.target.value as Precision) }}>
+    <option value="int8">{t('shell.imageModel.int8')}</option>
+    {state.bf16 && <option value="bf16">{t('shell.imageModel.bf16')}</option>}
   </select></label>
 }

@@ -7,6 +7,7 @@ import { useCreativeJob } from '../studio/views/CreativeJob'
 import { lipSyncTemplate } from '../studio/lib/h3'
 import { useCaps, useLibrary, useMediaSrc, useProvider } from './live'
 import type { Art } from './data'
+import { t } from '../i18n'
 
 type Scene = { start: number; end: number; image_prompt: string; video_prompt: string; lip_sync?: boolean }
 const JOB_KEY = 'media-lab:production-job'
@@ -20,7 +21,7 @@ function Choice({ label, options, value, onChange }: { label: string; options: [
 function SongCard({ item, on, onPick }: { item: Art; on: boolean; onPick: () => void }) {
   return <button type="button" className={`ml-song ${on ? 'is-on' : ''}`} onClick={onPick} aria-pressed={on}>
     <span className="ml-song-icon">{on ? <Check size={16} /> : <AudioLines size={16} />}</span>
-    <span><b>{item.prompt || 'Canción sin título'}</b><small>{item.model}</small></span>
+    <span><b>{item.prompt || t('lab.director.untitledSong')}</b><small>{item.model}</small></span>
   </button>
 }
 
@@ -34,7 +35,7 @@ function Result({ job }: { job: any }) {
   const master = job.result?.media?.[1]
   return <div className="ml-director-result">
     {video && <video src={video} controls playsInline />}
-    {master && <button type="button" className="ml-btn is-accent" onClick={() => void window.visualLab.runtime.saveMedia(master.uri)}><Download size={15} />Exportar master con audio original</button>}
+    {master && <button type="button" className="ml-btn is-accent" onClick={() => void window.visualLab.runtime.saveMedia(master.uri)}><Download size={15} />{t('lab.director.exportMaster')}</button>}
   </div>
 }
 
@@ -68,7 +69,7 @@ export default function Director({ incoming }: { incoming: ArtifactRef | null })
     try {
       const r = await window.visualLab.runtime.uploadMedia(newSession())
       if (!r) return
-      if (!/\.(wav|flac|mp3|opus|ogg)$/i.test(r.data.uri)) throw new Error('Elige un archivo de audio.')
+      if (!/\.(wav|flac|mp3|opus|ogg)$/i.test(r.data.uri)) throw new Error(t('lab.director.pickAudio'))
       await pick(r.data)
     } catch (e) { setError(String(e)) }
   }
@@ -87,42 +88,42 @@ export default function Director({ incoming }: { incoming: ArtifactRef | null })
   }
   const resume = () => { const id = job?.id || job?.job_id; if (id) void state.submit(`/v1/jobs/${id}/resume`, undefined) }
   const duration = Number(analysis?.duration) || 0
-  const pct = (t: number) => duration ? `${Math.max(0, Math.min(100, t / duration * 100))}%` : '0%'
+  const pct = (time: number) => duration ? `${Math.max(0, Math.min(100, time / duration * 100))}%` : '0%'
   const sections: any[] = Array.isArray(analysis?.sections) ? analysis.sections : []
   const all = [...songs.items, ...uploads.items]
   return <div className="ml-page ml-director">
     <header className="ml-page-head">
-      <div><small className="ml-kicker">De tu canción a un videoclip</small><h1>Director</h1></div>
-      <Link to="/advanced/director" className="ml-more">Ajustes avanzados</Link>
+      <div><small className="ml-kicker">{t('lab.director.kicker')}</small><h1>{t('lab.tabs.director')}</h1></div>
+      <Link to="/advanced/director" className="ml-more">{t('lab.director.advanced')}</Link>
     </header>
 
     <section className="ml-step">
-      <header><b>01</b><h2>La canción</h2><button type="button" className="ml-btn" onClick={() => void upload()}><Upload size={15} />Subir canción</button></header>
+      <header><b>01</b><h2>{t('lab.director.songStep')}</h2><button type="button" className="ml-btn" onClick={() => void upload()}><Upload size={15} />{t('lab.director.uploadSong')}</button></header>
       {all.length ? <div className="ml-songs">{all.map(a => <SongCard key={a.id} item={a} on={song?.uri === a.ref?.uri} onPick={() => void pick(a.ref!)} />)}</div>
-        : <p className="ml-note">Crea una canción en <Link to="/audio">Audio</Link> o sube un archivo.</p>}
+        : <p className="ml-note">{t('lab.director.noSongsBefore')}<Link to="/audio">{t('lab.tabs.audio')}</Link>{t('lab.director.noSongsAfter')}</p>}
       {song && <div className="ml-song-detail">
         <Player song={song} />
-        {analysis ? <p className="ml-note">{clock(duration)} · {analysis.bpm_estimate || '—'} BPM · {sections.length} secciones · analizada en tu servidor</p> : <p className="ml-note"><Loader2 size={13} className="ml-spin" /> Analizando la canción…</p>}
+        {analysis ? <p className="ml-note">{t('lab.director.analysis', { duration: clock(duration), bpm: analysis.bpm_estimate || '—', sections: sections.length })}</p> : <p className="ml-note"><Loader2 size={13} className="ml-spin" /> {t('lab.director.analyzing')}</p>}
       </div>}
     </section>
 
     <section className={`ml-step ${analysis ? '' : 'is-locked'}`}>
-      <header><b>02</b><h2>El concepto</h2></header>
+      <header><b>02</b><h2>{t('lab.director.conceptStep')}</h2></header>
       <div className="ml-form">
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Título del videoclip" aria-label="Título" maxLength={120} />
-        <textarea rows={4} value={brief} onChange={e => setBrief(e.target.value)} aria-label="Concepto visual" maxLength={10000}
-          placeholder="Concepto visual: quién aparece, vestuario, lugares, luz y estilo. Ej.: la cantante recorre una ciudad flotante de noche, estética anime, neón cálido…" />
-        <textarea rows={4} value={lyrics} onChange={e => setLyrics(e.target.value)} aria-label="Letra" maxLength={20000} placeholder="Letra o resumen (opcional): ayuda a cortar las escenas en los momentos clave." />
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('lab.director.titlePlaceholder')} aria-label={t('lab.director.titleLabel')} maxLength={120} />
+        <textarea rows={4} value={brief} onChange={e => setBrief(e.target.value)} aria-label={t('lab.director.briefLabel')} maxLength={10000}
+          placeholder={t('lab.director.briefPlaceholder')} />
+        <textarea rows={4} value={lyrics} onChange={e => setLyrics(e.target.value)} aria-label={t('lab.director.lyricsLabel')} maxLength={20000} placeholder={t('lab.director.lyricsPlaceholder')} />
         <div className="ml-form-row">
-          <Choice label="Formato" value={ratio} onChange={setRatio} options={[['16:9', '16:9'], ['9:16', '9:16'], ['1:1', '1:1']]} />
-          <Choice label="Clips" value={clips} onChange={setClips} options={[['base', 'H3'], ['turbo', 'H3 Turbo', !caps.h3Turbo], ['fused_turbo', 'H3 Fused', !caps.fusedTurbo]]} />
-          <Choice label="Fotogramas" value={frames} onChange={setFrames} options={[['base', 'Qwen 2.1'], ['turbo', 'Turbo', !caps.turbo]]} />
-          {frames === 'base' && <Choice label="Calidad" value={quality} onChange={setQuality} options={[['quality', 'Calidad'], ['draft', 'Borrador']]} />}
+          <Choice label={t('lab.director.format')} value={ratio} onChange={setRatio} options={[['16:9', '16:9'], ['9:16', '9:16'], ['1:1', '1:1']]} />
+          <Choice label={t('lab.director.clips')} value={clips} onChange={setClips} options={[['base', 'H3'], ['turbo', 'H3 Turbo', !caps.h3Turbo], ['fused_turbo', 'H3 Fused', !caps.fusedTurbo]]} />
+          <Choice label={t('lab.director.frames')} value={frames} onChange={setFrames} options={[['base', 'Qwen 2.1'], ['turbo', 'Turbo', !caps.turbo]]} />
+          {frames === 'base' && <Choice label={t('lab.director.quality')} value={quality} onChange={setQuality} options={[['quality', t('lab.director.qualityHigh')], ['draft', t('lab.director.qualityDraft')]]} />}
         </div>
         <div className="ml-form-row is-end">
-          {!provider.ready && <p className="ml-note">El storyboard lo escribe tu proveedor IA. <Link to="/account/providers">Configúralo</Link> para continuar.</p>}
+          {!provider.ready && <p className="ml-note">{t('lab.director.providerBefore')}<Link to="/account/providers">{t('lab.director.providerLink')}</Link>{t('lab.director.providerAfter')}</p>}
           <button type="button" className="ml-btn is-accent" disabled={!analysis || !brief.trim() || planning || !provider.ready} onClick={() => void plan()}>
-            {planning ? <><Loader2 size={15} className="ml-spin" />Escribiendo escenas</> : <><Sparkles size={15} />{scenes.length ? 'Rehacer storyboard' : 'Crear storyboard'}</>}</button>
+            {planning ? <><Loader2 size={15} className="ml-spin" />{t('lab.director.planning')}</> : <><Sparkles size={15} />{scenes.length ? t('lab.director.replan') : t('lab.director.plan')}</>}</button>
         </div>
       </div>
     </section>
@@ -130,35 +131,35 @@ export default function Director({ incoming }: { incoming: ArtifactRef | null })
     {error && <p className="ml-error" role="alert">{error}</p>}
 
     <AnimatePresence>{scenes.length > 0 && <motion.section className="ml-step" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-      <header><b>03</b><h2>Storyboard</h2><span className="ml-count">{scenes.length} {scenes.length === 1 ? "escena" : "escenas"} · {clock(duration)}</span></header>
+      <header><b>03</b><h2>{t('lab.director.storyboard')}</h2><span className="ml-count">{t('lab.director.sceneCount', { count: scenes.length })} · {clock(duration)}</span></header>
       <div className="ml-timeline" aria-hidden="true">
         {sections.map((s, i) => <i key={i} style={{ left: pct(Number(s.start) || 0), width: pct((Number(s.end) || 0) - (Number(s.start) || 0)), opacity: .2 + Math.min(.6, Number(s.energy) || .3) }} />)}
         {scenes.map((s, i) => <span key={i} className={s.lip_sync ? 'is-sync' : ''} style={{ left: pct(s.start), width: pct(s.end - s.start) }}>{i + 1}</span>)}
       </div>
       <div className="ml-scenes">{scenes.map((s, i) => <motion.article key={i} className="ml-scene" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 10) * .04 }}>
         <header><b>{String(i + 1).padStart(2, '0')}</b><span>{clock(s.start)} – {clock(s.end)} · {(s.end - s.start).toFixed(1)} s</span>
-          <button type="button" className={`ml-chip ${s.lip_sync ? 'is-on' : ''}`} aria-pressed={!!s.lip_sync} disabled={s.end - s.start < 2} title="La imagen de la escena es la identidad y el tramo de la canción guía la boca. Experimental; mínimo 2 s." onClick={() => sync(i, !s.lip_sync)}><Mic2 size={13} />Labios</button></header>
-        <label><small>Fotograma</small><textarea rows={3} value={s.image_prompt} onChange={e => edit(i, { image_prompt: e.target.value })} /></label>
-        <label><small>Movimiento</small><textarea rows={s.lip_sync ? 8 : 3} value={s.video_prompt} onChange={e => edit(i, { video_prompt: e.target.value })} /></label>
+          <button type="button" className={`ml-chip ${s.lip_sync ? 'is-on' : ''}`} aria-pressed={!!s.lip_sync} disabled={s.end - s.start < 2} title={t('lab.director.lipSyncHint')} onClick={() => sync(i, !s.lip_sync)}><Mic2 size={13} />{t('lab.director.lipSync')}</button></header>
+        <label><small>{t('lab.director.frame')}</small><textarea rows={3} value={s.image_prompt} onChange={e => edit(i, { image_prompt: e.target.value })} /></label>
+        <label><small>{t('lab.director.motion')}</small><textarea rows={s.lip_sync ? 8 : 3} value={s.video_prompt} onChange={e => edit(i, { video_prompt: e.target.value })} /></label>
       </motion.article>)}</div>
       <div className="ml-produce">
         {job && <div className={`ml-produce-state is-${job.status}`}>
           <div className="ml-job-bar"><i style={{ transform: `scaleX(${(job.status === 'completed' ? 100 : job.progress?.pct ?? 0) / 100})` }} /></div>
-          <span>{job.status === 'completed' ? 'Videoclip listo' : producing ? `Produciendo · ${Math.round(job.progress?.pct ?? 0)}%${job.progress?.node ? ` · ${job.progress.node}` : ''}` : job.error || 'La producción se detuvo'}</span>
+          <span>{job.status === 'completed' ? t('lab.director.ready') : producing ? `${t('lab.director.producing', { pct: Math.round(job.progress?.pct ?? 0) })}${job.progress?.node ? ` · ${job.progress.node}` : ''}` : job.error || t('lab.director.stopped')}</span>
         </div>}
-        {producing ? <button type="button" className="ml-btn" onClick={() => void state.cancel()}><X size={15} />Cancelar</button>
-          : job && ['failed', 'cancelled', 'interrupted'].includes(job.status) ? <button type="button" className="ml-btn" onClick={resume}><RotateCcw size={15} />Reanudar</button> : null}
-        <button type="button" className="ml-btn is-accent is-big" disabled={!title.trim() || producing} onClick={produce}><Clapperboard size={16} />Producir videoclip</button>
+        {producing ? <button type="button" className="ml-btn" onClick={() => void state.cancel()}><X size={15} />{t('lab.director.cancel')}</button>
+          : job && ['failed', 'cancelled', 'interrupted'].includes(job.status) ? <button type="button" className="ml-btn" onClick={resume}><RotateCcw size={15} />{t('lab.director.resume')}</button> : null}
+        <button type="button" className="ml-btn is-accent is-big" disabled={!title.trim() || producing} onClick={produce}><Clapperboard size={16} />{t('lab.director.produce')}</button>
       </div>
-      {!title.trim() && <p className="ml-note">Ponle un título al videoclip para producirlo.</p>}
+      {!title.trim() && <p className="ml-note">{t('lab.director.needTitle')}</p>}
       {state.error && <p className="ml-error" role="alert">{state.error}</p>}
       {job?.status === 'completed' && <Result job={job} />}
     </motion.section>}</AnimatePresence>
-    {!scenes.length && job && <section className="ml-step"><header><b>✦</b><h2>Última producción</h2></header>
-      <div className="ml-produce-state"><span>{job.status === 'completed' ? 'Videoclip listo' : producing ? `Produciendo · ${Math.round(job.progress?.pct ?? 0)}%` : job.error || 'La producción se detuvo'}</span></div>
+    {!scenes.length && job && <section className="ml-step"><header><b>✦</b><h2>{t('lab.director.lastProduction')}</h2></header>
+      <div className="ml-produce-state"><span>{job.status === 'completed' ? t('lab.director.ready') : producing ? t('lab.director.producing', { pct: Math.round(job.progress?.pct ?? 0) }) : job.error || t('lab.director.stopped')}</span></div>
       {job.status === 'completed' && <Result job={job} />}
-      {producing && <button type="button" className="ml-btn" onClick={() => void state.cancel()}><X size={15} />Cancelar</button>}
-      {['failed', 'cancelled', 'interrupted'].includes(job.status) && <button type="button" className="ml-btn" onClick={resume}><RotateCcw size={15} />Reanudar</button>}
+      {producing && <button type="button" className="ml-btn" onClick={() => void state.cancel()}><X size={15} />{t('lab.director.cancel')}</button>}
+      {['failed', 'cancelled', 'interrupted'].includes(job.status) && <button type="button" className="ml-btn" onClick={resume}><RotateCcw size={15} />{t('lab.director.resume')}</button>}
     </section>}
   </div>
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from './bridge'
+import { t } from './i18n'
 
 export default function Factor({ current, done }: { current: any; done: () => void }) {
   const [setup, setSetup] = useState<any>(null)
@@ -20,18 +21,18 @@ export default function Factor({ current, done }: { current: any; done: () => vo
       else done()
     } catch (e) { setError(String(e)) } finally { setBusy(false) }
   }
-  return <section className="panel auth-panel"><p className="eyebrow">SEGUNDO FACTOR</p><h2>{current.totp_enabled ? 'Verifica tu acceso' : 'Activa 2FA'}</h2>
-    {codes.length ? <><p>Estos códigos se muestran una sola vez. Guárdalos fuera de la aplicación; cada uno permite un único acceso de recuperación.</p><div className="recovery-grid">{codes.map(value => <code key={value}>{value}</code>)}</div><button className="primary" onClick={done}>HE GUARDADO LOS CÓDIGOS</button></>
-      : <>{!current.totp_enabled && !setup && <><p>{current.role === 'admin' ? 'El administrador debe activar TOTP antes de acceder al estudio o al panel.' : 'Protege tu cuenta con un autenticador.'}</p><button disabled={busy} onClick={() => void configure()}>CONFIGURAR AUTENTICADOR</button></>}
+  return <section className="panel auth-panel"><p className="eyebrow">{t('connect.factor.eyebrow')}</p><h2>{current.totp_enabled ? t('connect.factor.verifyTitle') : t('connect.factor.enableTitle')}</h2>
+    {codes.length ? <><p>{t('connect.factor.codesOnce')}</p><div className="recovery-grid">{codes.map(value => <code key={value}>{value}</code>)}</div><button className="primary" onClick={done}>{t('connect.factor.codesSaved')}</button></>
+      : <>{!current.totp_enabled && !setup && <><p>{current.role === 'admin' ? t('connect.factor.adminRequired') : t('connect.factor.protect')}</p><button disabled={busy} onClick={() => void configure()}>{t('connect.factor.configure')}</button></>}
       {setup && <div className="totp-enrollment">
-        <p>En tu autenticador, elige añadir cuenta y escanear código QR.</p>
+        <p>{t('connect.factor.scanHint')}</p>
         {typeof setup.qr_data_uri === 'string' && /^data:image\/png;base64,/.test(setup.qr_data_uri) &&
-          <img className="totp-qr" src={setup.qr_data_uri} alt="Código QR para vincular tu autenticador" />}
-        <p>Cuenta: {current.email}. Después escribe el código de 6 dígitos que aparece en la app para confirmar.</p>
-        <details className="totp-manual"><summary>¿No puedes escanear? Configuración manual</summary>
-          <p>Añade esta clave como TOTP, 6 dígitos, 30 segundos.</p><code className="totp-secret">{setup.secret}</code>
+          <img className="totp-qr" src={setup.qr_data_uri} alt={t('connect.factor.qrAlt')} />}
+        <p>{t('connect.factor.account', { email: current.email })}</p>
+        <details className="totp-manual"><summary>{t('connect.factor.manualSummary')}</summary>
+          <p>{t('connect.factor.manualHint')}</p><code className="totp-secret">{setup.secret}</code>
         </details>
       </div>}
-      {(current.totp_enabled || setup) && <form onSubmit={e => { e.preventDefault(); void act() }}><label>{setup ? 'Código de 6 dígitos del autenticador' : 'Código TOTP o de recuperación'}<input autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value)} maxLength={setup ? 6 : 30} inputMode={setup ? 'numeric' : undefined} /></label><button className="primary" disabled={busy || !code.trim()}>VERIFICAR</button></form>}
+      {(current.totp_enabled || setup) && <form onSubmit={e => { e.preventDefault(); void act() }}><label>{setup ? t('connect.factor.setupCode') : t('connect.factor.loginCode')}<input autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value)} maxLength={setup ? 6 : 30} inputMode={setup ? 'numeric' : undefined} /></label><button className="primary" disabled={busy || !code.trim()}>{t('connect.factor.verify')}</button></form>}
     </>}{error && <p className="error">{error}</p>}</section>
 }

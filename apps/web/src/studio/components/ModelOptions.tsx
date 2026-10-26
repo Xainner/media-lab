@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { runtime } from '../lib/api'
 import AdvancedOptions from './AdvancedOptions'
+import { formatNumber, t } from '../../i18n'
 
 type Field = { path: string; label: string; group: string; default: any; choices?: (string | number)[]; type?: string; min?: number; max?: number; step?: number; help?: string }
 export type ModelSettings = Record<string, any>
@@ -14,8 +15,8 @@ export function useModelOptions() {
   useEffect(() => {
     let live = true
     void runtime('GET', '/v1/capabilities').then(c => {
-      if (live) { setCatalog(c.generation_options || null); setError(c.generation_options ? '' : 'El servidor todavía no anuncia los ajustes avanzados.') }
-    }).catch(() => { if (live) setError('No se pudieron cargar los ajustes del modelo.') })
+      if (live) { setCatalog(c.generation_options || null); setError(c.generation_options ? '' : t('shell.options.notAdvertised')) }
+    }).catch(() => { if (live) setError(t('shell.options.loadFailed')) })
     return () => { live = false }
   }, [revision])
   function set(path: string, value: any) {
@@ -46,15 +47,15 @@ export function optionsError(state: OptionState, kind: 'image' | 'edit' | 'video
   const get = (path: string) => path.split('.').reduce<any>((value, key) => value?.[key], v)
   for (const f of state.catalog?.[kind] || []) {
     const value = get(f.path)
-    if (value !== undefined && !f.choices && f.type !== 'text' && (!Number.isFinite(value) || value < f.min! || value > f.max! || (f.step === 1 && !Number.isInteger(value)))) return `${f.label}: revisa el valor permitido.`
+    if (value !== undefined && !f.choices && f.type !== 'text' && (!Number.isFinite(value) || value < f.min! || value > f.max! || (f.step === 1 && !Number.isInteger(value)))) return t('shell.options.invalidValue', { label: f.label })
   }
   if (kind === 'image' || kind === 'video') {
     if (kind === 'image' || v.resolution === 'custom') {
-      if ((v.width === undefined) !== (v.height === undefined) || (v.resolution === 'custom' && !v.width)) return 'Indica ancho y alto juntos.'
-      if (v.width && (v.width % 32 || v.height % 32)) return 'El ancho y el alto deben ser múltiplos de 32.'
-      if (v.width && v.width * v.height > pixelLimit) return `El tamaño supera el límite de ${(pixelLimit / 1000000).toLocaleString('es')} MP.`
+      if ((v.width === undefined) !== (v.height === undefined) || (v.resolution === 'custom' && !v.width)) return t('shell.options.sizePair')
+      if (v.width && (v.width % 32 || v.height % 32)) return t('shell.options.multipleOf32')
+      if (v.width && v.width * v.height > pixelLimit) return t('shell.options.pixelLimit', { mp: formatNumber(pixelLimit / 1000000) })
     }
-    if (kind === 'video' && (v.codec || 'h264') === 'h264' && v.crf > 51) return 'CRF H.264 debe estar entre 0 y 51.'
+    if (kind === 'video' && (v.codec || 'h264') === 'h264' && v.crf > 51) return t('shell.options.crfRange')
   }
   return ''
 }
@@ -64,7 +65,7 @@ export function ModelOptionFields({ state, kind, omit = [], schedulerDefault }: 
   const fields = (state.catalog?.[kind] || []).filter(f => !omit.includes(f.path))
   const groups = [...new Set(fields.map(f => f.group))]
   return <div className="model-options">
-    {state.error && <div role="status"><p>{state.error}</p><button className="ghost" onClick={state.retry}>Reintentar</button></div>}
+    {state.error && <div role="status"><p>{state.error}</p><button className="ghost" onClick={state.retry}>{t('shell.options.retry')}</button></div>}
     <p className="privacy">{state.catalog?.notes.sampling}</p>
     {groups.map(group => <fieldset key={group}><legend>{group}</legend><div className="model-option-grid">
       {fields.filter(f => f.group === group).map(f => {
@@ -78,38 +79,38 @@ export function ModelOptionFields({ state, kind, omit = [], schedulerDefault }: 
           choices = format === 'mp3' ? ['V0', '128k', '320k'] : ['64k', '96k', '128k', '192k', '320k']
         }
         return <div key={f.path}><label htmlFor={`${id}-${f.path}`}>{f.label}</label>{choices ?
-          <select id={`${id}-${f.path}`} value={current ?? ''} onChange={e => state.set(f.path, f.path === 'bit_depth' && e.target.value ? Number(e.target.value) : e.target.value)}><option value="">Predeterminado{defaultValue != null ? ` · ${defaultValue}` : ''}</option>{choices.map(c => <option key={c} value={c}>{c}</option>)}</select> : f.type === 'text' ?
-          <textarea id={`${id}-${f.path}`} rows={3} maxLength={20000} value={current ?? ''} onChange={e => state.set(f.path, e.target.value)} placeholder="Opcional"/> :
-          <input id={`${id}-${f.path}`} type="number" min={f.min} max={f.path === 'crf' && (state.values.codec || 'h264') === 'h264' ? 51 : f.max} step={f.step} value={current ?? ''} placeholder={defaultValue == null ? 'Automático' : String(defaultValue)} onChange={e => state.set(f.path, e.target.value === '' ? '' : Number(e.target.value))}/>
+          <select id={`${id}-${f.path}`} value={current ?? ''} onChange={e => state.set(f.path, f.path === 'bit_depth' && e.target.value ? Number(e.target.value) : e.target.value)}><option value="">{defaultValue != null ? t('shell.options.defaultValue', { value: String(defaultValue) }) : t('shell.options.default')}</option>{choices.map(c => <option key={c} value={c}>{c}</option>)}</select> : f.type === 'text' ?
+          <textarea id={`${id}-${f.path}`} rows={3} maxLength={20000} value={current ?? ''} onChange={e => state.set(f.path, e.target.value)} placeholder={t('shell.options.optional')}/> :
+          <input id={`${id}-${f.path}`} type="number" min={f.min} max={f.path === 'crf' && (state.values.codec || 'h264') === 'h264' ? 51 : f.max} step={f.step} value={current ?? ''} placeholder={defaultValue == null ? t('shell.options.auto') : String(defaultValue)} onChange={e => state.set(f.path, e.target.value === '' ? '' : Number(e.target.value))}/>
           }{f.help && <small>{f.help}</small>}</div>
       })}
     </div>{group === 'Generación de partitura ABC' && <small>{state.catalog?.notes.score}</small>}</fieldset>)}
-    {Object.keys(state.values).length > 0 && <button className="ghost" onClick={state.reset}>Restaurar ajustes del modelo</button>}
+    {Object.keys(state.values).length > 0 && <button className="ghost" onClick={state.reset}>{t('shell.options.reset')}</button>}
   </div>
 }
 
 export function ModelOptions({ state, kind, ...props }: Parameters<typeof ModelOptionFields>[0]) {
-  return <AdvancedOptions title="Ajustes del modelo y archivo"><ModelOptionFields state={state} kind={kind} {...props}/></AdvancedOptions>
+  return <AdvancedOptions title={t('shell.options.title')}><ModelOptionFields state={state} kind={kind} {...props}/></AdvancedOptions>
 }
 
 export function VideoResolution({ state, ratio }: { state: OptionState; ratio: string }) {
   const resolution = state.values.resolution || 'preview'
   const dimensions = state.catalog?.video_resolutions?.[resolution]?.[ratio]
-  return <div className="video-resolution"><label>Resolución de generación<select aria-label="Resolución de vídeo" value={resolution} onChange={e => state.set('resolution', e.target.value)}>
-    <option value="preview">Vista previa · menor consumo</option><option value="480p">Estándar · 480p</option><option value="720p">Alta · 720p alineado</option><option value="native">Nativa · ~1 MP</option><option value="custom">Personalizada</option>
-  </select></label>{dimensions && <small>{dimensions[0]} × {dimensions[1]} píxeles</small>}
-  {resolution === 'custom' && <div className="field-row">{['width', 'height'].map(k => <label key={k}>{k === 'width' ? 'Ancho' : 'Alto'}<input aria-label={k === 'width' ? 'Ancho de vídeo' : 'Alto de vídeo'} type="number" min={32} max={16384} step={32} value={state.values[k] ?? ''} onChange={e => state.set(k, e.target.value ? Number(e.target.value) : '')}/></label>)}</div>}
+  return <div className="video-resolution"><label>{t('shell.options.resolution')}<select aria-label={t('shell.options.videoResolution')} value={resolution} onChange={e => state.set('resolution', e.target.value)}>
+    <option value="preview">{t('shell.options.res.preview')}</option><option value="480p">{t('shell.options.res.480p')}</option><option value="720p">{t('shell.options.res.720p')}</option><option value="native">{t('shell.options.res.native')}</option><option value="custom">{t('shell.options.res.custom')}</option>
+  </select></label>{dimensions && <small>{t('shell.options.pixels', { width: dimensions[0], height: dimensions[1] })}</small>}
+  {resolution === 'custom' && <div className="field-row">{['width', 'height'].map(k => <label key={k}>{k === 'width' ? t('shell.options.width') : t('shell.options.height')}<input aria-label={k === 'width' ? t('shell.options.videoWidth') : t('shell.options.videoHeight')} type="number" min={32} max={16384} step={32} value={state.values[k] ?? ''} onChange={e => state.set(k, e.target.value ? Number(e.target.value) : '')}/></label>)}</div>}
   <p className="privacy">{state.catalog?.notes.video}</p></div>
 }
 
 export function VideoQuality({ profile, steps, setSteps }: { profile: string; steps: number; setSteps: (value: number) => void }) {
   const presets = profile === 'base' ? [8, 20, 40] : [4, 8, 12]
-  return <label>Preset de muestreo<select aria-label="Calidad de vídeo" value={presets.includes(steps) ? String(steps) : 'custom'} onChange={e => { if (e.target.value !== 'custom') setSteps(Number(e.target.value)) }}>
-    {presets.map((n, i) => <option key={n} value={n}>{(profile === 'fused_turbo' ? ['Recomendado', 'Más nitidez', 'Máximo'] : ['Borrador', 'Recomendado', 'Más pasos'])[i]} · {n} pasos</option>)}<option value="custom">Personalizado</option>
+  return <label>{t('shell.options.samplingPreset')}<select aria-label={t('shell.options.videoQuality')} value={presets.includes(steps) ? String(steps) : 'custom'} onChange={e => { if (e.target.value !== 'custom') setSteps(Number(e.target.value)) }}>
+    {presets.map((n, i) => <option key={n} value={n}>{t('shell.options.presetSteps', { name: t((profile === 'fused_turbo' ? ['shell.options.preset.recommended', 'shell.options.preset.sharper', 'shell.options.preset.max'] as const : ['shell.options.preset.draft', 'shell.options.preset.recommended', 'shell.options.preset.moreSteps'] as const)[i]), count: n })}</option>)}<option value="custom">{t('shell.options.preset.custom')}</option>
   </select></label>
 }
 
 export function SeedField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return <label>Semilla · opcional<input aria-label="Semilla" type="number" min={0} max={Number.MAX_SAFE_INTEGER} step={1} value={value} onChange={e => onChange(e.target.value)} placeholder="Aleatoria"/></label>
+  return <label>{t('shell.options.seedOptional')}<input aria-label={t('shell.options.seed')} type="number" min={0} max={Number.MAX_SAFE_INTEGER} step={1} value={value} onChange={e => onChange(e.target.value)} placeholder={t('shell.options.seedRandom')}/></label>
 }
-export function seedError(value: string) { return value && (!Number.isSafeInteger(Number(value)) || Number(value) < 0) ? 'La semilla debe ser un entero entre 0 y 9007199254740991.' : '' }
+export function seedError(value: string) { return value && (!Number.isSafeInteger(Number(value)) || Number(value) < 0) ? t('shell.options.seedInvalid') : '' }

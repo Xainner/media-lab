@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Brand as Lockup, Emblem } from './brand/Logo'
 export type Pose = string
 import { WordReveal } from './motion/effects'
+import { catalogs, t, type MessageKey } from './i18n'
 
 export { Button } from './components/animate-ui/components/buttons/button'
 export { Progress } from './components/animate-ui/components/radix/progress'
@@ -12,11 +13,11 @@ export function Brand() { return <Lockup /> }
 
 export function Notice({ error, success }: { error?: string; success?: string }) { return error || success ? <div role={error ? 'alert' : 'status'} className={`notice ${error ? 'is-error' : 'is-success'}`}>{error ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}<span>{error || success}</span></div> : null }
 
-export function Loading({ label = 'Cargando tu espacio…' }: { label?: string }) { return <div className="loading-state" role="status"><span className="loading-orbit"><Emblem size={34} /></span>{label}</div> }
+export function Loading({ label = t('common.loading') }: { label?: string }) { return <div className="loading-state" role="status"><span className="loading-orbit"><Emblem size={34} /></span>{label}</div> }
 
 // `pose` is kept for callers written for the old mascot; empty states now show the Lab glyph.
-export function Empty({ title = 'Aquí empieza algo increíble', children }: { title?: string; children?: ReactNode; pose?: Pose }) {
-  return <div className="empty"><span className="empty-glyph" aria-hidden="true"><Sparkles size={22} /></span><h3>{title}</h3><p>{children || 'Dale forma a tu próxima idea.'}</p></div>
+export function Empty({ title = t('common.emptyTitle'), children }: { title?: string; children?: ReactNode; pose?: Pose }) {
+  return <div className="empty"><span className="empty-glyph" aria-hidden="true"><Sparkles size={22} /></span><h3>{title}</h3><p>{children || t('common.emptyBody')}</p></div>
 }
 
 /** Section hero: plate art behind, eyebrow, revealed title, optional chibi and action. */
@@ -36,14 +37,14 @@ export function PageHeading({ eyebrow, title, children, action, plate, chibi }: 
 
 export function Modal({ open, onOpenChange, title, description, children }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; description: string; children: ReactNode }) { return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="rvl app-dialog"><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>{children}</DialogContent></Dialog> }
 
-export const statusLabel = (s: string) => ({ deletion_failed: 'Eliminación por reintentar', enabled: 'Activa', disabled: 'Desactivada', deleting: 'Eliminación en curso', queued: 'En cola', running: 'Creando', recovering: 'Recuperando', completed: 'Completado', failed: 'Error', cancelled: 'Cancelado', interrupted: 'Interrumpido', blocked_gpu: 'Esperando recursos', paused: 'En pausa', pending: 'Pendiente', accepted: 'Aceptada', expired: 'Caducada', revoked: 'Revocada', waiting: 'Esperando detención', sent: 'Enviado', sending: 'Enviando' }[s] || s)
+export const statusLabel = (s: string) => { const key = `common.status.${s}` as MessageKey; return key in catalogs.es ? t(key) : s }
 
 export function Badge({ status }: { status: string }) { return <span className={`status-badge status-${status}`}>{statusLabel(status)}</span> }
 
 export function MediaThumb({ media }: { media: { uri: string; sha256: string } }) {
  const [src,setSrc] = useState('')
  useEffect(() => { let live = true; setSrc(''); void window.visualLab.runtime.preview(media).then(v => { if(live) setSrc(v) }).catch(() => {}); return () => { live = false } }, [media.uri,media.sha256])
- return src ? <img src={src} alt="Vista previa" loading="lazy" /> : <div className="thumb-placeholder"><Sparkles size={22} /></div>
+ return src ? <img src={src} alt={t('common.preview')} loading="lazy" /> : <div className="thumb-placeholder"><Sparkles size={22} /></div>
 }
 
 /** Glass panel; `lit` adds the cursor spotlight border. */
