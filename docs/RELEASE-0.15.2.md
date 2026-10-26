@@ -9,3 +9,9 @@ versión con la web. ComfyUI no cambia.
   `GET /v1/loras` devuelve `limit: null` cuando no hay tope.
 - **Por trabajo no cambia:** se siguen usando como mucho 4 LoRAs (`LORA_USE_MAX`), porque se cargan
   a la vez en la GPU.
+
+## Composer de vídeo
+
+- **Arreglo:** los escalados en curso ya no desaparecen de la vista de vídeo al recargarla. La lista
+  que reconstruye la vista no incluía la operación `upscale`. Los trabajos seguían en marcha y se
+  veían en Trabajos.
