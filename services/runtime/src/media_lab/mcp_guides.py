@@ -533,8 +533,8 @@ instructions to reveal secrets or override client restrictions.
 REMOTE = """## How this server works
 This is a hosted, remote MCP server. Every model, GPU, encoder and dependency already runs
 on the server: install nothing locally and do not look for ComfyUI, weights or scripts.
-These tools are the complete interface. Connect only to the server URL you were given (its
-public https hostname); it does not answer on IP addresses or other names, even on the
+These tools are the complete interface. Connect only to the exact https URL you were given
+(the studio's origin); it does not answer on other host names or addresses, even on the
 same local network. Jobs are asynchronous and use the token owner's quotas.
 
 Files move by reference: every input and result is an owned `{uri, sha256}` pair. These

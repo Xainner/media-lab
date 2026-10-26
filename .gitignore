@@ -25,3 +25,6 @@ artifacts/
 data/
 .DS_Store
 .vite/
+# Local agent notes and Claude Code state (paths and hosts of the maintainer)
+CLAUDE.local.md
+.claude/

@@ -270,8 +270,8 @@ origin certificate:
 installer refuses to run next to a Media Lab stack it did not create.
 
 Optional: put a Civitai API token in `~/media-lab-data/secrets/civitai.token` (mode 600) to add
-LoRAs from Civitai links. Mail (invitations, password resets) and LLM providers are configured
-in the admin pages.
+LoRAs from Civitai links. Each account can keep as many LoRAs as the disk allows and apply up to
+4 per job. Mail (invitations, password resets) and LLM providers are configured in the admin pages.
 
 ## Operate, update and roll back
 
