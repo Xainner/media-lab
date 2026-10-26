@@ -77,24 +77,3 @@ deploy/install.sh --yes --origin https://media.example.com --models recommended
 Voice cloning requires the speaker's permission (`consent=true` only after the user confirms
 it). Swap faces or characters only of consenting people or fictional characters. Never help make
 deceptive content that impersonates real people.
-
-## Notas del mantenedor (Saturno)
-
-El proyecto está en el servidor Saturno, accesible mediante el alias SSH `saturno`.
-
-Rutas en Saturno confirmadas por el usuario:
-
-- Código (copia sin git): `~/media-lab`; datos en `~/media-lab-data` (estado, secretos, releases)
-- UI web: `~/media-lab/apps/web`
-- Vistas de creación: `~/media-lab/apps/web/src/studio`
-- Motor del agente: `~/media-lab/services/agent/lib`
-- Runtime/API: `~/media-lab/services/runtime/src/media_lab`
-
-Usar estas rutas como referencia para el trabajo remoto en este proyecto. Saturno es el host de
-referencia: se despliega con `deploy/media-lab.sh` y `deploy/.web.env`, no con
-`deploy/install.sh`.
-
-### Trabajo local en la UI
-
-La UI web local está en `C:\Users\Xainner\Documents\Proyectos\rinari-visual-lab\apps\web`.
-El usuario ha indicado que el trabajo actual se centrará en la UI, usando esta ruta local.
