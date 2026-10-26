@@ -14,6 +14,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPLOY="$REPO_ROOT/deploy"
 SCRIPTS="$DEPLOY/scripts"
 PROGRAM="deploy/install.sh"
+PROJECT_URL="https://github.com/Xainner/media-lab"
 
 # Default paths written literally in the download scripts. The download step maps them to this
 # installation's directories (single quotes: they are matched as text, not expanded).
@@ -132,8 +133,12 @@ run() {
 usage() {
   cat <<EOF
 Media Lab installer — self-hosted image, video, music and voice studio.
+$PROJECT_URL (by Xainner)
 
 Usage: $PROGRAM [command] [options]
+
+On a terminal, a first install opens an assistant: it shows the detected GPUs, RAM and disk,
+suggests one worker per GPU and asks for the access mode, origin and model groups.
 
 Commands:
   install       Check the host, download models, create secrets, build and start (default).
@@ -156,7 +161,7 @@ Options:
                          Dependencies are added automatically and groups add to the ones
                          installed before (nothing is deleted). Default: recommended.
   --home DIR             Installation directory for settings, state, secrets and models
-                         (default: $MEDIA_LAB_HOME or ~/media-lab-data).
+                         (default: \$MEDIA_LAB_HOME or ~/media-lab-data).
   --models-dir DIR       Media Lab model store         (default: HOME/models/media-lab)
   --shared-models-dir DIR  Shared ComfyUI model store (H3) (default: HOME/models/shared)
   --h3-fused-dir DIR     H3 Fused Turbo weights         (default: HOME/models/h3-fused)
@@ -165,7 +170,8 @@ Options:
   --port N               HTTPS port of the web/API/MCP server (default: 8390).
   --hf-token-file PATH   Hugging Face token (default: \$HF_TOKEN_FILE or ~/.cache/huggingface/token).
   --enable-2k            Allow native 2K image creation (ENABLE_2K=true).
-  --single-gpu           Allow hosts with one GPU: only the GPU 0 worker is started (untested).
+  --gpus LIST            GPUs to use, one ComfyUI worker each: comma-separated indices or 'all'
+                         (default: every GPU with 24 GB or more, detected with nvidia-smi).
   --skip-models          Do not download models.
   --skip-build           Do not build images (use the ones already present).
   --no-start             Prepare everything but do not start the stack.
@@ -193,7 +199,7 @@ EOF
 COMMAND="install"
 DRY_RUN=0 ASSUME_YES=0 SKIP_MODELS=0 SKIP_BUILD=0 NO_START=0 FORCE=0 RESTORE_DB=0
 OPT_ORIGIN="" OPT_MODELS="" OPT_HOME="" OPT_MODELS_DIR="" OPT_SHARED_DIR="" OPT_FUSED_DIR=""
-OPT_LORAS_DIR="" OPT_LISTEN="" OPT_PORT="" OPT_TOKEN_FILE="" OPT_2K="" OPT_SINGLE_GPU=""
+OPT_LORAS_DIR="" OPT_LISTEN="" OPT_PORT="" OPT_TOKEN_FILE="" OPT_2K="" OPT_GPUS=""
 
 need_value() { [[ $# -ge 2 && -n $2 ]] || die "$1 needs a value (see --help)"; }
 while [[ $# -gt 0 ]]; do
@@ -211,7 +217,8 @@ while [[ $# -gt 0 ]]; do
     --port) need_value "$@"; OPT_PORT="$2"; shift ;;
     --hf-token-file) need_value "$@"; OPT_TOKEN_FILE="$2"; shift ;;
     --enable-2k) OPT_2K=true ;;
-    --single-gpu) OPT_SINGLE_GPU=1 ;;
+    --gpus) need_value "$@"; OPT_GPUS="$2"; shift ;;
+    --single-gpu) OPT_GPUS=0 ;;  # older spelling of --gpus 0
     --skip-models) SKIP_MODELS=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
     --no-start) NO_START=1 ;;
@@ -238,7 +245,7 @@ OVERRIDE="$MEDIA_HOME/compose.override.yml"
 
 # Saved settings from a previous run; command-line options win.
 ORIGIN="" MODEL_GROUPS="" MODELS_DIR="" SHARED_DIR="" FUSED_DIR="" LORAS_DIR="" LISTEN="" PORT=""
-HF_TOKEN_PATH="" ENABLE_2K="" SINGLE_GPU=""
+HF_TOKEN_PATH="" ENABLE_2K="" GPUS="" SINGLE_GPU=""
 if [[ -f $CONF ]]; then
   # shellcheck source=/dev/null
   source "$CONF"
@@ -256,18 +263,77 @@ LISTEN="${OPT_LISTEN:-${LISTEN:-127.0.0.1}}"
 PORT="${OPT_PORT:-${PORT:-8390}}"
 HF_TOKEN_PATH="${OPT_TOKEN_FILE:-${HF_TOKEN_PATH:-${HF_TOKEN_FILE:-$HOME/.cache/huggingface/token}}}"
 ENABLE_2K="${OPT_2K:-${ENABLE_2K:-false}}"
-SINGLE_GPU="${OPT_SINGLE_GPU:-${SINGLE_GPU:-0}}"
+GPUS="${OPT_GPUS:-$GPUS}"
+if [[ -z $GPUS && $SINGLE_GPU == 1 ]]; then GPUS=0; fi  # settings saved before --gpus existed
 
 for dir in "$MEDIA_HOME" "$MODELS_DIR" "$SHARED_DIR" "$FUSED_DIR" "$LORAS_DIR"; do
   [[ $dir =~ ^/[A-Za-z0-9._/-]+$ ]] || die "use plain absolute paths (letters, digits, . _ - /): $dir"
 done
 [[ $LISTEN == 127.0.0.1 || $LISTEN == 0.0.0.0 ]] || die "--listen must be 127.0.0.1 or 0.0.0.0"
 if [[ ! $PORT =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); then die "--port must be 1024-65535"; fi
-(( PORT != 8388 && PORT != 8389 && PORT != 8392 )) || die "ports 8388, 8389 and 8392 are used by the ComfyUI workers and the agent"
 
 COMPOSE=(docker compose --env-file "$ENV_FILE" -f "$DEPLOY/compose.yml" -f "$DEPLOY/compose.web.yml" -f "$OVERRIDE")
-SERVICES=(comfyui comfyui-gpu1 runtime agent)
-if [[ $SINGLE_GPU == 1 ]]; then SERVICES=(comfyui runtime agent); fi
+
+# ---------------------------------------------------------------------------------------------
+# GPUs and workers: one ComfyUI per GPU, one job at a time on each; a job never spans GPUs.
+# Workers 0 and 1 are the services of deploy/compose.yml; more are generated in the override.
+# Host ports (loopback only): 8388, 8389, then 8393 upwards (8390-8392 are the web and agent).
+# ---------------------------------------------------------------------------------------------
+HW_GPUS=() GOOD_GPUS=() HW_DRIVER="" HW_RAM_GB=0 HW_CPUS=0
+detect_hardware() {
+  local index name mem driver
+  HW_GPUS=() GOOD_GPUS=()
+  if command -v nvidia-smi >/dev/null; then
+    while IFS=',' read -r index name mem driver; do
+      index="${index// /}" mem="${mem// /}" driver="${driver// /}" name="${name# }"
+      [[ $index =~ ^[0-9]+$ && $mem =~ ^[0-9]+$ ]] || continue
+      HW_GPUS+=("$index|$name|$mem")
+      HW_DRIVER="$driver"
+      if (( mem >= MIN_VRAM_MIB )); then GOOD_GPUS+=("$index"); fi
+    done < <(nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv,noheader,nounits 2>/dev/null || true)
+  fi
+  HW_RAM_GB="$(awk '/^MemTotal:/ {print int($2 / 1048576 + 0.5)}' /proc/meminfo 2>/dev/null || echo 0)"
+  HW_CPUS="$(nproc 2>/dev/null || echo 0)"
+}
+
+gpu_indices() { local g out=(); for g in "${HW_GPUS[@]}"; do out+=("${g%%|*}"); done; echo "${out[*]}"; }
+
+# Every GPU with enough memory (or every GPU when none qualifies), as a comma-separated list.
+suggested_gpus() {
+  local list=("${GOOD_GPUS[@]}")
+  if [[ ${#list[@]} == 0 ]]; then read -r -a list <<<"$(gpu_indices)"; fi
+  (IFS=,; echo "${list[*]}")
+}
+
+resolve_gpus() {
+  if [[ -z $GPUS ]]; then GPUS="$(suggested_gpus)"; fi
+  if [[ $GPUS == all ]]; then GPUS="$(gpu_indices)"; GPUS="${GPUS// /,}"; fi
+  if [[ -z $GPUS ]]; then GPUS=0; fi  # no GPU detected: the preflight reports it
+  [[ $GPUS =~ ^[0-9]+(,[0-9]+)*$ ]] || die "--gpus takes comma-separated GPU indices or 'all' (e.g. --gpus 0,1)"
+  local seen=" " g
+  for g in ${GPUS//,/ }; do
+    [[ $seen != *" $g "* ]] || die "--gpus lists GPU $g twice"
+    seen+="$g "
+  done
+}
+
+WORKER_GPUS=() WORKER_SERVICES=() WORKER_CONTAINERS=() WORKER_PORTS=() SERVICES=()
+plan_workers() {
+  local k
+  read -r -a WORKER_GPUS <<<"${GPUS//,/ }"
+  WORKER_SERVICES=() WORKER_CONTAINERS=() WORKER_PORTS=()
+  for k in "${!WORKER_GPUS[@]}"; do
+    if (( k == 0 )); then
+      WORKER_SERVICES+=(comfyui) WORKER_CONTAINERS+=(media-lab-comfyui) WORKER_PORTS+=(8388)
+    else
+      WORKER_SERVICES+=("comfyui-gpu$k") WORKER_CONTAINERS+=("media-lab-comfyui-gpu$k")
+      WORKER_PORTS+=($(( k == 1 ? 8389 : 8391 + k )))
+    fi
+  done
+  SERVICES=("${WORKER_SERVICES[@]}" runtime agent)
+  [[ " ${WORKER_PORTS[*]} 8392 " != *" $PORT "* ]] \
+    || die "port $PORT is used by a ComfyUI worker or the agent; choose another --port"
+}
 
 # ---------------------------------------------------------------------------------------------
 # Model selection
@@ -426,36 +492,35 @@ preflight() {
 
   if ! command -v nvidia-smi >/dev/null; then
     fail "nvidia-smi not found: install the NVIDIA driver ($MIN_DRIVER or newer)"
+  elif [[ ${#HW_GPUS[@]} == 0 ]]; then
+    fail "no NVIDIA GPU visible to nvidia-smi"
   else
-    local gpus=() line name mem driver count
-    mapfile -t gpus < <(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits 2>/dev/null)
-    count=${#gpus[@]}
-    if (( count == 0 )); then
-      fail "no NVIDIA GPU visible to nvidia-smi"
-    else
-      for line in "${gpus[@]}"; do
-        IFS=',' read -r name mem driver <<<"$line"
-        mem="${mem// /}" driver="${driver// /}"
-        if (( mem < MIN_VRAM_MIB )); then
-          warn "GPU ${name# } has ${mem} MiB; Media Lab is tested on 24 GB cards and large models may not fit"
-        else
-          ok "GPU ${name# } (${mem} MiB)"
-        fi
-      done
-      if (( ${driver%%.*} >= MIN_DRIVER )); then
-        ok "driver $driver (CUDA 13)"
+    local entry index name mem used
+    for entry in "${HW_GPUS[@]}"; do
+      IFS='|' read -r index name mem <<<"$entry"
+      used="not used"
+      if [[ " ${WORKER_GPUS[*]} " == *" $index "* ]]; then used="worker"; fi
+      if (( mem < MIN_VRAM_MIB )); then
+        warn "GPU $index $name has ${mem} MiB ($used); Media Lab is tested on 24 GB cards and large models may not fit"
       else
-        fail "driver $driver is too old: the ComfyUI image needs CUDA 13 (driver $MIN_DRIVER+)"
+        ok "GPU $index $name (${mem} MiB, $used)"
       fi
-      if (( count < 2 )); then
-        if [[ $SINGLE_GPU == 1 ]]; then
-          warn "one GPU: only the GPU 0 worker will run (untested configuration)"
-        else
-          fail "Media Lab runs one ComfyUI worker per GPU and expects 2 GPUs (use --single-gpu to try with one)"
-        fi
-      fi
+    done
+    for index in "${WORKER_GPUS[@]}"; do
+      [[ " $(gpu_indices) " == *" $index "* ]] || fail "--gpus lists GPU $index, which nvidia-smi does not show"
+    done
+    if (( ${HW_DRIVER%%.*} >= MIN_DRIVER )); then
+      ok "driver $HW_DRIVER (CUDA 13)"
+    else
+      fail "driver $HW_DRIVER is too old: the ComfyUI image needs CUDA 13 (driver $MIN_DRIVER+)"
     fi
+    case ${#WORKER_GPUS[@]} in
+      1) warn "one worker: jobs run one at a time (Media Lab is tested with two GPUs)" ;;
+      2) ok "2 workers: two jobs at a time, one per GPU" ;;
+      *) ok "${#WORKER_GPUS[@]} workers: one job per GPU at a time (tested with two GPUs; each extra GPU adds a worker)" ;;
+    esac
   fi
+  info "RAM ${HW_RAM_GB} GB, ${HW_CPUS} CPUs (the reference hosts have 128 GB)"
 
   local uid; uid="$(id -u)"
   if [[ $uid != "$CONTAINER_UID" && $uid != 0 ]]; then
@@ -495,7 +560,7 @@ preflight() {
 
   if [[ $docker_ok == 0 ]] || ! stack_running; then
     local port
-    for port in 8388 8389 "$PORT" 8392; do
+    for port in "${WORKER_PORTS[@]}" "$PORT" 8392; do
       if ss -ltnH 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]$port\$"; then
         fail "TCP port $port is already in use"
       fi
@@ -566,7 +631,7 @@ save_settings() {
   step "Saving settings in $MEDIA_HOME"
   run mkdir -p "$MEDIA_HOME" "$BACKUPS"
   local key conf="# Media Lab installer settings (no secrets). Edit with $PROGRAM options, then re-run it."
-  for key in ORIGIN MODEL_GROUPS MODELS_DIR SHARED_DIR FUSED_DIR LORAS_DIR LISTEN PORT HF_TOKEN_PATH ENABLE_2K SINGLE_GPU; do
+  for key in ORIGIN MODEL_GROUPS MODELS_DIR SHARED_DIR FUSED_DIR LORAS_DIR LISTEN PORT HF_TOKEN_PATH ENABLE_2K GPUS; do
     conf+=$'\n'"$(printf '%s=%q' "$key" "${!key}")"
   done
   write_file "$CONF" 600 "$conf"
@@ -711,35 +776,78 @@ download_models() {
 # ---------------------------------------------------------------------------------------------
 # Compose override, images, services
 # ---------------------------------------------------------------------------------------------
+comfy_image() { awk '/^  comfyui:/ {found=1} found && $1 == "image:" {print $2; exit}' "$DEPLOY/compose.yml"; }
+
 write_override() {
   step "Compose override for this host"
   local resolve="127.0.0.1"
-  local comfy_common
+  local comfy_common workers="" extra_volumes="" endpoints="" k service gpu port vol tag
   comfy_common="      - $MODELS_DIR:/workspace/ComfyUI/models
       - $SHARED_DIR:/shared-models:ro
       - $LORAS_DIR:/user-loras:ro
       - $DEPLOY/extra_model_paths.yaml:/workspace/ComfyUI/extra_model_paths.yaml:ro
       - $FUSED_DIR:/fused-models/diffusion_models:ro
       - $FUSED_DIR/minimax_h3/vae:/fused-models/vae:ro"
-  write_file "$OVERRIDE" 644 "# Generated by $PROGRAM for $ORIGIN — re-run the installer to change it.
-# Replaces the reference host's paths and origin in deploy/compose.yml + compose.web.yml.
-services:
-  comfyui:
-    volumes: !override
+  for k in "${!WORKER_GPUS[@]}"; do
+    service="${WORKER_SERVICES[$k]}" gpu="${WORKER_GPUS[$k]}" port="${WORKER_PORTS[$k]}"
+    endpoints+="${endpoints:+,}http://127.0.0.1:$port"
+    # Workers 0 and 1 exist in deploy/compose.yml (their lists are replaced); others are new.
+    tag=" !override" vol="comfy-gpu$k"
+    if (( k == 0 )); then vol="comfy"; fi
+    workers+=$'\n'"  $service:"
+    if (( k >= 2 )); then
+      tag=""
+      workers+="
+    image: $(comfy_image)
+    container_name: ${WORKER_CONTAINERS[$k]}
+    restart: unless-stopped
+    ports:
+      - \"127.0.0.1:$port:8188\"
+    device_cgroup_rules:
+      - \"c 195:* rwm\"
+      - \"c 510:* rwm\"
+    environment:
+      COMFYUI_EXTRA_ARGS: \${COMFYUI_EXTRA_ARGS:---preview-method latent2rgb}
+    healthcheck:
+      test: [\"CMD\", \"curl\", \"-fsS\", \"http://127.0.0.1:8188/system_stats\"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s"
+      extra_volumes+="
+  $vol-input:
+  $vol-output:
+  $vol-user:"
+    fi
+    workers+="
+    volumes:$tag
 $comfy_common
-      - comfy-input:/workspace/ComfyUI/input
-      - comfy-output:/workspace/ComfyUI/output
-      - comfy-user:/workspace/ComfyUI/user
+      - $vol-input:/workspace/ComfyUI/input
+      - $vol-output:/workspace/ComfyUI/output
+      - $vol-user:/workspace/ComfyUI/user
+    deploy:$tag
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [\"$gpu\"]
+              capabilities: [gpu]"
+  done
+  if (( ${#WORKER_GPUS[@]} == 1 )); then
+    # deploy/compose.yml always defines the second worker; park it so a plain 'up' skips it.
+    workers+="
   comfyui-gpu1:
-    volumes: !override
-$comfy_common
-      - comfy-gpu1-input:/workspace/ComfyUI/input
-      - comfy-gpu1-output:/workspace/ComfyUI/output
-      - comfy-gpu1-user:/workspace/ComfyUI/user
+    profiles: [\"unused\"]"
+  fi
+  write_file "$OVERRIDE" 644 "# Generated by $PROGRAM for $ORIGIN — re-run the installer to change it.
+# Replaces the reference host's paths and origin in deploy/compose.yml + compose.web.yml and runs
+# one ComfyUI worker per selected GPU (GPUs ${GPUS}).
+services:$workers
   runtime:
     command: [\"uvicorn\", \"media_lab.web:create_app\", \"--factory\", \"--host\", \"$LISTEN\", \"--port\", \"$PORT\", \"--no-proxy-headers\", \"--no-access-log\", \"--ssl-certfile\", \"/run/media-lab/origin.crt\", \"--ssl-keyfile\", \"/run/media-lab/origin.key\"]
     environment:
       PUBLIC_ORIGIN: $ORIGIN
+      COMFYUI_ENDPOINTS: $endpoints
     volumes: !override
       - $STATE_DIR:/data
       - $SECRETS_DIR:/run/media-lab:ro
@@ -756,7 +864,8 @@ $comfy_common
       RUNTIME_PORT: \"$PORT\"
     volumes: !override
       - $STATE_DIR/agent-runs:/agent-state
-      - $SECRETS_DIR:/run/media-lab:ro"
+      - $SECRETS_DIR:/run/media-lab:ro${extra_volumes:+
+volumes:$extra_volumes}"
   if [[ $DRY_RUN == 0 ]]; then
     "${COMPOSE[@]}" config --quiet || die "docker compose rejected the generated configuration ($OVERRIDE)"
     ok "compose configuration valid"
@@ -772,6 +881,11 @@ build_images() {
 
 start_stack() {
   step "Starting ${SERVICES[*]}"
+  # A worker left from an installation with more GPUs would keep holding its GPU.
+  local name
+  while read -r name; do
+    if [[ -n $name && " ${WORKER_CONTAINERS[*]} " != *" $name "* ]]; then run docker stop "$name" >/dev/null; fi
+  done < <(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^media-lab-comfyui(-gpu[0-9]+)?$' || true)
   run "${COMPOSE[@]}" up -d --no-build "${SERVICES[@]}"
   [[ $DRY_RUN == 1 ]] && return
   local health
@@ -789,7 +903,7 @@ IDLE_CHECK="$(cat <<'PY'
 import json, os, pathlib, sqlite3, sys, urllib.request
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 busy = []
-for port in (8388, 8389):
+for port in sys.argv[1:]:
     try:
         with opener.open(f"http://127.0.0.1:{port}/queue", timeout=5) as r:
             q = json.load(r)
@@ -837,7 +951,7 @@ ensure_idle() {
   [[ $FORCE == 1 ]] && return
   stack_running || return 0
   local reason
-  if ! reason="$(docker exec "$RUNTIME_CONTAINER" python -c "$IDLE_CHECK" 2>&1)"; then
+  if ! reason="$(docker exec "$RUNTIME_CONTAINER" python -c "$IDLE_CHECK" "${WORKER_PORTS[@]}" 2>&1)"; then
     die "Media Lab is busy (${reason:-unknown state}); nothing was changed. Wait, or use --force to interrupt."
   fi
 }
@@ -871,6 +985,7 @@ summary() {
     info "Port $PORT is open on every interface: restrict it with your firewall to the proxy or LAN."
     info "Browsers must trust $SECRETS_DIR/origin-ca.crt when they connect directly."
   fi
+  info "Project:  $PROJECT_URL (updates, issues and documentation)"
   (( WARNINGS == 0 )) || info "${C_WARN}$WARNINGS warning(s) above.${C_0}"
 }
 
@@ -970,15 +1085,221 @@ cmd_renew_cert() {
 require_installed() { [[ -f $CONF && -f $OVERRIDE ]] || die "no installation found at $MEDIA_HOME (run $PROGRAM install, or pass --home)"; }
 
 # ---------------------------------------------------------------------------------------------
+# First-install assistant: shows the detected hardware and asks for the GPUs, the access mode,
+# the origin and the model groups. Menus use whiptail when it is installed (plain prompts
+# otherwise, or with MEDIA_LAB_PLAIN=1). Options given on the command line are not asked again.
+# ---------------------------------------------------------------------------------------------
+WHIPTAIL=0
+if [[ $INTERACTIVE == 1 && ${TERM:-dumb} != dumb && -z ${MEDIA_LAB_PLAIN:-} ]] && command -v whiptail >/dev/null; then
+  WHIPTAIL=1
+fi
+
+ui_size() { # rows cols for a dialog with $1 lines of text
+  local rows cols
+  rows="$(tput lines 2>/dev/null || echo 24)" cols="$(tput cols 2>/dev/null || echo 80)"
+  rows=$(( $1 + 8 < rows - 2 ? $1 + 8 : rows - 2 )) cols=$(( cols - 4 < 96 ? cols - 4 : 96 ))
+  echo "$rows $cols"
+}
+
+ui_message() { # text
+  if [[ $WHIPTAIL == 1 ]]; then
+    # shellcheck disable=SC2046
+    whiptail --title "Media Lab" --msgbox "$1" $(ui_size "$(wc -l <<<"$1")")
+  else
+    printf '\n%s\n' "$1" | sed 's/^/    /'
+  fi
+}
+
+ui_choice() { # var text default tag label [tag label...]
+  local var="$1" text="$2" default="$3" answer="" tags=() labels=() i
+  shift 3
+  while (( $# )); do tags+=("$1") labels+=("$2"); shift 2; done
+  if [[ $WHIPTAIL == 1 ]]; then
+    local items=() size
+    for i in "${!tags[@]}"; do
+      items+=("${tags[$i]}" "${labels[$i]}" "$([[ ${tags[$i]} == "$default" ]] && echo ON || echo OFF)")
+    done
+    size="$(ui_size $(( $(wc -l <<<"$text") + ${#tags[@]} )))"
+    # shellcheck disable=SC2086
+    answer="$(whiptail --title "Media Lab" --radiolist "$text" $size "${#tags[@]}" "${items[@]}" 3>&1 1>&2 2>&3)" \
+      || die "installation cancelled; nothing was changed"
+  else
+    printf '\n'; sed 's/^/    /' <<<"$text"
+    for i in "${!tags[@]}"; do
+      printf '      %d) %s%s\n' $(( i + 1 )) "${labels[$i]}" "$([[ ${tags[$i]} == "$default" ]] && echo '  [default]')"
+    done
+    while :; do
+      read -r -p "    Choice [Enter = default]: " answer
+      if [[ -z $answer ]]; then answer="$default"; break; fi
+      if [[ $answer =~ ^[0-9]+$ ]] && (( answer >= 1 && answer <= ${#tags[@]} )); then answer="${tags[answer - 1]}"; break; fi
+      echo "    Type a number from 1 to ${#tags[@]}."
+    done
+  fi
+  printf -v "$var" '%s' "$answer"
+}
+
+ui_input() { # var text default
+  local var="$1" text="$2" default="$3" answer
+  if [[ $WHIPTAIL == 1 ]]; then
+    # shellcheck disable=SC2046
+    answer="$(whiptail --title "Media Lab" --inputbox "$text" $(ui_size "$(wc -l <<<"$text")") "$default" 3>&1 1>&2 2>&3)" \
+      || die "installation cancelled; nothing was changed"
+  else
+    printf '\n'; sed 's/^/    /' <<<"$text"
+    read -r -p "    > ${default:+[$default] }" answer
+    answer="${answer:-$default}"
+  fi
+  printf -v "$var" '%s' "$answer"
+}
+
+ui_checklist() { # var text tag label ON|OFF ...  (selected tags, space-separated)
+  local var="$1" text="$2" answer=""
+  shift 2
+  if [[ $WHIPTAIL == 1 ]]; then
+    local size
+    size="$(ui_size $(( $(wc -l <<<"$text") + $# / 3 )))"
+    # shellcheck disable=SC2086
+    answer="$(whiptail --title "Media Lab" --separate-output --checklist "$text" $size $(( $# / 3 )) "$@" 3>&1 1>&2 2>&3)" \
+      || die "installation cancelled; nothing was changed"
+    answer="$(tr '\n' ' ' <<<"$answer")"
+  else
+    local defaults=()
+    while (( $# )); do if [[ $3 == ON ]]; then defaults+=("$1"); fi; shift 3; done
+    printf '\n'; sed 's/^/    /' <<<"$text"
+    list_models | sed 's/^/    /'
+    read -r -p "    Groups or preset [${defaults[*]}]: " answer
+    answer="${answer:-${defaults[*]}}"
+  fi
+  printf -v "$var" '%s' "${answer//,/ }"
+}
+
+ui_yesno() { # text
+  if [[ $WHIPTAIL == 1 ]]; then
+    # shellcheck disable=SC2046
+    whiptail --title "Media Lab" --yesno "$1" $(ui_size "$(wc -l <<<"$1")")
+  else
+    local answer
+    printf '\n%s\n' "$1" | sed 's/^/    /'
+    read -r -p "    [Y/n] " answer
+    [[ -z $answer || $answer =~ ^[YySs] ]]
+  fi
+}
+
+lan_address() {
+  ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") {print $(i + 1); exit}}'
+}
+
+hardware_text() {
+  local entry index name mem lines=""
+  for entry in "${HW_GPUS[@]}"; do
+    IFS='|' read -r index name mem <<<"$entry"
+    lines+="GPU $index  $name  $(( (mem + 512) / 1024 )) GB"
+    if (( mem < MIN_VRAM_MIB )); then lines+="  (under 24 GB: not suggested)"; fi
+    lines+=$'\n'
+  done
+  [[ -n $lines ]] || lines=$'No NVIDIA GPU detected (nvidia-smi).\n'
+  printf '%sRAM %s GB · %s CPUs · %s GB free for models at %s\n' "$lines" "$HW_RAM_GB" "$HW_CPUS" \
+    "$(free_gb "$MODELS_DIR")" "$MODELS_DIR"
+}
+
+wizard() {
+  [[ $INTERACTIVE == 1 && ! -f $CONF ]] || return 0
+  local suggested count n list=() labels=() text chosen label
+  suggested="$(suggested_gpus)"
+  ui_message "Welcome to the Media Lab installer.
+$PROJECT_URL · by Xainner
+
+$(hardware_text)
+Media Lab runs one ComfyUI worker per GPU: each GPU makes one image, video or song at a
+time, so N GPUs make N things at once (a job never spans GPUs). It is tested with
+2x 24 GB GPUs; with one GPU, jobs take turns."
+
+  if [[ -z $OPT_GPUS && -n $suggested ]]; then
+    read -r -a list <<<"${suggested//,/ }"
+    count=${#list[@]}
+    if (( count == 1 )); then
+      GPUS="$suggested"
+    else
+      for (( n = count; n >= 1; n-- )); do
+        chosen="$(IFS=,; echo "${list[*]:0:n}")"
+        if (( n == 1 )); then label="1 worker on GPU $chosen"; else label="$n workers on GPUs $chosen"; fi
+        if (( n == count )); then label+="  (recommended)"; fi
+        labels+=("$chosen" "$label")
+      done
+      ui_choice GPUS "How many GPUs should Media Lab use? Each one runs its own worker." "$suggested" "${labels[@]}"
+    fi
+  fi
+
+  if [[ -z $OPT_ORIGIN ]]; then
+    local access default=""
+    if [[ -z $OPT_LISTEN ]]; then
+      ui_choice access "How will people open Media Lab?" proxy \
+        proxy "Through a reverse proxy on this server, with a public name (HTTPS)" \
+        lan "Directly on the local network, at this server's port $PORT"
+      if [[ $access == lan ]]; then LISTEN=0.0.0.0; else LISTEN=127.0.0.1; fi
+    fi
+    if [[ $LISTEN == 0.0.0.0 && -n $(lan_address) ]]; then default="https://$(lan_address):$PORT"; fi
+    while :; do
+      if [[ $LISTEN == 0.0.0.0 ]]; then
+        text="Address on the local network: a name that resolves to this server, or its IPv4, with
+the port (e.g. https://medialab.lan:$PORT). Devices must trust the private CA it creates."
+      else
+        text="Public HTTPS address of your reverse proxy (e.g. https://media.example.com).
+Point the proxy at https://127.0.0.1:$PORT; the summary at the end explains how."
+      fi
+      ui_input ORIGIN "$text" "$default"
+      if ( parse_origin ) 2>/dev/null; then break; fi
+      ui_message "That is not an exact https origin (lower-case name or IPv4, optional port, no path)."
+      default="$ORIGIN"
+    done
+  fi
+
+  if [[ -z $OPT_MODELS ]]; then
+    local free preset items=() g on
+    free="$(free_gb "$MODELS_DIR")"
+    preset="$PRESET_MINIMAL"
+    if (( free >= $(groups_gb "$PRESET_RECOMMENDED") )); then preset="$PRESET_RECOMMENDED"; fi
+    for g in "${GROUP_ORDER[@]}"; do
+      on=OFF
+      if [[ " $preset " == *" $g "* ]]; then on=ON; fi
+      items+=("$g" "$(printf '%5s GB  %s' "~${G_GB[$g]}" "${G_DESC[$g]:0:60}")" "$on")
+    done
+    ui_checklist OPT_MODELS "Model groups ($free GB free; preselected: what fits, up to 'recommended').
+qwen is always installed. Each licence is yours to read and accept: run
+'$PROGRAM list-models'. Several are non-commercial; FLUX 3 Klein is gated." "${items[@]}"
+  fi
+
+  resolve_gpus
+  local groups; groups="$(resolve_groups "$OPT_MODELS")"
+  ui_yesno "Ready to install:
+
+GPUs:    $GPUS  (one worker each)
+Access:  $ORIGIN  (listening on $LISTEN:$PORT)
+Models:  $groups  (~$(groups_gb "$groups") GB)
+Data:    $MEDIA_HOME
+
+Downloads resume if this run is interrupted. Continue?" \
+    || die "installation cancelled; nothing was changed"
+}
+
+# ---------------------------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------------------------
+case "$COMMAND" in
+  install|models) detect_hardware; resolve_gpus ;;
+  *) GPUS="${GPUS:-0,1}" ;;  # installations saved before --gpus ran two workers
+esac
+plan_workers
+
 case "$COMMAND" in
   list-models)
     list_models
     ;;
   install)
-    printf '%sMedia Lab installer%s  %s\n' "$C_ACC$C_B" "$C_0" "$C_DIM$REPO_ROOT$C_0"
+    printf '%sMedia Lab installer%s  %s\n' "$C_ACC$C_B" "$C_0" "$C_DIM$PROJECT_URL · $REPO_ROOT$C_0"
     if [[ $DRY_RUN == 1 ]]; then info "Dry run: nothing will be changed."; fi
+    wizard
+    plan_workers
     ask_origin
     choose_groups
     preflight
@@ -1011,12 +1332,12 @@ case "$COMMAND" in
   stop)
     require_installed
     ensure_idle
-    run "${COMPOSE[@]}" stop agent runtime comfyui comfyui-gpu1
+    run "${COMPOSE[@]}" stop agent runtime "${WORKER_SERVICES[@]}"
     ;;
   restart)
     require_installed
     ensure_idle
-    run "${COMPOSE[@]}" stop agent runtime comfyui comfyui-gpu1
+    run "${COMPOSE[@]}" stop agent runtime "${WORKER_SERVICES[@]}"
     start_stack
     ;;
   status)

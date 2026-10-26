@@ -133,11 +133,12 @@ tool) reports each model's readiness from the files on disk.
 | Web studio | [`apps/web`](apps/web) | React + Vite single-page app: creator, Explore, Library, Jobs, Director, Characters, account and admin pages. |
 | Runtime | [`services/runtime`](services/runtime) | FastAPI web/API server over TLS: accounts (Argon2id, TOTP, invitations), per-owner storage and SQLite state, job admission and the GPU scheduler, workflow builders for every model, the MCP server and the web build. |
 | Agent | [`services/agent`](services/agent) | Private Node service (loopback only) running the tool loop: it reads the model guides, writes model-ready prompts, submits jobs, inspects results and keeps resumable runs. Provider calls and secrets are handled by the runtime. |
-| GPU workers | [`deploy/Dockerfile.comfyui`](deploy/Dockerfile.comfyui) | Two ComfyUI instances, one per GPU, from a pinned ComfyUI commit and pinned custom-node packs, plus Media Lab's own nodes in [`services/comfyui-nodes`](services/comfyui-nodes) (stems, speech). |
+| GPU workers | [`deploy/Dockerfile.comfyui`](deploy/Dockerfile.comfyui) | One ComfyUI instance per GPU (two on the reference host), from a pinned ComfyUI commit and pinned custom-node packs, plus Media Lab's own nodes in [`services/comfyui-nodes`](services/comfyui-nodes) (stems, speech). |
 | Deployment | [`deploy/`](deploy) | `compose.yml` + `compose.web.yml`, Dockerfiles, model download scripts and the installer. |
 
-**One job per GPU.** The two cards are independent workers, not pooled VRAM: a job never spans
-both GPUs, and the scheduler sends each new job to the free (or least busy) worker. Models are
+**One job per GPU.** The cards are independent workers, not pooled VRAM: a job never spans
+GPUs, and the scheduler sends each new job to the free (or least busy) worker. N GPUs make N
+things at once. Models are
 unloaded after a short idle period so the cards can be shared with other workloads.
 
 ## Agent and MCP server
@@ -196,7 +197,7 @@ lifecycle are in [`docs/MCP.md`](docs/MCP.md); every model control is in
 
 | | Tested | Notes |
 |---|---|---|
-| GPUs | **2× NVIDIA RTX 3090 24 GB** | One ComfyUI worker per GPU. 24 GB per card is the tested size; one GPU can be tried with `--single-gpu` (untested). |
+| GPUs | **2× NVIDIA RTX 3090 24 GB** | One ComfyUI worker per GPU, any number of GPUs (`--gpus`). 24 GB per card is the tested size; with one GPU, jobs take turns. |
 | Driver | NVIDIA 595 | CUDA 13 (driver 580 or newer): the ComfyUI image starts from `pytorch/pytorch:2.12.1-cuda13.0-cudnn9-devel`. |
 | OS | Ubuntu Linux | Any Linux with Docker Engine, Docker Compose **2.24.4+** and the NVIDIA Container Toolkit. |
 | Disk | ~370 GB free | ~44–326 GB for models depending on the groups, ~40 GB for images, plus your library. |
@@ -216,13 +217,21 @@ cd media-lab
 # then save a read token in the standard location (~/.cache/huggingface/token).
 hf auth login
 
-deploy/install.sh --origin https://media.example.com --models recommended
+deploy/install.sh
 ```
+
+On a terminal, a first install opens an **assistant** (arrow-key menus with `whiptail`, plain
+prompts otherwise). It shows what it detected, for example *2× RTX 3090 24 GB · 123 GB RAM ·
+1.3 TB free → 2 workers*, then asks how many GPUs to use, how people will open the studio
+(reverse proxy or local network, suggesting this server's LAN address) and which model groups to
+install, preselecting what fits on the disk. Every answer has an option, so scripts and agents
+skip the questions: `deploy/install.sh --yes --origin https://media.example.com --models
+recommended --gpus all`.
 
 The installer:
 
 1. **Checks the host** — Linux, Docker and Compose versions, NVIDIA Container Toolkit, GPUs,
-   VRAM and driver, free disk for the selected models and images, free ports, and the Hugging
+   VRAM, RAM and driver, free disk for the selected models and images, free ports, and the Hugging
    Face token (validated against Hugging Face, never printed or stored elsewhere).
 2. **Saves your settings** in `~/media-lab-data/media-lab.conf` (no secrets) and prepares the model,
    state and LoRA directories.
@@ -231,8 +240,8 @@ The installer:
    replaced.
 4. **Downloads the models** you chose with the pinned scripts. Interrupted downloads resume;
    verified files are skipped.
-5. **Writes a Compose override** for your paths and origin, builds the ComfyUI, web and agent
-   images and starts `deploy/compose.yml` + `deploy/compose.web.yml`.
+5. **Writes a Compose override** for your paths, origin and GPUs (one ComfyUI worker each),
+   builds the ComfyUI, web and agent images and starts `deploy/compose.yml` + `deploy/compose.web.yml`.
 6. **Prints a one-time link** (valid 30 minutes) to create the first administrator. Invite
    everyone else from the admin pages.
 
@@ -264,6 +273,7 @@ origin certificate:
 | Models / shared models / H3 Fused / LoRAs | `--models-dir`, `--shared-models-dir`, `--h3-fused-dir`, `--loras-dir` | under `~/media-lab-data` |
 | Model groups (added to the installed ones) | `--models` | `recommended` |
 | Native 2K image creation | `--enable-2k` | off |
+| GPUs used (one ComfyUI worker each) | `--gpus 0,1` or `--gpus all` | every GPU with 24 GB or more |
 | Hugging Face token file | `--hf-token-file` | `~/.cache/huggingface/token` |
 
 **One installation per host.** The Compose project and container names are fixed, so the
@@ -357,16 +367,19 @@ instrumental, efectos y voz con modelos abiertos que corren en tus GPUs, con age
 MCP. Está pensado para uso personal y no comercial (tú y tus amigos), con cuentas privadas por
 invitación y 2FA. La interfaz está en español.
 
-Instalación rápida en un servidor Linux con Docker, NVIDIA Container Toolkit y dos GPUs de 24 GB
-(probado con 2× RTX 3090; cada trabajo usa una sola GPU):
+Instalación rápida en un servidor Linux con Docker, NVIDIA Container Toolkit y una o más GPUs de
+24 GB (probado con 2× RTX 3090; cada GPU corre su propio worker y cada trabajo usa una sola):
 
 ```bash
 git clone https://github.com/Xainner/media-lab.git && cd media-lab
 hf auth login   # solo para modelos con acceso restringido, como FLUX 3 Klein
-deploy/install.sh --origin https://media.example.com --models recommended
+deploy/install.sh
 ```
 
-El instalador comprueba el equipo, descarga los modelos elegidos con hashes verificados, crea
+En una terminal, la primera instalación abre un **asistente con menús**: muestra las GPUs, la RAM
+y el disco que detectó, sugiere cuántos workers usar (uno por GPU), pregunta cómo se abrirá el
+estudio (proxy o red local) y qué modelos instalar, marcando los que caben. El instalador
+comprueba el equipo, descarga los modelos elegidos con hashes verificados, crea
 las claves y el certificado de origen, construye las imágenes, arranca el stack y te da un enlace
 de un solo uso para crear al administrador. Usa `--dry-run` para ver qué haría y `--help` para
 todas las opciones. Antes de instalar, **lee y acepta las licencias de cada modelo**: varias son
