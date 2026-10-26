@@ -12,11 +12,11 @@ from .gpu_guard import GpuGuard
 class GpuWorkers:
     def __init__(self, settings, store, clients=None, guards=None):
         self.settings, self.store = settings, store
-        urls = [settings.comfy_url, settings.comfy_gpu1_url]
+        urls = settings.worker_urls()
         self.clients = clients or [ComfyClient(url, max(settings.generation_timeout, 3600)) for url in urls]
         self.guards = guards or [GpuGuard(settings, url) for url in urls]
-        self.locks = [threading.Lock(), threading.Lock()]
-        self.pools = [ThreadPoolExecutor(1, thread_name_prefix=f"visual-gpu{i}") for i in range(2)]
+        self.locks = [threading.Lock() for _ in self.clients]
+        self.pools = [ThreadPoolExecutor(1, thread_name_prefix=f"visual-gpu{i}") for i in range(len(self.clients))]
         self.lock = threading.RLock()
         self.assigned: dict[str, int] = {}
         self.active: dict[str, int] = {}
@@ -44,6 +44,7 @@ class GpuWorkers:
         return states
 
     def submit(self, job_id, preferred, execute):
+        preferred = min(preferred, len(self.clients) - 1)  # a one-GPU host has no GPU 1
         states = self.status()
         healthy = [s for s in states if s["health"]["ok"]]
         available = [s for s in healthy if s["gpu_guard"]["available"]]

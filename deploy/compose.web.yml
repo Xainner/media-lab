@@ -17,7 +17,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.web
-    image: media-lab-web:0.15.2
+    image: media-lab-web:0.16.0
     command: ["uvicorn", "media_lab.web:create_app", "--factory", "--host", "${MEDIA_LAB_LISTEN:-0.0.0.0}", "--port", "${MEDIA_LAB_PORT:-8390}", "--no-proxy-headers", "--no-access-log", "--ssl-certfile", "/run/media-lab/origin.crt", "--ssl-keyfile", "/run/media-lab/origin.key"]
     environment:
       PUBLIC_ORIGIN: ${MEDIA_LAB_ORIGIN:?public origin required, e.g. https://media.example.com}
@@ -41,7 +41,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.agent
-    image: media-lab-agent:0.15.2
+    image: media-lab-agent:0.16.0
     container_name: media-lab-agent
     restart: unless-stopped
     network_mode: host

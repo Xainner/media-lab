@@ -45,8 +45,7 @@ class JobManager:
         self.store = store
         self.artifacts = artifacts
         self.workers = workers
-        self.clients = [ComfyClient(url, settings.generation_timeout)
-                        for url in (settings.comfy_url, settings.comfy_gpu1_url)]
+        self.clients = [ComfyClient(url, settings.generation_timeout) for url in settings.worker_urls()]
         self._previews: dict[str, dict] = {}
         self._preview_lock = threading.Lock()
 

@@ -252,3 +252,47 @@ def test_director_video_lock_does_not_block_a_video_on_the_other_gpu(lab, monkey
         assert finished(store, job)['status'] == 'completed'
     finally:
         creative.h3_locks[0].release()
+
+
+def build_lab(tmp_path, count):
+    settings = replace(SETTINGS, db_path=tmp_path / "lab.db", artifacts_root=tmp_path / "artifacts")
+    store = Store(settings.db_path)
+    artifacts = ArtifactStore(settings.artifacts_root, settings.upload_max_bytes, settings.upload_max_pixels)
+    clients = [FakeComfy(i) for i in range(count)]
+    workers = GpuWorkers(settings, store, clients, [FakeGuard() for _ in range(count)])
+    jobs = JobManager(settings, store, artifacts, workers)
+    jobs.clients = clients
+    return jobs, workers, clients, store
+
+
+@pytest.mark.parametrize("count", [1, 3])
+def test_one_worker_per_gpu_for_any_gpu_count(tmp_path, count):
+    jobs, workers, clients, store = build_lab(tmp_path, count)
+    try:
+        submitted = []
+        for index in range(count):
+            submitted.append(jobs.submit_generate(GenerateRequest(prompt=f"p{index}")))
+            assert clients[index].started.wait(2)
+        assert sorted(job["gpu"] for job in submitted) == list(range(count))
+        assert [s["gpu"] for s in workers.status()] == list(range(count))
+        # A job that prefers GPU 1 (songs) still runs on a one-GPU host.
+        assert workers.submit("job_extra", 1, lambda job_id, gpu: None) in range(count)
+        for client in clients:
+            client.release.set()
+        assert all(finished(store, job)["status"] == "completed" for job in submitted)
+    finally:
+        for client in clients:
+            client.release.set()
+        workers.shutdown()
+
+
+def test_worker_endpoints_come_from_one_list(monkeypatch):
+    from media_lab.config import load_settings
+    monkeypatch.setenv("COMFYUI_ENDPOINTS", "http://127.0.0.1:8388, http://127.0.0.1:8389/,http://127.0.0.1:8393")
+    settings = load_settings()
+    assert settings.worker_urls() == ("http://127.0.0.1:8388", "http://127.0.0.1:8389", "http://127.0.0.1:8393")
+    assert settings.comfy_url == "http://127.0.0.1:8388"
+    monkeypatch.delenv("COMFYUI_ENDPOINTS")
+    monkeypatch.setenv("COMFYUI_ENDPOINT", "http://a:1")
+    monkeypatch.setenv("COMFYUI_GPU1_ENDPOINT", "http://b:2")
+    assert load_settings().worker_urls() == ("http://a:1", "http://b:2")

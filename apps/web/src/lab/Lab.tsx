@@ -57,7 +57,7 @@ function Hero() {
           <motion.span key={words[word]} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '-100%' }} transition={{ duration: .6, ease: [.7, 0, .2, 1] }}>{words[word]}</motion.span>
         </AnimatePresence></span>
         <span className="ml-hero-line is-dim">EN TU PROPIO LAB</span></h1>
-      <p className="ml-hero-sub">Imagen, vídeo, música y voz con modelos abiertos en tus dos GPU. Para ti y tus amigos.</p>
+      <p className="ml-hero-sub">Imagen, vídeo, música y voz con modelos abiertos en tus GPU. Para ti y tus amigos.</p>
       <div className="ml-hero-cta"><Link to="/image" className="ml-btn is-accent is-big">Empezar a crear<ArrowRight size={17} /></Link><a href="#modelos" className="ml-btn is-big">Ver modelos</a></div>
     </div>
   </section>

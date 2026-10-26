@@ -9,8 +9,9 @@ for a new host. `README.md` explains the product and every option.
 ### Before you run anything
 
 1. **Confirm the host.** Linux with Docker Engine, Docker Compose 2.24.4+, the NVIDIA Container
-   Toolkit, an NVIDIA driver 580+ (CUDA 13) and, as tested, two 24 GB GPUs (one ComfyUI worker
-   per GPU; a job never spans both). Run the installer as the user with uid 1000 (the web and
+   Toolkit, an NVIDIA driver 580+ (CUDA 13) and 24 GB GPUs: one ComfyUI worker per GPU, tested
+   with two (a job never spans GPUs). `--gpus` picks them (default: every GPU with 24 GB or
+   more); ask the user before leaving a GPU out or using a smaller one. Run the installer as the user with uid 1000 (the web and
    agent containers run as 1000:1000) or as root.
 2. **One Media Lab per host.** Compose project and container names are fixed. If a Media Lab
    stack already runs there (for example the reference host deployed with

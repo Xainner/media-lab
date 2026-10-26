@@ -30,13 +30,23 @@ class Settings:
     upload_max_bytes: int
     upload_max_pixels: int
     h3_fused_root: Path = Path("/fused-models")
+    # One ComfyUI endpoint per GPU (COMFYUI_ENDPOINTS); empty keeps the two-worker pair above.
+    comfy_urls: tuple[str, ...] = ()
+
+    def worker_urls(self) -> tuple[str, ...]:
+        """The ComfyUI workers in GPU order: one job at a time on each."""
+        return self.comfy_urls or (self.comfy_url, self.comfy_gpu1_url)
 
 
 def load_settings() -> Settings:
     state = Path(os.environ.get("STATE_ROOT", "/data"))
     artifacts = Path(os.environ.get("ARTIFACTS_ROOT", str(state / "artifacts")))
+    endpoints = tuple(url.strip().rstrip("/") for url in os.environ.get("COMFYUI_ENDPOINTS", "").split(",")
+                      if url.strip())
     return Settings(
-        comfy_url=os.environ.get("COMFYUI_ENDPOINT", "http://media-lab-comfyui:8188").rstrip("/"),
+        comfy_urls=endpoints,
+        comfy_url=endpoints[0] if endpoints else
+        os.environ.get("COMFYUI_ENDPOINT", "http://media-lab-comfyui:8188").rstrip("/"),
         comfy_gpu1_url=os.environ.get("COMFYUI_GPU1_ENDPOINT", "http://127.0.0.1:8389").rstrip("/"),
         artifacts_root=artifacts,
         db_path=Path(os.environ.get("DB_PATH", str(state / "media-lab.db"))),
