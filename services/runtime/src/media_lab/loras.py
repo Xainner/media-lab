@@ -26,7 +26,8 @@ from .security import owner
 
 LORA_BASES = {"qwen": "Qwen-Image 2.1 · imagen", "h3": "MiniMax H3 · vídeo"}
 LORA_MAX_BYTES = 2 * 1024 ** 3
-LORA_LIMIT = 30
+# Saved LoRAs per account; no cap unless the host sets LORA_LIMIT (free disk is checked per download).
+LORA_LIMIT = int(os.environ["LORA_LIMIT"]) if os.environ.get("LORA_LIMIT", "").strip() else None
 LORA_USE_MAX = 4
 FREE_SPACE = 20 * 1024 ** 3
 HEADER_MAX = 64 * 1024 ** 2
@@ -270,7 +271,8 @@ class LoraLibrary:
         lid = "lora_" + secrets.token_hex(8)
         with self.store._db() as db:
             db.execute("BEGIN IMMEDIATE")
-            if db.execute("SELECT COUNT(*) FROM loras WHERE owner_id=?", (uid,)).fetchone()[0] >= LORA_LIMIT:
+            if LORA_LIMIT is not None and db.execute(
+                    "SELECT COUNT(*) FROM loras WHERE owner_id=?", (uid,)).fetchone()[0] >= LORA_LIMIT:
                 raise ResourceLimit(f"Máximo {LORA_LIMIT} LoRAs por cuenta; borra alguno primero")
             if db.execute("SELECT 1 FROM loras WHERE owner_id=? AND source_url=? AND status!='error'", (uid, url)).fetchone():
                 raise ValueError("Ya añadiste ese enlace")

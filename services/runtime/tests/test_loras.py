@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from test_web_security import lab, sign_in, image, ORIGIN
+import media_lab.loras
 from media_lab.characters import CharacterBody
 from media_lab.contracts import EditRequest, GenerateRequest, LoraUse, VideoRequest
 from media_lab.creative_workflows import h3_workflow
@@ -169,9 +170,10 @@ def test_library_needs_a_root_and_has_a_limit(lab, tmp_path, monkeypatch):
     with as_owner(alice):
         with pytest.raises(ValueError, match="no está configurada"):
             LoraLibrary(store, None).add("https://huggingface.co/me/style")
-        monkeypatch.setattr("media_lab.loras.LORA_LIMIT", 1)
         library = LoraLibrary(store, tmp_path / "loras", site({"style.safetensors": safetensors(QWEN21)}))
+        assert media_lab.loras.LORA_LIMIT is None
         settle(library, library.add("https://huggingface.co/me/style")["id"])
+        monkeypatch.setattr("media_lab.loras.LORA_LIMIT", 1)
         with pytest.raises(ResourceLimit):
             library.add("https://huggingface.co/me/other")
 
