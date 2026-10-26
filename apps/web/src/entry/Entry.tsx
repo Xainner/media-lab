@@ -6,10 +6,12 @@ import { nebula } from '../motion/Nebula'
 import { motionAllowed, finePointer } from '../motion/prefs'
 import { WordReveal, useMagnetic, useSpotlight } from '../motion/effects'
 import { Loading, Notice } from '../ui'
+import { t, type MessageKey } from '../i18n'
+import LanguageSwitch from '../i18n/LanguageSwitch'
 
 export type EntryMode = 'login' | 'accept' | 'forgot' | 'reset'
 const INTRO_KEY = 'rvl-intro-seen'
-const TICKER = ['Imagen', 'Edición', 'Vídeo', 'Audio', 'Director', 'Agente', 'Qwen Image 2.1', 'MiniMax H3', 'YuE2']
+const TICKER: (MessageKey | { name: string })[] = ['auth.ticker.image', 'auth.ticker.edit', 'auth.ticker.video', 'auth.ticker.audio', 'auth.ticker.director', 'auth.ticker.agent', { name: 'Qwen Image 2.1' }, { name: 'MiniMax H3' }, { name: 'YuE2' }]
 // The showcase wall: four columns of Lab art drifting in alternate directions behind the access card.
 const WALL = [
   ['feed-alley', 'model-video', 'feed-ocean', 'app-character'],
@@ -90,7 +92,7 @@ export default function Entry({ mode, loading, factor, children, onSkipRef }: {
     }))
   }, [onSkipRef])
 
-  const title = mode === 'login' ? 'Crea sin\nlímites.' : mode === 'accept' ? 'Tu lugar\nen el Lab.' : 'Volvamos\na crear.'
+  const title = t(mode === 'login' ? 'auth.title.login' : mode === 'accept' ? 'auth.title.accept' : 'auth.title.recover')
   return <div ref={root} className={`entry ${introDone ? 'is-ready' : 'is-intro'}`}>
     <div className="entry-scene" aria-hidden="true">
       <div className="entry-wall" data-depth="14">{WALL.map((column, c) => <div key={c} className="entry-column">
@@ -105,16 +107,17 @@ export default function Entry({ mode, loading, factor, children, onSkipRef }: {
           <Wordmark />
           {loading ? <Loading /> : factor ? factor : <>
             <WordReveal as="h1" text={title} className="entry-title" play={introDone} delay={120} />
-            <p className="entry-sub">{mode === 'login' ? 'Imagen, vídeo y música con IA, en tu propio servidor. Entra y dale vida a tu próxima idea.' : mode === 'accept' ? 'Tu invitación abre la puerta. Elige cómo te llamarás en el estudio.' : 'Te ayudamos a volver a tu espacio creativo.'}</p>
-            <span id="entry-title" className="sr-only">{mode === 'login' ? 'Iniciar sesión' : mode === 'accept' ? 'Crear tu cuenta' : 'Recuperar acceso'}</span>
+            <p className="entry-sub">{t(mode === 'login' ? 'auth.sub.login' : mode === 'accept' ? 'auth.sub.accept' : 'auth.sub.recover')}</p>
+            <span id="entry-title" className="sr-only">{t(mode === 'login' ? 'auth.heading.login' : mode === 'accept' ? 'auth.heading.accept' : 'auth.heading.recover')}</span>
             {children}
           </>}
-          <p className="entry-private"><ShieldCheck size={16} /> Tu estudio privado · solo por invitación · uso personal</p>
+          <p className="entry-private"><ShieldCheck size={16} /> {t('auth.private')}</p>
+          <LanguageSwitch className="entry-language" />
         </section>
       </div>
     </main>
 
-    <div className="entry-ticker" aria-hidden="true"><div>{[...TICKER, ...TICKER].map((t, i) => <span key={i}>{t}<i>✦</i></span>)}</div></div>
+    <div className="entry-ticker" aria-hidden="true"><div>{[...TICKER, ...TICKER].map((w, i) => <span key={i}>{typeof w === 'string' ? t(w) : w.name}<i>✦</i></span>)}</div></div>
 
     {!introDone && <div className="intro">
       <div className="intro-veil" aria-hidden="true" />
@@ -124,7 +127,7 @@ export default function Entry({ mode, loading, factor, children, onSkipRef }: {
         </svg>
         <span className="intro-emblem"><Mark size={260} /></span><span className="intro-flare" />
       </div>
-      <button type="button" className="intro-skip" onClick={() => tl.current?.progress(1)}>Saltar intro</button>
+      <button type="button" className="intro-skip" onClick={() => tl.current?.progress(1)}>{t('auth.skipIntro')}</button>
     </div>}
   </div>
 }
@@ -132,10 +135,10 @@ export default function Entry({ mode, loading, factor, children, onSkipRef }: {
 export function PasswordField({ value, onChange, visible, setVisible, mode }: {
   value: string; onChange: (v: string) => void; visible: boolean; setVisible: (v: boolean) => void; mode: EntryMode
 }) {
-  return <label>Contraseña<div className="password-field"><input type={visible ? 'text' : 'password'} required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Tu contraseña" value={value} onChange={e => onChange(e.target.value)} minLength={mode === 'login' ? undefined : 15} maxLength={128} /><button type="button" className="icon-button" aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'} onClick={() => setVisible(!visible)}>{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode !== 'login' && <small>Entre 15 y 128 caracteres.</small>}</label>
+  return <label>{t('auth.password')}<div className="password-field"><input type={visible ? 'text' : 'password'} required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={t('auth.passwordPlaceholder')} value={value} onChange={e => onChange(e.target.value)} minLength={mode === 'login' ? undefined : 15} maxLength={128} /><button type="button" className="icon-button" aria-label={t(visible ? 'auth.hidePassword' : 'auth.showPassword')} onClick={() => setVisible(!visible)}>{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode !== 'login' && <small>{t('auth.passwordHint')}</small>}</label>
 }
 
 export function SubmitButton({ busy, disabled, children }: { busy: boolean; disabled: boolean; children: ReactNode }) {
   const ref = useMagnetic<HTMLButtonElement>(.3)
-  return <button ref={ref} type="submit" className="primary entry-submit" disabled={disabled}>{busy ? 'Un momento…' : children}<ArrowRight size={18} /></button>
+  return <button ref={ref} type="submit" className="primary entry-submit" disabled={disabled}>{busy ? t('auth.busy') : children}<ArrowRight size={18} /></button>
 }

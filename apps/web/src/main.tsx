@@ -9,6 +9,7 @@ import { Notice } from './ui'
 import Entry, { PasswordField, SubmitButton, type EntryMode } from './entry/Entry'
 import Nebula from './motion/Nebula'
 import { useMotionAllowed } from './motion/prefs'
+import { t, useLocale } from './i18n'
 import '@fontsource-variable/archivo/wdth.css'
 import '@fontsource-variable/geist/wght.css'
 import '@fontsource-variable/geist-mono/wght.css'
@@ -47,8 +48,8 @@ function WebApp() {
     if(v?.authenticated && v?.mfa) { await exit.current() }
     setSession(v); setCurrent(v); await refresh()
    }
-   else if(mode === 'accept') { await api('POST','/v1/auth/accept',{email,username,password,token:link.invite}); setMode('login'); setIdentity(email); setSuccess('Tu cuenta está lista. Inicia sesión para entrar al estudio.') }
-   else if(mode === 'reset') { await api('POST','/v1/auth/reset',{token:link.reset,password}); setMode('login'); setSuccess('Contraseña actualizada. Tu protección 2FA sigue activa.') }
+   else if(mode === 'accept') { await api('POST','/v1/auth/accept',{email,username,password,token:link.invite}); setMode('login'); setIdentity(email); setSuccess(t('auth.accountReady')) }
+   else if(mode === 'reset') { await api('POST','/v1/auth/reset',{token:link.reset,password}); setMode('login'); setSuccess(t('auth.passwordUpdated')) }
    else { const v = await api('POST','/v1/auth/forgot',{email}); setSuccess(v.message) }
    setPassword('')
   } catch(e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
@@ -57,23 +58,25 @@ function WebApp() {
  const registerExit = useCallback((fn: () => Promise<void>) => { exit.current = fn }, [])
  const factor = current?.authenticated && !current.mfa
  if(ready) return <Studio key={current.user_id} current={current} refresh={refresh} logout={logout} />
- const factorNode = factor ? <div className="entry-factor"><Factor current={current} done={() => { void exit.current().then(refresh) }} /><button className="ghost" onClick={() => void logout()}>Cerrar sesión</button></div> : null
+ const factorNode = factor ? <div className="entry-factor"><Factor current={current} done={() => { void exit.current().then(refresh) }} /><button className="ghost" onClick={() => void logout()}>{t('auth.logout')}</button></div> : null
  return <Entry mode={mode} loading={loading} factor={factorNode} onSkipRef={registerExit}>
   <form className="entry-form" onSubmit={e => { e.preventDefault(); void submit() }}>
-   {mode === 'login' && <label>Correo o nombre de usuario<input required autoComplete="username" placeholder="tú@ejemplo.com" value={identity} onChange={e => setIdentity(e.target.value)} maxLength={254} /></label>}
-   {['accept','forgot'].includes(mode) && <label>Correo electrónico<input type="email" required autoComplete="email" placeholder="tú@ejemplo.com" value={email} onChange={e => setEmail(e.target.value)} maxLength={254} /></label>}
-   {mode === 'accept' && <label>Nombre de usuario<input required autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} minLength={3} maxLength={40} /></label>}
+   {mode === 'login' && <label>{t('auth.identity')}<input required autoComplete="username" placeholder={t('auth.emailPlaceholder')} value={identity} onChange={e => setIdentity(e.target.value)} maxLength={254} /></label>}
+   {['accept','forgot'].includes(mode) && <label>{t('auth.email')}<input type="email" required autoComplete="email" placeholder={t('auth.emailPlaceholder')} value={email} onChange={e => setEmail(e.target.value)} maxLength={254} /></label>}
+   {mode === 'accept' && <label>{t('auth.username')}<input required autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} minLength={3} maxLength={40} /></label>}
    {mode !== 'forgot' && <PasswordField value={password} onChange={setPassword} visible={visible} setVisible={setVisible} mode={mode} />}
-   {mode === 'login' && <div className="entry-options"><label className="check-label"><input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} /> Recordarme</label><button type="button" className="text-button" onClick={() => { setMode('forgot'); setError(''); setSuccess('') }}>¿Olvidaste tu contraseña?</button></div>}
+   {mode === 'login' && <div className="entry-options"><label className="check-label"><input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} /> {t('auth.remember')}</label><button type="button" className="text-button" onClick={() => { setMode('forgot'); setError(''); setSuccess('') }}>{t('auth.forgot')}</button></div>}
    <Notice error={error} success={success} />
-   {!current && !loading && <button type="button" className="ghost" onClick={()=>void refresh()}>Reintentar conexión</button>}
-   <SubmitButton busy={busy} disabled={busy || !current}>{mode === 'login' ? 'Entrar al estudio' : mode === 'accept' ? 'Crear mi cuenta' : 'Continuar'}</SubmitButton>
-   {mode !== 'login' && <button type="button" className="text-button entry-back" onClick={() => { setMode('login'); setError('') }}>Volver a iniciar sesión</button>}
+   {!current && !loading && <button type="button" className="ghost" onClick={()=>void refresh()}>{t('auth.retry')}</button>}
+   <SubmitButton busy={busy} disabled={busy || !current}>{t(mode === 'login' ? 'auth.submitLogin' : mode === 'accept' ? 'auth.submitAccept' : 'auth.submitContinue')}</SubmitButton>
+   {mode !== 'login' && <button type="button" className="text-button entry-back" onClick={() => { setMode('login'); setError('') }}>{t('auth.backToLogin')}</button>}
   </form>
  </Entry>
 }
 
 function Root() {
+ // Subscribing here re-renders the whole tree when the language changes, so plain `t()` calls follow it.
+ useLocale()
  return <MotionConfig reducedMotion="user"><Nebula /><BrowserRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><div className="rvl"><WebApp /></div></BrowserRouter></MotionConfig>
 }
 createRoot(document.getElementById('root')!).render(<Root />)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ArtifactRef } from '../lib/api'
+import { t } from '../../i18n'
 
 type Props = {
   media: ArtifactRef
@@ -70,28 +71,28 @@ export default function ExportActions({ media, operation = 'generate', seed, com
   return <div className={`export-block ${compact ? 'compact' : ''}`}>
     <div className="export-buttons">
       <button type="button" className="ghost" onClick={() => void toggleOpen()} disabled={busy}>
-        {open ? 'CERRAR EXPORTACIÓN' : web ? 'FORMATO Y CALIDAD…' : 'GUARDAR COMO…'}
+        {open ? t('shell.export.close') : web ? t('shell.export.formatQuality') : t('shell.export.saveAs')}
       </button>
       <button type="button" className="primary" onClick={quickSave} disabled={busy}>
-        {busy ? (web ? 'PREPARANDO…' : 'GUARDANDO…') : web ? 'DESCARGAR' : 'GUARDADO RÁPIDO'}
+        {busy ? (web ? t('shell.export.preparing') : t('shell.export.saving')) : web ? t('shell.export.download') : t('shell.export.quickSave')}
       </button>
     </div>
     {open && <div className="export-options">
-      <div><label>FORMATO DE ARCHIVO</label><select value={format} onChange={event => chooseFormat(event.target.value as ExportFormat)}>
-        <option value="png">PNG · original sin pérdida</option>
-        <option value="jpeg">JPEG · máxima compatibilidad</option>
-        <option value="webp">WebP · archivo compacto</option>
+      <div><label>{t('shell.export.fileFormat')}</label><select value={format} onChange={event => chooseFormat(event.target.value as ExportFormat)}>
+        <option value="png">{t('shell.export.png')}</option>
+        <option value="jpeg">{t('shell.export.jpeg')}</option>
+        <option value="webp">{t('shell.export.webp')}</option>
       </select></div>
-      {format !== 'png' && <div><label>CALIDAD DE EXPORTACIÓN · {quality}</label><input type="range" min="1" max="100" value={quality} onChange={event => setQuality(Number(event.target.value))} /></div>}
+      {format !== 'png' && <div><label>{t('shell.export.quality', { quality })}</label><input type="range" min="1" max="100" value={quality} onChange={event => setQuality(Number(event.target.value))} /></div>}
       {format === 'jpeg' && <div className="jpeg-background">
-        <label>FONDO JPEG</label>
-        <div><button type="button" onClick={() => setBackground('#ffffff')}>BLANCO</button><button type="button" onClick={() => setBackground('#000000')}>NEGRO</button><input aria-label="Color de fondo JPEG" type="color" value={background} onChange={event => setBackground(event.target.value)} /></div>
-        {media.has_alpha && <p className="warning">JPEG eliminará la transparencia y aplicará este fondo.</p>}
+        <label>{t('shell.export.jpegBackground')}</label>
+        <div><button type="button" onClick={() => setBackground('#ffffff')}>{t('shell.export.white')}</button><button type="button" onClick={() => setBackground('#000000')}>{t('shell.export.black')}</button><input aria-label={t('shell.export.backgroundColor')} type="color" value={background} onChange={event => setBackground(event.target.value)} /></div>
+        {media.has_alpha && <p className="warning">{t('shell.export.alphaWarning')}</p>}
       </div>}
-      <button type="button" className="primary" onClick={saveAs} disabled={busy}>{web ? 'DESCARGAR ARCHIVO' : 'ELEGIR DESTINO'}</button>
+      <button type="button" className="primary" onClick={saveAs} disabled={busy}>{web ? t('shell.export.downloadFile') : t('shell.export.chooseDestination')}</button>
     </div>}
-    {savedPath && <div className="save-confirmation"><span>Guardada en <code>{savedPath}</code></span><button type="button" onClick={() => window.visualLab.export.showInFolder(savedPath)}>MOSTRAR EN CARPETA</button></div>}
-    {web && downloadRequested && <p className="save-confirmation">Descarga solicitada al navegador. Consulta sus descargas para confirmar el guardado.</p>}
+    {savedPath && <div className="save-confirmation"><span>{t('shell.export.savedIn')} <code>{savedPath}</code></span><button type="button" onClick={() => window.visualLab.export.showInFolder(savedPath)}>{t('shell.export.showInFolder')}</button></div>}
+    {web && downloadRequested && <p className="save-confirmation">{t('shell.export.downloadRequested')}</p>}
     {error && <p className="error">{error}</p>}
   </div>
 }

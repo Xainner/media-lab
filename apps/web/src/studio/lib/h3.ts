@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { runtime } from './api'
+import { t } from '../../i18n'
 
 export type H3Profile = 'base' | 'fused_turbo' | 'turbo'
 type Profile = { ready: boolean; steps: { min: number; max: number; default: number } }
@@ -32,11 +33,11 @@ export function useH3Profile() {
     valid: profiles[profile].ready && Number.isInteger(steps) && steps >= limits.min && steps <= limits.max }
 }
 
-/** Usage notes per profile, mirrored from the model guide (section 1b). */
+/** Usage notes per profile, mirrored from the model guide (section 1b). Getters translate on read. */
 export const H3_PROFILE_HELP: Record<H3Profile, string> = {
-  base: 'Recomendado para el resultado final: pesos oficiales de MiniMax (Ref2VA real al usar referencias), máxima fidelidad de identidad y estilo. 20 pasos por defecto; menos es borrador, más no garantiza mejor calidad. Más lento.',
-  turbo: 'Rápido con los pesos oficiales: LoRA Turbo de LightX2V sobre H3 (también Ref2VA real con referencias), 8 pasos. Buen equilibrio para iterar y para videoclips; Base sigue siendo la máxima fidelidad. Mismo formato de prompt.',
-  fused_turbo: 'Para borradores e iterar rápido o videoclips con muchas escenas. Fusión experimental de la comunidad (Turbo + Mystic): usa 4 pasos; 8 o 12 solo afinan un poco el dibujo y tardan más. El audio sale más suave que en Base y puede suavizar estilos 2D planos. Mismo formato de prompt.',
+  get base() { return t('shell.h3.help.base') },
+  get turbo() { return t('shell.h3.help.turbo') },
+  get fused_turbo() { return t('shell.h3.help.fusedTurbo') },
 }
 
 /** Wrap a scene's visual direction in the Ref2VA lip-sync structure the runtime expects. */

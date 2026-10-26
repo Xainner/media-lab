@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cancelJob, clearRecoveryValue, runtime, waitJob, type ArtifactRef, type Job } from '../lib/api'
 import JobProgress from '../components/JobProgress'
+import { t } from '../../i18n'
 
 export function useCreativeJob(key: string) {
   const [job, setJob] = useState<Job | null>(null)
@@ -47,8 +48,8 @@ export function CreativeResult({ media }: { media?: ArtifactRef }) {
   const audio = /\.(flac|wav|mp3|opus|ogg)$/i.test(media.uri)
   const master = media.uri.endsWith('.mkv')
   return <div className="creative-result">
-    {audio ? <audio controls src={url} /> : master ? <p>Master Matroska con el flujo de audio original. Expórtalo para verlo en un reproductor compatible.</p> : <video controls src={url} />}
-    <button className="primary" onClick={() => void window.visualLab.runtime.saveMedia(media.uri).catch(e => setError(String(e)))}>EXPORTAR ARCHIVO</button>
+    {audio ? <audio controls src={url} /> : master ? <p>{t('agent.job.matroska')}</p> : <video controls src={url} />}
+    <button className="primary" onClick={() => void window.visualLab.runtime.saveMedia(media.uri).catch(e => setError(String(e)))}>{t('agent.job.export')}</button>
     {error && <p className="error">{error}</p>}
   </div>
 }

@@ -22,3 +22,12 @@
 /* Progress (radix) */
 .rvl [role="progressbar"] { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .07); overflow: hidden; }
 .rvl [role="progressbar"] > * { background: var(--grad) !important; }
+
+/* Language toggle (ES / EN) */
+.language-switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: rgba(8, 8, 10, .55); border: 1px solid var(--line); }
+.language-switch button { min-height: 28px !important; padding: 3px 10px !important; border: 0 !important; border-radius: 7px !important; background: transparent !important; color: var(--text-3) !important; font-size: 12px !important; font-weight: 600; letter-spacing: .04em; }
+.language-switch button:hover { color: #fff !important; }
+.language-switch button.is-on { color: #fff !important; background: rgba(255, 138, 61, .2) !important; box-shadow: inset 0 0 0 1px rgba(255, 138, 61, .45); }
+.language-field { display: grid; gap: 8px; justify-items: start; }
+.language-field > span { font-size: 13px; color: var(--text-2); }
+.language-field > small { color: var(--text-3); font-size: 12px; }

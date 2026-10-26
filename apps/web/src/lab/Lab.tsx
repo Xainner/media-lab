@@ -16,21 +16,23 @@ import Jobs from './Jobs'
 import Director from './Director'
 import { Wordmark } from './Mark'
 import { apps, feed, models, type Art, type Modality } from './data'
+import { t, type MessageKey } from '../i18n'
+import LanguageSwitch from '../i18n/LanguageSwitch'
 import './lab.css'
 
 gsap.registerPlugin(SplitText, useGSAP)
 
-const tabs = [
-  { path: '/', label: 'Explorar' },
-  { path: '/image', label: 'Imagen' },
-  { path: '/video', label: 'Vídeo' },
-  { path: '/audio', label: 'Audio' },
-  { path: '/director', label: 'Director' },
-  { path: '/library', label: 'Biblioteca' },
-  { path: '/characters', label: 'Personajes' },
+const tabs: { path: string; label: MessageKey }[] = [
+  { path: '/', label: 'lab.tabs.explore' },
+  { path: '/image', label: 'lab.tabs.image' },
+  { path: '/video', label: 'lab.tabs.video' },
+  { path: '/audio', label: 'lab.tabs.audio' },
+  { path: '/director', label: 'lab.tabs.director' },
+  { path: '/library', label: 'lab.tabs.library' },
+  { path: '/characters', label: 'lab.tabs.characters' },
 ]
 export type MenuGroup = { label: string; items: { path: string; title: string }[] }
-const words = ['IMÁGENES', 'VÍDEO', 'MÚSICA', 'VOZ', 'PERSONAJES']
+const words: MessageKey[] = ['lab.hero.wordImages', 'lab.hero.wordVideo', 'lab.hero.wordMusic', 'lab.hero.wordVoice', 'lab.hero.wordCharacters']
 
 function Hero() {
   const root = useRef<HTMLElement>(null)
@@ -52,13 +54,13 @@ function Hero() {
       </div>)}
     </div>
     <div className="ml-hero-copy">
-      <h1><span className="ml-hero-line">CREA</span>
+      <h1><span className="ml-hero-line">{t('lab.hero.create')}</span>
         <span className="ml-hero-word" aria-live="polite"><AnimatePresence mode="popLayout" initial={false}>
-          <motion.span key={words[word]} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '-100%' }} transition={{ duration: .6, ease: [.7, 0, .2, 1] }}>{words[word]}</motion.span>
+          <motion.span key={words[word]} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '-100%' }} transition={{ duration: .6, ease: [.7, 0, .2, 1] }}>{t(words[word])}</motion.span>
         </AnimatePresence></span>
-        <span className="ml-hero-line is-dim">EN TU PROPIO LAB</span></h1>
-      <p className="ml-hero-sub">Imagen, vídeo, música y voz con modelos abiertos en tus GPU. Para ti y tus amigos.</p>
-      <div className="ml-hero-cta"><Link to="/image" className="ml-btn is-accent is-big">Empezar a crear<ArrowRight size={17} /></Link><a href="#modelos" className="ml-btn is-big">Ver modelos</a></div>
+        <span className="ml-hero-line is-dim">{t('lab.hero.inYourLab')}</span></h1>
+      <p className="ml-hero-sub">{t('lab.hero.sub')}</p>
+      <div className="ml-hero-cta"><Link to="/image" className="ml-btn is-accent is-big">{t('lab.hero.start')}<ArrowRight size={17} /></Link><a href="#modelos" className="ml-btn is-big">{t('lab.hero.seeModels')}</a></div>
     </div>
   </section>
 }
@@ -71,20 +73,20 @@ function Explore({ onOpen, onApp }: { onOpen: (a: Art) => void; onApp: (id: AppI
   return <>
     <Hero />
     {mine.length > 0 && <section className="ml-section">
-      <header className="ml-section-head"><h2>Tus creaciones</h2><Link to="/library" className="ml-more">Biblioteca<ArrowUpRight size={14} /></Link></header>
+      <header className="ml-section-head"><h2>{t('lab.explore.yours')}</h2><Link to="/library" className="ml-more">{t('lab.tabs.library')}<ArrowUpRight size={14} /></Link></header>
       <div className="ml-strip">{mine.map((a, i) => <div key={a.id} className="ml-strip-item" style={{ aspectRatio: String(a.ratio) }}><Tile item={a} index={i} onOpen={onOpen} /></div>)}</div>
     </section>}
     <section className="ml-section" id="modelos">
-      <header className="ml-section-head"><h2>Modelos</h2><span>Los que ya están en el Lab y los que llegan</span></header>
+      <header className="ml-section-head"><h2>{t('lab.explore.models')}</h2><span>{t('lab.explore.modelsSub')}</span></header>
       <div className="ml-rail">{models.map((m, i) => <motion.button type="button" key={m.id} className="ml-model" disabled={m.status === 'soon'} onClick={() => navigate(`/${m.modality}`, { state: { model: m.id } })}
         initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * .04, duration: .6, ease: [.2, .8, .2, 1] }}>
         <span className="ml-model-img" style={{ backgroundImage: `url(${m.art})` }} />
-        {m.status !== 'ready' && <i data-status={m.status}>{m.status === 'new' ? 'NUEVO' : 'PRONTO'}</i>}
+        {m.status !== 'ready' && <i data-status={m.status}>{m.status === 'new' ? t('lab.explore.badgeNew') : t('lab.explore.badgeSoon')}</i>}
         <span className="ml-model-text"><small>{m.maker}</small><b>{m.name}</b><span>{m.blurb}</span></span>
       </motion.button>)}</div>
     </section>
     <section className="ml-section">
-      <header className="ml-section-head"><h2>Apps</h2><span>Flujos listos para producir</span></header>
+      <header className="ml-section-head"><h2>{t('lab.explore.apps')}</h2><span>{t('lab.explore.appsSub')}</span></header>
       <div className="ml-bento">{apps.map((a, i) => <motion.button type="button" key={a.id} className={`ml-app is-${a.size}`} onClick={() => onApp(a.id)}
         initial={{ opacity: 0, scale: .96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * .05, duration: .6 }}>
         <span className="ml-app-img" style={{ backgroundImage: `url(${a.art})` }} />
@@ -93,7 +95,7 @@ function Explore({ onOpen, onApp }: { onOpen: (a: Art) => void; onApp: (id: AppI
     </section>
     <div className="ml-ticker" aria-hidden="true"><div>{[0, 1].map(k => <span key={k}>{models.map(m => <span key={m.id}>{m.name}<i>✦</i></span>)}</span>)}</div></div>
     <section className="ml-section">
-      <header className="ml-section-head"><h2>Inspiración</h2><span>Lo que puedes hacer en el Lab</span></header>
+      <header className="ml-section-head"><h2>{t('lab.explore.inspiration')}</h2><span>{t('lab.explore.inspirationSub')}</span></header>
       <Masonry items={feed} onOpen={onOpen} />
     </section>
   </>
@@ -106,21 +108,21 @@ function Create({ modality, onOpen, seed }: { modality: Modality; onOpen: (a: Ar
   const caps = useCaps()
   const pool = feed.filter(a => a.kind === modality || modality === 'audio')
   const progress = busy.length ? busy[0].pct : null
-  const title = { image: 'Imagen', video: 'Vídeo', audio: 'Audio' }[modality]
+  const title = t(({ image: 'lab.tabs.image', video: 'lab.tabs.video', audio: 'lab.tabs.audio' } as const)[modality])
   const active = (status: string) => status === 'queued' || status === 'running'
   return <div className="ml-create">
     {loaded && jobs.length === 0 ? <div className="ml-empty">
       <motion.h1 key={modality} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, ease: [.2, .8, .2, 1] }}>
-        EMPIEZA A CREAR<span>{title.toUpperCase()}</span></motion.h1>
-      <p>Escribe abajo lo que imaginas. Los resultados aparecen aquí, en tu lienzo.</p>
+        {t('lab.create.emptyTitle')}<span>{title.toUpperCase()}</span></motion.h1>
+      <p>{t('lab.create.emptyHint')}</p>
       <div className="ml-empty-strip">{pool.slice(0, 5).map((a, i) => <motion.img key={a.src} src={a.src} alt="" initial={{ opacity: 0, y: 40, rotate: (i - 2) * 4 }} animate={{ opacity: .9, y: 0, rotate: (i - 2) * 4 }} transition={{ delay: .15 + i * .06, type: 'spring', stiffness: 160, damping: 18 }} />)}</div>
     </div> : <div className="ml-masonry is-canvas">
       <AnimatePresence initial={false}>{jobs.flatMap(j => j.status === 'completed' && j.ref
         ? [{ ref: j.ref, prompt: j.prompt }, ...j.more || []].map((m, i) => <Tile key={i ? `${j.id}-${i}` : j.id} item={{ id: i ? `${j.id}-${i}` : j.id, src: '', ref: m.ref, ratio: j.ratio, prompt: m.prompt, kind: j.kind, model: j.model }} onOpen={onOpen} />)
         : <motion.div key={j.id} className={`ml-pending ${active(j.status) ? '' : 'is-failed'}`} style={{ aspectRatio: String(j.ratio) }} layout initial={{ opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
           {active(j.status)
-            ? <><span className="ml-pending-noise" /><b>{j.status === 'queued' ? 'EN COLA' : `${Math.round(j.pct)}%`}</b><small>{j.status === 'queued' && j.queue ? `Posición ${j.queue} · ` : ''}{j.model}</small></>
-            : <><AlertTriangle size={22} /><b className="is-small">{j.status === 'cancelled' ? 'Cancelado' : 'No se pudo generar'}</b><small title={j.error}>{j.error || j.prompt}</small></>}
+            ? <><span className="ml-pending-noise" /><b>{j.status === 'queued' ? t('lab.create.queued') : `${Math.round(j.pct)}%`}</b><small>{j.status === 'queued' && j.queue ? t('lab.create.position', { position: j.queue }) : ''}{j.model}</small></>
+            : <><AlertTriangle size={22} /><b className="is-small">{j.status === 'cancelled' ? t('lab.create.cancelled') : t('lab.create.failed')}</b><small title={j.error}>{j.error || j.prompt}</small></>}
         </motion.div>)}</AnimatePresence>
     </div>}
     <div className="ml-dock"><Composer modality={modality} caps={caps} progress={progress} seed={seed} onGenerate={s => submit(s, add)} /></div>
@@ -131,8 +133,8 @@ function Telemetry({ health }: { health: any }) {
   const workers: any[] = health?.workers || []
   const queue = health?.queue ? Object.entries(health.queue).filter(([k]) => ['queued', 'pending', 'running'].includes(k)).reduce((n, [, v]) => n + (Number(v) || 0), 0) : 0
   const busy = workers.filter(w => w.busy).length
-  return <Link to="/jobs" className={`ml-gpus ${health ? '' : 'is-off'}`} title="Mis trabajos" aria-label={health ? `${workers.length} GPU, ${busy} creando, ${queue} en cola. Ver mis trabajos.` : 'Sin conexión con el estudio'}>
-    <i />{health ? <>{workers.length} GPU{busy > 0 && <b>{busy} creando</b>}{queue > 0 && <b>cola {queue}</b>}</> : 'Sin conexión'}
+  return <Link to="/jobs" className={`ml-gpus ${health ? '' : 'is-off'}`} title={t('lab.telemetry.myJobs')} aria-label={health ? t('lab.telemetry.summary', { gpus: workers.length, busy, queue }) : t('lab.telemetry.offlineLong')}>
+    <i />{health ? <>{workers.length} GPU{busy > 0 && <b>{t('lab.telemetry.busy', { count: busy })}</b>}{queue > 0 && <b>{t('lab.telemetry.queue', { count: queue })}</b>}</> : t('lab.telemetry.offline')}
   </Link>
 }
 
@@ -149,11 +151,12 @@ function AccountMenu({ current, groups, onLogout }: { current: any; groups: Menu
     return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc) }
   }, [open])
   return <div className="ml-account" ref={ref}>
-    <button type="button" className="ml-avatar" aria-label="Menú de la cuenta" aria-expanded={open} onClick={() => setOpen(v => !v)}>{current.username?.slice(0, 1).toUpperCase()}</button>
-    <AnimatePresence>{open && <motion.nav className="ml-account-menu" aria-label="Cuenta y herramientas" initial={{ opacity: 0, y: -8, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
-      <header><b>{current.username}</b><small>{current.role === 'admin' ? 'Administrador' : 'Miembro'}</small></header>
+    <button type="button" className="ml-avatar" aria-label={t('lab.account.menu')} aria-expanded={open} onClick={() => setOpen(v => !v)}>{current.username?.slice(0, 1).toUpperCase()}</button>
+    <AnimatePresence>{open && <motion.nav className="ml-account-menu" aria-label={t('lab.account.nav')} initial={{ opacity: 0, y: -8, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6 }} transition={{ type: 'spring', stiffness: 420, damping: 32 }}>
+      <header><b>{current.username}</b><small>{current.role === 'admin' ? t('lab.account.admin') : t('lab.account.member')}</small></header>
       {groups.map(g => <div key={g.label}><small>{g.label}</small>{g.items.map(i => <Link key={i.path} to={i.path} className={pathname === i.path ? 'is-on' : ''}>{i.title}</Link>)}</div>)}
-      <button type="button" onClick={onLogout}><LogOut size={14} />Cerrar sesión</button>
+      <div className="ml-account-lang"><small>{t('common.language')}</small><LanguageSwitch /></div>
+      <button type="button" onClick={onLogout}><LogOut size={14} />{t('lab.account.logout')}</button>
     </motion.nav>}</AnimatePresence>
   </div>
 }
@@ -190,12 +193,12 @@ export default function Lab({ current, health, groups, onLogout, classic, tone }
   const native = !!modality || !!page
   useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0 }, [pathname])
   return createPortal(<div className="ml" ref={scroller}>
-    <a className="ml-skip" href="#ml-main">Saltar al contenido</a>
+    <a className="ml-skip" href="#ml-main">{t('lab.shell.skip')}</a>
     <header className="ml-nav">
-      <Link to="/" className="ml-home" aria-label="Media Lab, explorar"><Wordmark /></Link>
-      <LayoutGroup><nav className="ml-tabs" aria-label="Secciones">{tabs.map(t => { const on = pathname === t.path; return <Link key={t.path} to={t.path} className={on ? 'is-on' : ''} aria-current={on ? 'page' : undefined}>
+      <Link to="/" className="ml-home" aria-label={t('lab.shell.home')}><Wordmark /></Link>
+      <LayoutGroup><nav className="ml-tabs" aria-label={t('lab.shell.sections')}>{tabs.map(tab => { const on = pathname === tab.path; return <Link key={tab.path} to={tab.path} className={on ? 'is-on' : ''} aria-current={on ? 'page' : undefined}>
         {on && <motion.span layoutId="ml-tab" className="ml-tab-pill" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
-        <span>{t.label}</span></Link> })}</nav></LayoutGroup>
+        <span>{t(tab.label)}</span></Link> })}</nav></LayoutGroup>
       <div className="ml-nav-end"><Telemetry health={health} /><AccountMenu current={current} groups={groups} onLogout={onLogout} /></div>
     </header>
     <main id="ml-main" className="ml-main" tabIndex={-1}>{modality ? <Create modality={modality} onOpen={setOpen} seed={seed} /> : page}

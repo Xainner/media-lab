@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './ui'
-const copy:Record<string,{title:string;description:string;yes:string;tone:string}>={
- 'gallery-remove':{title:'Eliminar archivo',description:'Esta acción elimina el archivo de tu cuenta. Las referencias históricas pueden perder acceso. Los trabajos activos conservan sus archivos.',yes:'Eliminar mi archivo',tone:'danger'},
- 'agent-clear':{title:'Una nueva conversación',description:'El historial permanece guardado. Los trabajos autorizados siguen su curso.',yes:'Abrir conversación',tone:'primary'},
- 'character-remove':{title:'Borrar personaje',description:'Se borra el @nombre y su ficha. Sus fotos siguen en tu biblioteca y lo ya creado no cambia.',yes:'Borrar personaje',tone:'danger'},
- 'lora-remove':{title:'Quitar LoRA',description:'Se quita de tu biblioteca y de los personajes que lo usan. Puedes volver a añadirlo con el mismo enlace.',yes:'Quitar LoRA',tone:'danger'},
+import { t, type MessageKey } from './i18n'
+// Keys, not text: the dialog translates at render so it follows the current language.
+const copy:Record<string,{title:MessageKey;description:MessageKey;yes:MessageKey;tone:string}>={
+ 'gallery-remove':{title:'connect.confirm.galleryRemove.title',description:'connect.confirm.galleryRemove.description',yes:'connect.confirm.galleryRemove.yes',tone:'danger'},
+ 'agent-clear':{title:'connect.confirm.agentClear.title',description:'connect.confirm.agentClear.description',yes:'connect.confirm.agentClear.yes',tone:'primary'},
+ 'character-remove':{title:'connect.confirm.characterRemove.title',description:'connect.confirm.characterRemove.description',yes:'connect.confirm.characterRemove.yes',tone:'danger'},
+ 'lora-remove':{title:'connect.confirm.loraRemove.title',description:'connect.confirm.loraRemove.description',yes:'connect.confirm.loraRemove.yes',tone:'danger'},
 }
 export default function Confirm() {
  const [request,setRequest] = useState<{action:string;resolve:(value:boolean)=>void}|null>(null)
@@ -16,5 +18,5 @@ export default function Confirm() {
  },[])
  function finish(value:boolean){pending.current?.resolve(value);pending.current=null;setRequest(null)}
  const text=copy[request?.action||'']||copy['gallery-remove']
- return <Modal open={!!request} onOpenChange={open=>{if(!open)finish(false)}} title={text.title} description={text.description}><div className="button-row"><button onClick={()=>finish(false)}>Volver</button><button className={text.tone} onClick={()=>finish(true)}>{text.yes}</button></div></Modal>
+ return <Modal open={!!request} onOpenChange={open=>{if(!open)finish(false)}} title={t(text.title)} description={t(text.description)}><div className="button-row"><button onClick={()=>finish(false)}>{t('connect.confirm.back')}</button><button className={text.tone} onClick={()=>finish(true)}>{t(text.yes)}</button></div></Modal>
 }

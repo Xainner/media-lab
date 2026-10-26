@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { isAbortError, newSession, runtime, uploadFiles, waitJob, type ArtifactRef, type Job } from '../studio/lib/api'
 import { api } from '../bridge'
 import { DISTANCES, FOLLOWS, GUIDES, HEIGHTS, LANGUAGES, ORBITS, RESOLUTIONS, ratioOf, SOUND_KINDS, SPEAKERS, SWAP_MODES, VOICES, type Art, type Modality } from './data'
+import { t } from '../i18n'
 
 export type LabJob = { id: string; status: string; pct: number; queue?: number; error?: string; prompt: string; ratio: number; kind: Modality; model: string; ref?: ArtifactRef; more?: { ref: ArtifactRef; prompt: string }[] }
 export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; upscale: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
@@ -16,20 +17,20 @@ function modelLabel(job: Job & { request?: any }) {
   const r = job.request || {}
   if (job.operation === 'video' && r.model === 'kandinsky6') return 'Kandinsky 6'
   if (job.operation === 'sound') return r.kind === 'sfx' || r.kind === 'one_shot' ? 'Stable Audio 3 SFX' : 'Stable Audio 3'
-  if (job.operation === 'speech') return ({ design: 'Qwen3-TTS · voz diseñada', clone: 'Qwen3-TTS · voz clonada' } as Record<string, string>)[r.voice] || 'Qwen3-TTS'
-  if (job.operation === 'video') return `${({ turbo: 'H3 Turbo', fused_turbo: 'H3 Fused Turbo', omni: 'FastH3 Omni' } as Record<string, string>)[r.profile] || 'MiniMax H3'}${r.control ? ' · siguiendo un vídeo' : ''}${({ '480p': ' · 480p', '720p': ' · 720p', native: ' · nativa' } as Record<string, string>)[r.options?.resolution] || ''}`
+  if (job.operation === 'speech') return ({ design: `Qwen3-TTS · ${t('creations.model.designedVoice')}`, clone: `Qwen3-TTS · ${t('creations.model.clonedVoice')}` } as Record<string, string>)[r.voice] || 'Qwen3-TTS'
+  if (job.operation === 'video') return `${({ turbo: 'H3 Turbo', fused_turbo: 'H3 Fused Turbo', omni: 'FastH3 Omni' } as Record<string, string>)[r.profile] || 'MiniMax H3'}${r.control ? ` · ${t('creations.model.followingVideo')}` : ''}${({ '480p': ' · 480p', '720p': ' · 720p', native: ` · ${t('creations.model.native')}` } as Record<string, string>)[r.options?.resolution] || ''}`
   if (job.operation === 'swap') return ({ head: 'H3 Head Swap', scail: 'SCAIL-2' } as Record<string, string>)[r.mode] || 'H3 Character Swap'
   if (job.operation === 'face_refine') return 'H3 Face Refine'
   if (job.operation === 'remove') return 'H3 Person Remover'
   if (job.operation === 'stems') return 'Hybrid Demucs'
   if (job.operation === 'song') return r.model === 'ace_step' ? 'ACE-Step 1.5' : 'YuE2 3B'
   if (r.model === 'moss') return 'MOSS-Image'
-  if (r.model === 'flux3') return job.operation === 'edit' ? 'FLUX 3 Klein · edición' : 'FLUX 3 Klein'
+  if (r.model === 'flux3') return job.operation === 'edit' ? `FLUX 3 Klein · ${t('creations.model.edit')}` : 'FLUX 3 Klein'
   const name = r.model_variant === 'turbo' ? 'Qwen Image 2.1 Turbo' : 'Qwen Image 2.1'
-  if (r.camera) return `${name} · ángulo`
-  if (r.remove_background) return `${name} · sin fondo`
-  if (r.control) return `${name} · estructura`
-  return job.operation === 'edit' ? `${name} · edición` : name
+  if (r.camera) return `${name} · ${t('creations.model.angle')}`
+  if (r.remove_background) return `${name} · ${t('creations.model.noBackground')}`
+  if (r.control) return `${name} · ${t('creations.model.structure')}`
+  return job.operation === 'edit' ? `${name} · ${t('creations.model.edit')}` : name
 }
 
 function toLab(job: Job & { request?: any }, kind: Modality): LabJob {
@@ -37,9 +38,9 @@ function toLab(job: Job & { request?: any }, kind: Modality): LabJob {
   const ref = job.result?.media?.[0]
   const ratio = kind === 'audio' ? 1 : ref?.width && ref?.height ? ref.width / ref.height : ratioOf(r.aspect_ratio || (kind === 'video' ? '16:9' : '1:1'))
   return { id: job.id || job.job_id!, status: job.status, pct: job.status === 'completed' ? 100 : job.progress?.pct ?? 0, queue: job.queue_position,
-    error: job.error, prompt: r.prompt || r.style || r.text || r.target || (r.camera ? Object.values(r.camera).join(', ') : '') || stemLabel[(ref as any)?.stem] || '', ratio, kind, model: modelLabel(job), ref,
+    error: job.error, prompt: r.prompt || r.style || r.text || r.target || (r.camera ? Object.values(r.camera).join(', ') : '') || stemLabel((ref as any)?.stem), ratio, kind, model: modelLabel(job), ref,
     // Stems jobs return one song per stem; the rest follow the first on the canvas.
-    more: (job.result?.media || []).slice(1).map((m: any) => ({ ref: m, prompt: stemLabel[m.stem] || '' })) }
+    more: (job.result?.media || []).slice(1).map((m: any) => ({ ref: m, prompt: stemLabel(m.stem) })) }
 }
 
 /** Object URL (images, via /v1/review) or authenticated route (video/audio) for an artifact. */
@@ -270,16 +271,18 @@ export const refineFace = (video: ArtifactRef, strength: FaceStrength) =>
   runtime('POST', '/v1/jobs/face_refine', { video: { uri: video.uri, sha256: video.sha256 }, strength, session_id: newSession() })
 
 const libraryKind: Record<string, Modality> = { images: 'image', references: 'image', videos: 'video', productions: 'video', songs: 'audio', sources: 'audio' }
-const operationLabel: Record<string, string> = { generate: 'Qwen Image 2.1', edit: 'Qwen Image 2.1 · edición', video: 'MiniMax H3', song: 'YuE2 3B', production: 'Videoclip', upscale: 'FlashVSR', swap: 'Cambio de personaje', face_refine: 'Cara refinada', remove: 'Persona quitada', stems: 'Hybrid Demucs', sound: 'Stable Audio 3', speech: 'Qwen3-TTS' }
-const stemLabel: Record<string, string> = { vocals: 'Voz', instrumental: 'Instrumental', drums: 'Batería', bass: 'Bajo', other: 'Otros instrumentos' }
-const kindLabel: Record<string, string> = { references: 'Referencia subida', sources: 'Audio subido', productions: 'Videoclip' }
+// Labels are looked up when a row is built, so they follow the active language.
+const operationLabel = (operation?: string) => ({ generate: 'Qwen Image 2.1', edit: `Qwen Image 2.1 · ${t('creations.model.edit')}`, video: 'MiniMax H3', song: 'YuE2 3B', production: t('creations.kind.production'), upscale: 'FlashVSR',
+  swap: t('creations.kind.swap'), face_refine: t('creations.kind.faceRefine'), remove: t('creations.kind.remove'), stems: 'Hybrid Demucs', sound: 'Stable Audio 3', speech: 'Qwen3-TTS' } as Record<string, string>)[operation!]
+const stemLabel = (stem?: string) => ({ vocals: t('creations.stem.vocals'), instrumental: t('creations.stem.instrumental'), drums: t('creations.stem.drums'), bass: t('creations.stem.bass'), other: t('creations.stem.other') } as Record<string, string>)[stem!] || ''
+const kindLabel = (kind?: string) => ({ references: t('creations.library.uploadedReference'), sources: t('creations.library.uploadedAudio'), productions: t('creations.kind.production') } as Record<string, string>)[kind!]
 
 /** A library row as a canvas tile. */
 export function libraryArt(i: any): Art {
   const kind = libraryKind[i.kind] || 'image'
   const ratio = i.width && i.height ? i.width / i.height : kind === 'audio' ? 1 : kind === 'video' ? 16 / 9 : 1
   return { id: i.uri, src: '', ref: { uri: i.uri, sha256: i.sha256, width: i.width, height: i.height }, ratio, kind, created: i.created_at,
-    prompt: i.prompt || i.style || i.text || i.title || i.input_prompt || stemLabel[i.stem] || '', model: kindLabel[i.kind] || operationLabel[i.operation] || i.model || 'Media Lab' }
+    prompt: i.prompt || i.style || i.text || i.title || i.input_prompt || stemLabel(i.stem), model: kindLabel(i.kind) || operationLabel(i.operation) || i.model || 'Media Lab' }
 }
 
 export const LIBRARY_CHANGED = 'ml-library-changed'
@@ -335,7 +338,8 @@ export type Character = { id: string; handle: string; name: string; description:
   lora: { id: string; name: string; base: LoraBase | null; trigger: string; strength: number; status: string } | null }
 export type Lora = { id: string; name: string; base: LoraBase | null; source_url: string; page?: string | null; trigger: string; strength: number
   status: 'downloading' | 'ready' | 'error'; error?: string | null; bytes?: number | null; total?: number | null }
-export const LORA_BASES: Record<LoraBase, string> = { qwen: 'Imagen · Qwen-Image 2.1', h3: 'Vídeo · MiniMax H3' }
+// Getters, so each read is in the active language.
+export const LORA_BASES: Record<LoraBase, string> = { get qwen() { return t('creations.loraBase.qwen') }, get h3() { return t('creations.loraBase.h3') } }
 
 /** The base a submission's LoRAs must match, or null when that job takes none. */
 export function loraBase(s: Pick<Submission, 'kind' | 'modelId' | 'values'>): LoraBase | null {

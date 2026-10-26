@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { runtime, type ArtifactRef } from '../lib/api'
 import { CreativeProgress, useCreativeJob } from '../views/CreativeJob'
 import { Segmented } from './Kit'
+import { t } from '../../i18n'
 
 type Caps = { ready: boolean; max_seconds: number; max_input_pixels: Record<string, number> }
 type Video = ArtifactRef & { width?: number; height?: number }
@@ -25,21 +26,21 @@ export default function UpscalePanel({ media, recoveryKey = 'media-lab:upscale-j
   const fits = (value: '2' | '4') => !pixels || pixels <= (caps.max_input_pixels[value] || 0)
   const size = (value: number) => pixels ? ` · ${media!.width! * value}×${media!.height! * value}` : ''
   const chosen = fits(scale) ? scale : '2'
-  return <section className="upscale-panel" aria-label="Escalar vídeo">
-    <div className="upscale-head"><p className="eyebrow">FlashVSR v1.1</p><h3>Escalar vídeo</h3></div>
+  return <section className="upscale-panel" aria-label={t('shell.upscale.label')}>
+    <div className="upscale-head"><p className="eyebrow">FlashVSR v1.1</p><h3>{t('shell.upscale.label')}</h3></div>
     {isVideo(media) && <>
-      <Segmented<'2' | '4'> label="Factor de escala" value={chosen} onChange={setScale} options={[
-        { value: '2', label: 'x2', hint: `Recomendado${size(2)}`, disabled: !fits('2') },
-        { value: '4', label: 'x4', hint: fits('4') ? `Para vídeos pequeños${size(4)}` : 'Solo hasta 480p', disabled: !fits('4') },
+      <Segmented<'2' | '4'> label={t('shell.upscale.factor')} value={chosen} onChange={setScale} options={[
+        { value: '2', label: 'x2', hint: t('shell.upscale.recommended', { size: size(2) }), disabled: !fits('2') },
+        { value: '4', label: 'x4', hint: fits('4') ? t('shell.upscale.smallVideos', { size: size(4) }) : t('shell.upscale.only480p'), disabled: !fits('4') },
       ]} />
-      <label>Modo<select aria-label="Modo de escalado" value={quality} onChange={e => setQuality(e.target.value as 'fast' | 'quality')}>
-        <option value="fast">Rápido · FlashVSR tiny</option>
-        <option value="quality">Calidad · FlashVSR full · unas 3× más lento</option>
+      <label>{t('shell.upscale.mode')}<select aria-label={t('shell.upscale.modeLabel')} value={quality} onChange={e => setQuality(e.target.value as 'fast' | 'quality')}>
+        <option value="fast">{t('shell.upscale.fast')}</option>
+        <option value="quality">{t('shell.upscale.quality')}</option>
       </select></label>
-      {!fits('2') && <p className="hint">Este vídeo supera el tamaño que admite el escalado en este servidor.</p>}
+      {!fits('2') && <p className="hint">{t('shell.upscale.tooLarge')}</p>}
       <button className="primary" disabled={busy || !fits(chosen)} onClick={() => media && void state.submit('/v1/jobs/upscale', {
-        video: { uri: media.uri, sha256: media.sha256 }, scale: Number(chosen), quality })}>{busy ? 'ESCALANDO…' : `ESCALAR x${chosen}`}</button>
-      <p className="hint">Conserva el audio original y crea un vídeo nuevo; el original no cambia. Hasta {Math.round(caps.max_seconds / 60)} min de vídeo. Tarda de 10 a 40 s por segundo de vídeo según el tamaño.</p>
+        video: { uri: media.uri, sha256: media.sha256 }, scale: Number(chosen), quality })}>{busy ? t('shell.upscale.busy') : t('shell.upscale.action', { scale: chosen })}</button>
+      <p className="hint">{t('shell.upscale.note', { minutes: Math.round(caps.max_seconds / 60) })}</p>
     </>}
     <CreativeProgress state={state} />
   </section>

@@ -1,3 +1,5 @@
+import { t } from '../../i18n'
+
 export type ArtifactRef = { uri: string; sha256: string; width?: number; height?: number; has_alpha?: boolean }
 export type UploadError = { name: string; message: string }
 export type UploadResult = { refs: ArtifactRef[]; errors: UploadError[] }
@@ -25,7 +27,7 @@ function errorMessage(error: unknown) {
 }
 
 function abortError() {
-  const error = new Error('La operación fue cancelada.')
+  const error = new Error(t('shell.api.cancelled'))
   error.name = 'AbortError'
   return error
 }
@@ -70,11 +72,11 @@ export async function uploadFiles(files: File[], sessionId: string): Promise<Upl
   const errors: UploadError[] = []
   for (const file of files.slice(0, 16)) {
     if (file.size > MAX_UPLOAD_BYTES) {
-      errors.push({ name: file.name, message: 'El archivo supera el límite de 20 MiB.' })
+      errors.push({ name: file.name, message: t('shell.api.fileTooLarge') })
       continue
     }
     if (file.type && !ACCEPTED_IMAGE_TYPES.has(file.type)) {
-      errors.push({ name: file.name, message: 'Tipo de imagen no permitido.' })
+      errors.push({ name: file.name, message: t('shell.api.imageTypeNotAllowed') })
       continue
     }
     try {

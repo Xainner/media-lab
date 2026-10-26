@@ -8,6 +8,7 @@ import PromptEnhancePanel from '../components/PromptEnhancePanel'
 import { Action, Actions, EmptyStage, Step, Tool } from '../components/Kit'
 import { ImageModelPicker, PrecisionSelect, TURBO_FIXED, useImageModel, variantOptions } from '../components/ImageModel'
 import { cancelJob, clearRecoveryValue, dataUrl, enhancePrompt, formatUploadErrors, getEnhancerMode, isAbortError, newSession, runtime, uploadFiles, waitJob, type ArtifactRef, type EnhancerMode, type Job } from '../lib/api'
+import { t } from '../../i18n'
 
 type RefWithPreview = ArtifactRef & { preview: string }
 export type EditHandoff = { ref: ArtifactRef; nonce: number }
@@ -22,7 +23,7 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
   const [seed, setSeed] = useState('')
   const [quality, setQuality] = useState('quality')
   const [resolution, setResolution] = useState(0)
-  const optionError = optionsError(modelOptions, 'edit') || seedError(seed) || (!Number.isInteger(resolution) || resolution < 0 || resolution > 1024 || resolution % 32 ? 'Resolución de edición: 0 o múltiplos de 32 hasta 1024.' : '')
+  const optionError = optionsError(modelOptions, 'edit') || seedError(seed) || (!Number.isInteger(resolution) || resolution < 0 || resolution > 1024 || resolution % 32 ? t('studio.edit.resolutionInvalid') : '')
   const model = useImageModel(active)
   const { precision, turbo } = model
   const [transparent, setTransparent] = useState(false)
@@ -87,7 +88,7 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
     if (!files.length || uploading) return
     const room = Math.max(0, 10 - refs.length)
     if (!room) {
-      setUploadError('Máximo 10 referencias.')
+      setUploadError(t('studio.edit.maxRefs'))
       return
     }
     setUploadError('')
@@ -95,13 +96,13 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
     try {
       const result = await uploadFiles(files.slice(0, room), session.current)
       const errors = [...result.errors]
-      if (files.length > room) errors.push({ name: 'Archivos adicionales', message: 'Se superaron las 10 referencias.' })
+      if (files.length > room) errors.push({ name: t('studio.edit.extraFiles'), message: t('studio.edit.refsExceeded') })
       const withPreview: RefWithPreview[] = []
       for (const ref of result.refs) {
         try { withPreview.push({ ...ref, preview: await dataUrl(ref.uri) }) }
         catch (error: any) {
           withPreview.push({ ...ref, preview: '' })
-          errors.push({ name: ref.uri, message: `No se pudo cargar la vista previa: ${error.message}` })
+          errors.push({ name: ref.uri, message: t('studio.edit.previewFailed', { message: error.message }) })
         }
       }
       setRefs(current => [...current, ...withPreview].slice(0, 10))
@@ -140,7 +141,7 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
       if (!skipEnhance && enhancer === 'external') {
         setEnhancing(true)
         try { finalPrompt = (await enhancePrompt(enhancer, finalPrompt, 'i2i', references)).trim() || finalPrompt }
-        catch (error: any) { throw new Error(`No se pudo mejorar el prompt (proveedor externo): ${error.message}`) }
+        catch (error: any) { throw new Error(t('studio.shared.enhanceFailed', { message: error.message })) }
         finally { setEnhancing(false) }
         if (controller.signal.aborted) return
         setUsedPrompt(finalPrompt)
@@ -174,57 +175,57 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
     setCancelError('')
     setCancelling(true)
     try { await cancelJob(id) }
-    catch (error: any) { setCancelError(`No se pudo cancelar: ${error.message}`) }
+    catch (error: any) { setCancelError(t('studio.shared.cancelFailed', { message: error.message })) }
     finally { setCancelling(false) }
   }
 
   const busyJob = ['queued', 'running'].includes(job?.status || '')
   const blocked = !!optionError || !prompt.trim() || !refs.length || recovering || uploading || enhancing || busyJob
   return <Tool console={<>
-    <Step n="01" title="Tus imágenes" aside={`${refs.length}/10`} hint="La primera es el objetivo que se edita; las demás aportan identidad, estilo u objetos.">
-      <label className="field-label">REFERENCIAS · {refs.length}/10</label>
+    <Step n="01" title={t('studio.edit.imagesTitle')} aside={`${refs.length}/10`} hint={t('studio.edit.imagesHint')}>
+      <label className="field-label">{t('studio.edit.refsLabel', { count: refs.length })}</label>
       <label className={`dropzone ${dragging ? 'dragging' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
-        <strong>{uploading ? 'SUBIENDO…' : dragging ? 'SUELTA AQUÍ' : '+ AÑADIR IMÁGENES'}</strong><small>PNG, JPEG o WebP · arrastra o haz clic</small>
+        <strong>{uploading ? t('studio.edit.uploading') : dragging ? t('studio.edit.dropHere') : t('studio.edit.addImages')}</strong><small>{t('studio.edit.dropHint')}</small>
         <input type="file" accept="image/png,image/jpeg,image/webp" multiple hidden disabled={uploading} onChange={e => { void addFiles(Array.from(e.target.files || [])); e.target.value = '' }} />
       </label>
       {uploadError && <p className="error">{uploadError}</p>}
       {refs.length > 0 && <div className="refs">{refs.map((ref, index) => <div className={`ref ${index === 0 ? 'is-target' : ''}`} key={ref.uri}>
-        {ref.preview ? <img src={ref.preview} alt={`Referencia ${index + 1}`} /> : <span className="ref-missing">?</span>}
-        <span className="ref-tag">{index === 0 ? 'OBJETIVO' : `<image${index + 1}>`}</span>
-        <div className="ref-tools"><button aria-label={`Mover referencia ${index+1} antes`} onClick={() => move(index, -1)}>↑</button><button aria-label={`Mover referencia ${index+1} después`} onClick={() => move(index, 1)}>↓</button><button aria-label={`Quitar referencia ${index+1}`} className="danger" onClick={() => setRefs(r => r.filter((_, i) => i !== index))}>×</button></div>
+        {ref.preview ? <img src={ref.preview} alt={t('studio.edit.refAlt', { n: index + 1 })} /> : <span className="ref-missing">?</span>}
+        <span className="ref-tag">{index === 0 ? t('studio.edit.target') : `<image${index + 1}>`}</span>
+        <div className="ref-tools"><button aria-label={t('studio.edit.moveUp', { n: index + 1 })} onClick={() => move(index, -1)}>↑</button><button aria-label={t('studio.edit.moveDown', { n: index + 1 })} onClick={() => move(index, 1)}>↓</button><button aria-label={t('studio.edit.removeRef', { n: index + 1 })} className="danger" onClick={() => setRefs(r => r.filter((_, i) => i !== index))}>×</button></div>
       </div>)}</div>}
     </Step>
-    <Step n="02" title="Qué debe cambiar" hint="Di qué cambia y qué se conserva. Con varias imágenes nómbralas como <image2>, <image3>…">
-      <label htmlFor="edit-prompt" className="field-label">INSTRUCCIÓN</label>
-      <textarea id="edit-prompt" className="prompt-input" value={prompt} onChange={e => setPrompt(e.target.value)} rows={6} placeholder="Cambia el fondo por un jardín bajo la luna y conserva la cara, el peinado y la ropa…" />
+    <Step n="02" title={t('studio.edit.changeTitle')} hint={t('studio.edit.changeHint')}>
+      <label htmlFor="edit-prompt" className="field-label">{t('studio.edit.promptLabel')}</label>
+      <textarea id="edit-prompt" className="prompt-input" value={prompt} onChange={e => setPrompt(e.target.value)} rows={6} placeholder={t('studio.edit.promptPlaceholder')} />
       {enhancer === 'manual' && <PromptEnhancePanel prompt={prompt} onAccept={setPrompt} mode="i2i" references={refs.map(({ uri, sha256 }) => ({ uri, sha256 }))} />}
     </Step>
-    <Step n="03" title="Calidad y tamaño" aside={turbo ? '8 pasos' : undefined}>
+    <Step n="03" title={t('studio.edit.qualityTitle')} aside={turbo ? t('studio.shared.steps8') : undefined}>
       <ImageModelPicker state={model} />
-      {turbo && <p className="hint">Turbo edita con las mismas instrucciones en 8 pasos fijos. Para cambios muy finos, Qwen 2.1 conserva más detalle.</p>}
+      {turbo && <p className="hint">{t('studio.edit.turboHint')}</p>}
       <div className="field-row">
-        {!turbo && <label>Calidad de generación<select aria-label="Calidad de generación" value={quality} onChange={e => setQuality(e.target.value)}><option value="draft">Borrador · 25 pasos</option><option value="quality">Calidad · 40 pasos</option></select></label>}
-        <label>Resolución<select aria-label="Resolución" value={resolution} onChange={e => setResolution(Number(e.target.value))}><option value={0}>Conservar objetivo hasta 1 MP</option><option value={512}>512 px · menor coste</option><option value={768}>768 px</option><option value={1024}>1 MP</option>{![0,512,768,1024].includes(resolution) && <option value={resolution}>{resolution} px · personalizado</option>}</select></label>
+        {!turbo && <label>{t('studio.shared.qualityLabel')}<select aria-label={t('studio.shared.qualityLabel')} value={quality} onChange={e => setQuality(e.target.value)}><option value="draft">{t('studio.edit.qualityDraft')}</option><option value="quality">{t('studio.edit.qualityFull')}</option></select></label>}
+        <label>{t('studio.shared.resolution')}<select aria-label={t('studio.shared.resolution')} value={resolution} onChange={e => setResolution(Number(e.target.value))}><option value={0}>{t('studio.edit.resKeep')}</option><option value={512}>{t('studio.edit.res512')}</option><option value={768}>768 px</option><option value={1024}>1 MP</option>{![0,512,768,1024].includes(resolution) && <option value={resolution}>{t('studio.edit.resCustomOption', { px: resolution })}</option>}</select></label>
       </div>
       <AdvancedOptions>
         <PrecisionSelect state={model} />
-        <label>Resolución personalizada de edición<input aria-label="Resolución personalizada de edición" type="number" min={0} max={1024} step={32} value={resolution} onChange={e => setResolution(Number(e.target.value))}/><small>0: conserva el objetivo hasta 1 MP. Otros valores: múltiplos de 32, hasta 1024.</small></label>
+        <label>{t('studio.edit.resCustom')}<input aria-label={t('studio.edit.resCustom')} type="number" min={0} max={1024} step={32} value={resolution} onChange={e => setResolution(Number(e.target.value))}/><small>{t('studio.edit.resCustomHint')}</small></label>
         <SeedField value={seed} onChange={setSeed}/>
-        <label className="toggle"><input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} /><i /> Conservar/generar alfa</label>
+        <label className="toggle"><input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} /><i /> {t('studio.edit.alpha')}</label>
       </AdvancedOptions>
       <ModelOptions state={modelOptions} kind="edit" omit={turbo ? TURBO_FIXED : []}/>
-      {!turbo && modelOptions.values.steps && <small>Pasos efectivos: {modelOptions.values.steps}</small>}
+      {!turbo && modelOptions.values.steps && <small>{t('studio.shared.effectiveSteps', { steps: modelOptions.values.steps })}</small>}
     </Step>
     {optionError && <p className="error" role="alert">{optionError}</p>}
-    <Actions note="La primera imagen es el objetivo. Las demás son referencias.">
-      <Action onClick={() => void edit()} disabled={blocked}>{enhancing ? 'MEJORANDO PROMPT…' : 'EDITAR'}</Action>
-      {enhancer === 'external' && <button className="ghost" onClick={() => void edit(true)} disabled={blocked}>EDITAR SIN MEJORA</button>}
+    <Actions note={t('studio.edit.note')}>
+      <Action onClick={() => void edit()} disabled={blocked}>{enhancing ? t('studio.shared.enhancing') : t('studio.edit.edit')}</Action>
+      {enhancer === 'external' && <button className="ghost" onClick={() => void edit(true)} disabled={blocked}>{t('studio.edit.editRaw')}</button>}
     </Actions>
   </>} stage={<>
-    {!job && !media && <EmptyStage pose="cut" title="El taller está listo">Sube tu imagen objetivo y cuéntame qué cambiamos. Hasta 10 referencias para identidad, estilo y composición.</EmptyStage>}
+    {!job && !media && <EmptyStage pose="cut" title={t('studio.edit.emptyTitle')}>{t('studio.edit.emptyBody')}</EmptyStage>}
     <GenerationCanvas job={job} aspect={refs[0]?.width && refs[0]?.height ? refs[0].width / refs[0].height : 1} />
     <JobProgress job={job} onCancel={cancel} actionError={cancelError} cancelDisabled={cancelling} />
-    {usedPrompt && <div className="proposal"><label>PROMPT MEJORADO USADO</label><p className="proposal-text">{usedPrompt}</p></div>}
+    {usedPrompt && <div className="proposal"><label>{t('studio.shared.usedPrompt')}</label><p className="proposal-text">{usedPrompt}</p></div>}
     <ArtifactResult media={media} meta={meta} operation="edit" fresh />
   </>} />
 }

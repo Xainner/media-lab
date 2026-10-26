@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { AtSign, AudioWaveform, Camera, Check, ChevronRight, Clock3, Film, Gauge, Globe, Layers, Loader2, Mic, Minus, Move3d, Music2, Monitor, Paperclip, Plus, RectangleHorizontal, ScanSearch, ShieldCheck, Sparkles, SwatchBook, UserRound, WandSparkles, X, type LucideIcon } from 'lucide-react'
 import { getEnhancerMode, setEnhancerMode, type ArtifactRef } from '../studio/lib/api'
-import { FOLLOWS, GUIDES, K6_ASPECTS, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, type Modality, type Model } from './data'
+import { t, type MessageKey } from '../i18n'
+import { FOLLOWS, GUIDES, K6_ASPECTS, label, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, type Modality, type Model } from './data'
 import { droppedKind, improve, loraBase, mentioned, uploadAudio, uploadImages, useCharacters, useMediaSrc, useProvider, withCharacters, type Caps, type Character, type Lora, type LoraPick, type Submission } from './live'
 
-const statusLabel = { ready: '', new: 'NUEVO', soon: 'PRONTO' }
+const statusLabel = (status: Model['status']) => status === 'ready' ? '' : t(status === 'new' ? 'composer.model.status.new' : 'composer.model.status.soon')
 const maxRefs: Record<Modality, number> = { image: 10, video: 9, audio: 0 }
 const isVideo = (uri: string) => /\.(mp4|webm|mkv|mov)$/i.test(uri)
 
@@ -16,7 +17,7 @@ export const available = (m: Model, caps: Caps) => m.status !== 'soon' && (m.id 
 // Audio settings that belong to one kind of audio model; the rest (type, stems, duration) are for songs.
 const audioOnly: Record<string, string> = { sound: 'stable-audio3', length: 'stable-audio3', voice: 'qwen3-tts', speaker: 'qwen3-tts', language: 'qwen3-tts' }
 // Models that rewrite or read the text themselves, so the IA chip stays off.
-const selfWritten: Record<string, string> = { 'flux3-klein': 'FLUX reescribe tu idea con su propio modelo', 'stable-audio3': 'Stable Audio reescribe tu idea con su propio modelo', 'qwen3-tts': 'La voz dice tu texto exacto' }
+const selfWritten: Record<string, MessageKey> = { 'flux3-klein': 'composer.selfWritten.flux', 'stable-audio3': 'composer.selfWritten.stableAudio', 'qwen3-tts': 'composer.selfWritten.tts' }
 
 function Popover({ open, onClose, children, className = '' }: { open: boolean; onClose: () => void; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -36,7 +37,7 @@ function Popover({ open, onClose, children, className = '' }: { open: boolean; o
 export function ModelPicker({ modality, value, caps, onPick, open, onClose }: { modality: Modality; value: Model; caps: Caps; onPick: (m: Model) => void; open: boolean; onClose: () => void }) {
   const list = models.filter(m => m.modality === modality)
   return <Popover open={open} onClose={onClose} className="ml-picker">
-    <header><b>Modelo</b><span>{list.filter(m => available(m, caps)).length} de {list.length} listos</span></header>
+    <header><b>{t('composer.picker.title')}</b><span>{t('composer.picker.ready', { ready: list.filter(m => available(m, caps)).length, total: list.length })}</span></header>
     <div className="ml-picker-grid">
       {list.map((m, i) => <motion.button key={m.id} type="button" className={`ml-model-card ${m.id === value.id ? 'is-on' : ''}`} disabled={!available(m, caps)}
         initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .03 * i }}
@@ -45,7 +46,7 @@ export function ModelPicker({ modality, value, caps, onPick, open, onClose }: { 
         <span className="ml-model-body">
           <b><span>{m.name}</span>{m.id === value.id && <Check size={15} />}</b>
           <small>{m.blurb}</small>
-          <span className="ml-tags">{statusLabel[m.status] && <em data-status={m.status}>{statusLabel[m.status]}</em>}{m.tags.map(t => <em key={t}>{t}</em>)}</span>
+          <span className="ml-tags">{statusLabel(m.status) && <em data-status={m.status}>{statusLabel(m.status)}</em>}{m.tags.map(tag => <em key={tag}>{label(tag)}</em>)}</span>
         </span>
       </motion.button>)}
     </div>
@@ -58,14 +59,14 @@ const modeOnly: Record<string, string> = { guide: 'Estructura', orbit: 'Ángulo'
 // Splitting a song has nothing to generate: only the number of stems is a choice.
 const splitOnly: Record<string, boolean> = { type: true, stems: true }
 
-function Choice({ id, label, options, value, onChange }: { id: string; label: string; options: string[]; value: string; onChange: (v: string) => void }) {
+function Choice({ id, name, options, value, onChange }: { id: string; name: string; options: string[]; value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false)
   const Icon = choiceIcon[id] || Layers
   return <span className="ml-anchor">
-    <button type="button" className="ml-chip" aria-label={`${label}: ${value}`} title={label} onClick={() => setOpen(v => !v)}><Icon size={14} />{value}</button>
+    <button type="button" className="ml-chip" aria-label={`${name}: ${label(value)}`} title={name} onClick={() => setOpen(v => !v)}><Icon size={14} />{label(value)}</button>
     <Popover open={open} onClose={() => setOpen(false)} className="ml-menu">
-      <small>{label}</small>
-      {options.map(o => <button type="button" key={o} className={o === value ? 'is-on' : ''} onClick={() => { onChange(o); setOpen(false) }}>{o}{o === value && <Check size={14} />}</button>)}
+      <small>{name}</small>
+      {options.map(o => <button type="button" key={o} className={o === value ? 'is-on' : ''} onClick={() => { onChange(o); setOpen(false) }}>{label(o)}{o === value && <Check size={14} />}</button>)}
     </Popover>
   </span>
 }
@@ -73,7 +74,7 @@ function Choice({ id, label, options, value, onChange }: { id: string; label: st
 function RefThumb({ value, onRemove }: { value: ArtifactRef; onRemove: () => void }) {
   const src = useMediaSrc(value)
   return <span className="ml-ref" style={src ? { backgroundImage: `url(${src})` } : undefined}>
-    <button type="button" aria-label="Quitar referencia" onClick={onRemove}><X size={12} /></button>
+    <button type="button" aria-label={t('composer.refs.remove')} onClick={onRemove}><X size={12} /></button>
   </span>
 }
 
@@ -89,16 +90,16 @@ function CharacterRow({ c, on, onPick }: { c: Character; on: boolean; onPick: ()
 function MentionMenu({ open, onClose, query, characters, loras, active, onCharacter, onLora }: { open: boolean; onClose: () => void; query: string; characters: Character[]; loras: Lora[]
   active: number; onCharacter: (c: Character) => void; onLora: (l: Lora) => void }) {
   return <Popover open={open} onClose={onClose} className="ml-mention">
-    {characters.length > 0 && <small>Personajes</small>}
+    {characters.length > 0 && <small>{t('composer.mention.characters')}</small>}
     {characters.map((c, i) => <CharacterRow key={c.id} c={c} on={i === active} onPick={() => onCharacter(c)} />)}
     {loras.length > 0 && <small>LoRAs</small>}
     {loras.map((l, i) => <button type="button" key={l.id} className={`ml-mention-row ${characters.length + i === active ? 'is-on' : ''}`} disabled={l.status !== 'ready'}
       onMouseDown={e => e.preventDefault()} onClick={() => onLora(l)}>
       <span className="ml-mention-face is-lora"><SwatchBook size={15} /></span>
-      <span><b>{l.name}</b><small>{l.status === 'ready' ? l.trigger || 'Sin palabras clave' : l.status === 'downloading' ? 'Descargando…' : 'Con error'}</small></span>
+      <span><b>{l.name}</b><small>{l.status === 'ready' ? l.trigger || t('composer.mention.noTriggers') : l.status === 'downloading' ? t('composer.mention.downloading') : t('composer.mention.failed')}</small></span>
     </button>)}
-    {!characters.length && !loras.length && <p className="ml-mention-empty">{query ? `Nada con «${query}».` : 'Aún no tienes personajes ni LoRAs para esto.'}</p>}
-    <Link to="/characters" className="ml-mention-manage" onClick={onClose}>Gestionar personajes y LoRAs<ChevronRight size={14} /></Link>
+    {!characters.length && !loras.length && <p className="ml-mention-empty">{query ? t('composer.mention.noMatch', { query }) : t('composer.mention.empty')}</p>}
+    <Link to="/characters" className="ml-mention-manage" onClick={onClose}>{t('composer.mention.manage')}<ChevronRight size={14} /></Link>
   </Popover>
 }
 
@@ -256,7 +257,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
       if (enhance) {
         setSending('improving')
         try { submission = await improve(submission) }
-        catch (e) { throw new Error(`No se pudo mejorar el prompt con ${provider.model || 'tu proveedor'}: ${e instanceof Error ? e.message : String(e)}. Desactiva IA para generar con tu texto exacto.`) }
+        catch (e) { throw new Error(t('composer.error.improve', { provider: provider.model || t('composer.error.yourProvider'), error: e instanceof Error ? e.message : String(e) })) }
       }
       setSending('sending')
       await onGenerate(submission)
@@ -278,55 +279,55 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     setUploading(true); setError('')
     try {
       const ref = await uploadAudio(file)
-      if (ref && split && isVideo(ref.uri)) throw new Error('Elige una canción o un audio, no un vídeo.')
+      if (ref && split && isVideo(ref.uri)) throw new Error(t('composer.error.splitNeedsAudio'))
       if (ref && tts) setConsent(false)
-      if (ref && follow && !isVideo(ref.uri)) throw new Error('Elige un vídeo de 2 a 15 segundos.')
-      if (ref && upscale && !isVideo(ref.uri)) throw new Error('Elige un vídeo para escalar.')
-      if (ref && swap && !isVideo(ref.uri)) throw new Error(swap === 'remove' ? 'Elige un vídeo de 1 a 10 segundos (mejor hasta 5, una sola toma).' : 'Elige un vídeo de 2 a 15 segundos (mejor hasta 5, una sola toma).')
+      if (ref && follow && !isVideo(ref.uri)) throw new Error(t('composer.error.followNeedsVideo'))
+      if (ref && upscale && !isVideo(ref.uri)) throw new Error(t('composer.error.upscaleNeedsVideo'))
+      if (ref && swap && !isVideo(ref.uri)) throw new Error(t(swap === 'remove' ? 'composer.error.removeNeedsVideo' : 'composer.error.swapNeedsVideo'))
       if (ref) setSource(ref)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setUploading(false) }
   }
   // Dropped images become references and a dropped audio or video becomes the mode's source, each only where the mode takes it.
   const takesSource = cover || split || voice === 'clone' || !!swap || follow || upscale
-  const dropHint = swap === 'remove' ? 'Suelta el vídeo o el fotograma limpio' : swap ? 'Suelta el vídeo original o la imagen del personaje'
-    : upscale ? 'Suelta el vídeo a escalar' : follow ? 'Suelta el vídeo a seguir o imágenes de referencia' : voice === 'clone' ? 'Suelta el audio o vídeo con la voz'
-    : cover || split ? 'Suelta la canción' : limit ? (limit === 1 ? 'Suelta la imagen' : 'Suelta las imágenes') : 'Este modo no usa archivos'
+  const dropHint = t(swap === 'remove' ? 'composer.drop.removeVideo' : swap ? 'composer.drop.swapVideo'
+    : upscale ? 'composer.drop.upscaleVideo' : follow ? 'composer.drop.followVideo' : voice === 'clone' ? 'composer.drop.voice'
+    : cover || split ? 'composer.drop.song' : limit ? (limit === 1 ? 'composer.drop.image' : 'composer.drop.images') : 'composer.drop.none')
   const drop = (files: File[]) => {
     setDragging(0)
     const images = files.filter(f => droppedKind(f) === 'image'), media = files.filter(f => droppedKind(f) === 'media')
-    if (!images.length && !media.length) return setError('Suelta imágenes PNG, JPEG o WebP, o un audio o vídeo.')
+    if (!images.length && !media.length) return setError(t('composer.error.dropUnsupported'))
     const refused = (images.length && !limit) || (media.length && !takesSource)
     if (refused) setError(media.length && !takesSource
-      ? (modality === 'audio' ? 'Para usar una canción o una voz elige Cover, Separar pistas o Clonar voz.' : 'Este modo no usa audio ni vídeo.')
-      : 'Este modelo o modo no usa imágenes.')
+      ? t(modality === 'audio' ? 'composer.error.audioNeedsMode' : 'composer.error.noMedia')
+      : t('composer.error.noImages'))
     if (media.length && takesSource) void attachSource(media[0])
     if (images.length && limit) void attach(images)
   }
-  const placeholder = swap ? `${swap === 'remove' ? '¿A quién quitar?' : swap === 'head' ? '¿A quién le cambias la cabeza?' : '¿A quién reemplazar?'} Opcional, p. ej. «el chico de la sudadera amarilla»`
-    : guided ? 'Describe la imagen nueva completa; la foto guía solo marca la pose, los bordes o la profundidad…'
-    : follow ? 'Describe quién aparece, dónde y cómo se ve; el movimiento sale del vídeo…'
-    : angle ? 'Opcional: otros cambios además del ángulo (lo más limpio es solo el ángulo)'
-    : split ? 'Sube una canción o abre una de tu biblioteca y pulsa Separar voz'
-    : upscale ? 'Sube o suelta un vídeo: FlashVSR lo escala ×2 o ×4 y conserva el audio; no hace falta texto'
-    : cutout ? 'Se recorta lo principal de la foto sobre un fondo transparente (PNG); no hace falta texto'
-    : tts ? 'Escribe lo que dirá la voz, con puntuación normal…'
-    : sfx ? 'Describe el sonido: género, instrumentos y ánimo; o la fuente, el material y el espacio de un efecto…'
-    : k6 ? 'Describe la escena y lo que pasa; lo que dicen, entre comillas: «Hola, ¿qué tal?»'
-    : song && enhance ? 'Describe tu canción: tema, género, ánimo, voz e idioma. La IA escribe el estilo y la letra…'
-    : { image: refs.length ? 'Describe qué cambiar en la imagen…' : 'Describe la imagen que imaginas…', video: 'Describe la escena, el movimiento de cámara y el sonido…', audio: 'Estilo: género, ánimo, instrumentos, voz…' }[modality]
+  const placeholder = t(swap ? (swap === 'remove' ? 'composer.placeholder.swapRemove' : swap === 'head' ? 'composer.placeholder.swapHead' : 'composer.placeholder.swapCharacter')
+    : guided ? 'composer.placeholder.guided'
+    : follow ? 'composer.placeholder.follow'
+    : angle ? 'composer.placeholder.angle'
+    : split ? 'composer.placeholder.split'
+    : upscale ? 'composer.placeholder.upscale'
+    : cutout ? 'composer.placeholder.cutout'
+    : tts ? 'composer.placeholder.tts'
+    : sfx ? 'composer.placeholder.sfx'
+    : k6 ? 'composer.placeholder.k6'
+    : song && enhance ? 'composer.placeholder.songIdea'
+    : ({ image: refs.length ? 'composer.placeholder.imageEdit' : 'composer.placeholder.image', video: 'composer.placeholder.video', audio: 'composer.placeholder.audio' } as const)[modality])
   const files = (e: React.DragEvent) => e.dataTransfer.types.includes('Files')
   return <div className={`ml-composer ${dragging ? 'is-dropping' : ''} ${dragging && !limit && !takesSource ? 'is-refusing' : ''}`} data-drop={dropHint}
     onDragEnter={e => { if (files(e)) setDragging(n => n + 1) }} onDragLeave={e => { if (files(e)) setDragging(n => Math.max(0, n - 1)) }}
     onDragOver={e => { if (files(e)) e.preventDefault() }} onDrop={e => { if (!files(e)) return; e.preventDefault(); drop(Array.from(e.dataTransfer.files)) }}>
     {(refs.length > 0 || uploading || source || picked.length > 0 || people.length > 0) && <div className="ml-refs">
       {refs.map((r, i) => <RefThumb key={r.sha256 + i} value={r} onRemove={() => setRefs(v => v.filter((_, k) => k !== i))} />)}
-      {source && <span className="ml-ref ml-ref-audio" title={swap ? 'Vídeo original' : 'Canción'}>{isVideo(source.uri) ? <Film size={16} /> : <Music2 size={16} />}<button type="button" aria-label={isVideo(source.uri) ? 'Quitar vídeo' : 'Quitar audio'} onClick={() => setSource(null)}><X size={12} /></button></span>}
+      {source && <span className="ml-ref ml-ref-audio" title={t(swap ? 'composer.source.video' : 'composer.source.song')}>{isVideo(source.uri) ? <Film size={16} /> : <Music2 size={16} />}<button type="button" aria-label={t(isVideo(source.uri) ? 'composer.source.removeVideo' : 'composer.source.removeAudio')} onClick={() => setSource(null)}><X size={12} /></button></span>}
       {uploading && <span className="ml-ref is-loading"><Loader2 size={16} /></span>}
       {mentions && people.map(c => <span key={c.id} className="ml-ref-tag" title={c.description || c.name}><AtSign size={12} />{c.handle}</span>)}
-      {picked.map(l => <span key={l.id} className="ml-ref-tag is-lora" title={l.trigger ? `Palabras clave: ${l.trigger}` : l.name}><SwatchBook size={12} />{l.name}
-        <button type="button" aria-label={`Quitar LoRA ${l.name}`} onClick={() => setLoras(v => v.filter(p => p.id !== l.id))}><X size={11} /></button></span>)}
+      {picked.map(l => <span key={l.id} className="ml-ref-tag is-lora" title={l.trigger ? t('composer.lora.triggers', { trigger: l.trigger }) : l.name}><SwatchBook size={12} />{l.name}
+        <button type="button" aria-label={t('composer.lora.remove', { name: l.name })} onClick={() => setLoras(v => v.filter(p => p.id !== l.id))}><X size={11} /></button></span>)}
     </div>}
-    <textarea ref={area} rows={1} value={split || cutout || upscale ? '' : prompt} placeholder={placeholder} disabled={split || cutout || upscale} aria-label={tts ? 'Texto' : sfx ? 'Sonido' : song && enhance ? 'Idea' : modality === 'audio' ? 'Estilo' : 'Prompt'}
+    <textarea ref={area} rows={1} value={split || cutout || upscale ? '' : prompt} placeholder={placeholder} disabled={split || cutout || upscale} aria-label={t(tts ? 'composer.field.text' : sfx ? 'composer.field.sound' : song && enhance ? 'composer.field.idea' : modality === 'audio' ? 'composer.field.style' : 'composer.field.prompt')}
       onChange={e => { setPrompt(e.target.value); track(e.target.value, e.target.selectionStart) }}
       onKeyDown={e => {
         const total = listed.length + listedLoras.length
@@ -338,33 +339,33 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
         }
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void submit()
       }} />
-    {song && value('type') !== 'Instrumental' && !split && <textarea className="ml-lyrics" rows={3} value={lyrics} aria-label="Letra"
-      placeholder={enhance ? 'Letra (opcional): déjala vacía y la IA la escribe; si la escribes, se canta tal cual' : '[Verse]\nEscribe la letra, una frase por línea\n\n[Chorus]\n…'} onChange={e => setLyrics(e.target.value)} />}
+    {song && value('type') !== 'Instrumental' && !split && <textarea className="ml-lyrics" rows={3} value={lyrics} aria-label={t('composer.field.lyrics')}
+      placeholder={t(enhance ? 'composer.field.lyricsAiPlaceholder' : 'composer.field.lyricsPlaceholder')} onChange={e => setLyrics(e.target.value)} />}
     {(tts || k6) && <textarea className="ml-lyrics" rows={2} value={lyrics} onChange={e => setLyrics(e.target.value)}
-      aria-label={k6 ? 'Voz y sonidos' : voice === 'design' ? 'Descripción de la voz' : voice === 'clone' ? 'Texto de la referencia' : 'Cómo lo dice'}
-      placeholder={k6 ? 'Voz y sonidos (opcional): «voz grave y tranquila, lluvia de fondo, música suave»'
-        : voice === 'design' ? 'Describe la voz: «mujer de 30 años, voz cálida y segura, acento mexicano, ritmo pausado»'
-        : voice === 'clone' ? 'Opcional: lo que dice el audio de referencia, palabra por palabra (mejora el parecido)'
-        : 'Opcional, cómo lo dice: «susurrando», «emocionado y rápido», «como un locutor de radio»'} />}
+      aria-label={t(k6 ? 'composer.field.k6Audio' : voice === 'design' ? 'composer.field.voiceDescription' : voice === 'clone' ? 'composer.field.referenceText' : 'composer.field.delivery')}
+      placeholder={t(k6 ? 'composer.field.k6AudioPlaceholder'
+        : voice === 'design' ? 'composer.field.voiceDescriptionPlaceholder'
+        : voice === 'clone' ? 'composer.field.referenceTextPlaceholder'
+        : 'composer.field.deliveryPlaceholder')} />}
     {error && <p className="ml-error" role="alert">{error}</p>}
     <div className="ml-composer-row">
       <div className="ml-chips">
-        {limit > 0 && <button type="button" className={`ml-chip ${swap || guided || angle || cutout ? (refs.length ? 'is-on' : '') : 'ml-chip-icon'}`} aria-label={swap === 'remove' ? 'Primer fotograma sin la persona' : swap === 'head' ? 'Foto de la cara nueva' : swap ? 'Imagen del personaje' : guided ? 'Foto guía' : angle ? 'Foto a re-encuadrar' : cutout ? 'Foto a recortar' : 'Añadir imagen de referencia'}
-          title={swap === 'remove' ? 'Opcional: el primer fotograma ya sin la persona; si no, se crea solo' : swap === 'head' ? 'Una foto clara de frente de la cara nueva' : swap ? 'Imagen del personaje: cara, pelo y ropa visibles' : guided ? 'Foto cuya pose, bordes o profundidad seguirá la imagen nueva'
-            : angle ? 'La foto que se vuelve a tomar desde otro ángulo' : cutout ? 'La foto cuyo fondo se quita' : modality === 'image' ? 'Añadir imágenes para editar' : 'Imagen inicial o referencias'}
-          onClick={() => file.current?.click()}><Paperclip size={15} />{swap ? ({ remove: 'Fondo', head: 'Cara', character: 'Personaje' } as const)[swap] : guided ? 'Guía' : angle || cutout ? 'Foto' : null}</button>}
-        {(cover || split) && <button type="button" className={`ml-chip ${source ? 'is-on' : ''}`} onClick={() => void attachSource()}><Music2 size={14} />{source ? 'Audio listo' : 'Subir canción'}</button>}
-        {voice === 'clone' && <button type="button" className={`ml-chip ${source ? 'is-on' : ''}`} title="Audio o vídeo de 3 a 30 s con una sola voz clara y poco ruido" onClick={() => void attachSource()}><Mic size={14} />{source ? 'Voz lista' : 'Subir voz'}</button>}
+        {limit > 0 && <button type="button" className={`ml-chip ${swap || guided || angle || cutout ? (refs.length ? 'is-on' : '') : 'ml-chip-icon'}`} aria-label={t(swap === 'remove' ? 'composer.image.removeFrame' : swap === 'head' ? 'composer.image.newFace' : swap ? 'composer.image.character' : guided ? 'composer.image.guide' : angle ? 'composer.image.reframe' : cutout ? 'composer.image.cutout' : 'composer.image.addReference')}
+          title={t(swap === 'remove' ? 'composer.image.removeFrameHint' : swap === 'head' ? 'composer.image.newFaceHint' : swap ? 'composer.image.characterHint' : guided ? 'composer.image.guideHint'
+            : angle ? 'composer.image.reframeHint' : cutout ? 'composer.image.cutoutHint' : modality === 'image' ? 'composer.image.editHint' : 'composer.image.videoHint')}
+          onClick={() => file.current?.click()}><Paperclip size={15} />{swap ? t(({ remove: 'composer.image.chipBackground', head: 'composer.image.chipFace', character: 'composer.image.chipCharacter' } as const)[swap]) : guided ? t('composer.image.chipGuide') : angle || cutout ? t('composer.image.chipPhoto') : null}</button>}
+        {(cover || split) && <button type="button" className={`ml-chip ${source ? 'is-on' : ''}`} onClick={() => void attachSource()}><Music2 size={14} />{t(source ? 'composer.audio.ready' : 'composer.audio.uploadSong')}</button>}
+        {voice === 'clone' && <button type="button" className={`ml-chip ${source ? 'is-on' : ''}`} title={t('composer.voice.hint')} onClick={() => void attachSource()}><Mic size={14} />{t(source ? 'composer.voice.ready' : 'composer.voice.upload')}</button>}
         {voice === 'clone' && <button type="button" className={`ml-chip ${consent ? 'is-on' : ''}`} aria-pressed={consent} onClick={() => setConsent(v => !v)}
-          title="Solo clona tu voz o la de alguien que te dio permiso; nunca para engañar ni hacerse pasar por otra persona"><ShieldCheck size={14} />Tengo permiso</button>}
-        {(swap || follow || upscale) && <button type="button" className={`ml-chip ${source ? 'is-on' : ''}`} title={upscale ? 'Vídeo a escalar: ×4 solo para vídeos pequeños (hasta 480p); conserva el audio y crea un vídeo nuevo' : follow ? 'Vídeo de 2 a 15 s cuyo movimiento, bordes o profundidad seguirá el nuevo; también marca formato y duración' : swap === 'remove' ? 'Vídeo de 1 a 10 s (mejor hasta 5, una toma con cámara estable); se conservan la escena y el audio' : 'Vídeo de 2 a 15 s (mejor hasta 5, una sola toma); se conservan movimiento, cámara y audio'}
-          onClick={() => void attachSource()}><Film size={14} />{source ? 'Vídeo listo' : 'Subir vídeo'}</button>}
+          title={t('composer.voice.consentHint')}><ShieldCheck size={14} />{t('composer.voice.consent')}</button>}
+        {(swap || follow || upscale) && <button type="button" className={`ml-chip ${source ? 'is-on' : ''}`} title={t(upscale ? 'composer.video.upscaleHint' : follow ? 'composer.video.followHint' : swap === 'remove' ? 'composer.video.removeHint' : 'composer.video.swapHint')}
+          onClick={() => void attachSource()}><Film size={14} />{t(source ? 'composer.video.ready' : 'composer.video.upload')}</button>}
         <button type="button" className={`ml-chip ml-chip-ai ${enhance ? 'is-on' : ''}`} aria-pressed={enhance} disabled={!provider.ready || cover || fixed || !!selfWritten[model.id]} onClick={toggleAi}
-          title={!provider.ready ? 'Configura un proveedor en Cuenta → Proveedores IA para mejorar tus prompts' : cover ? 'Los covers usan tu texto exacto' : fixed ? 'Usa la receta fija del modelo' : selfWritten[model.id] ? selfWritten[model.id] : enhance ? `${provider.model} reescribe el prompt con la guía del modelo antes de generar` : 'Generar con tu texto exacto'}>
-          <WandSparkles size={14} />IA</button>
+          title={!provider.ready ? t('composer.ai.noProvider') : cover ? t('composer.ai.cover') : fixed ? t('composer.ai.fixed') : selfWritten[model.id] ? t(selfWritten[model.id]) : enhance ? t('composer.ai.on', { model: provider.model }) : t('composer.ai.off')}>
+          <WandSparkles size={14} />{t('composer.ai.label')}</button>
         {mentions && <span className="ml-anchor">
-          <button type="button" className={`ml-chip ml-chip-icon ${people.length || picked.length ? 'is-on' : ''}`} aria-label="Mencionar personaje o LoRA" aria-expanded={menuOpen}
-            title="@ personajes y LoRAs: escribe @ en el prompt o pulsa aquí" onClick={() => { setMention(null); setActive(0); setAtOpen(v => !v) }}><AtSign size={15} /></button>
+          <button type="button" className={`ml-chip ml-chip-icon ${people.length || picked.length ? 'is-on' : ''}`} aria-label={t('composer.mention.button')} aria-expanded={menuOpen}
+            title={t('composer.mention.hint')} onClick={() => { setMention(null); setActive(0); setAtOpen(v => !v) }}><AtSign size={15} /></button>
           <MentionMenu open={menuOpen} onClose={closeMenu} query={needle} characters={listed} loras={listedLoras} active={active} onCharacter={pickCharacter} onLora={pickLora} />
         </span>}
         {!fixed && <span className="ml-anchor">
@@ -377,7 +378,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
             if (modality === 'audio') { setSource(null); setLyrics('') }
             if (follow && m.id !== 'h3' && m.id !== 'h3-turbo') setValues(v => ({ ...v, mode: 'Referencias' })) }} open={picker} onClose={() => setPicker(false)} />
         </span>}
-        {choices.map(c => <Choice key={c.id} id={c.id} label={c.label} options={c.options} value={value(c.id)} onChange={v => {
+        {choices.map(c => <Choice key={c.id} id={c.id} name={c.label} options={c.options} value={value(c.id)} onChange={v => {
           setValues(s => ({ ...s, [c.id]: v }))
           if (c.id === 'mode' && (SWAP_MODES[v] || v === 'Estructura' || v === 'Ángulo' || v === 'Quitar fondo')) setRefs(r => r.slice(0, 1))
           if (c.id === 'mode' && v === 'Escalar') setRefs([])
@@ -388,15 +389,15 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
           // Covers only exist in YuE2.
           if (c.id === 'type' && v === 'Cover' && model.id === 'ace-step') { setModel(models.find(m => m.id === 'yue2')!); setChosen(true) }
         }} />)}
-        {modality === 'image' && !cutout && <span className="ml-stepper" aria-label="Cantidad">
-          <button type="button" aria-label="Menos" onClick={() => setCount(c => Math.max(1, c - 1))}><Minus size={13} /></button>
+        {modality === 'image' && !cutout && <span className="ml-stepper" aria-label={t('composer.count.label')}>
+          <button type="button" aria-label={t('composer.count.less')} onClick={() => setCount(c => Math.max(1, c - 1))}><Minus size={13} /></button>
           <b>{count}/4</b>
-          <button type="button" aria-label="Más" onClick={() => setCount(c => Math.min(4, c + 1))}><Plus size={13} /></button>
+          <button type="button" aria-label={t('composer.count.more')} onClick={() => setCount(c => Math.min(4, c + 1))}><Plus size={13} /></button>
         </span>}
       </div>
       <button type="button" className={`ml-generate ${progress !== null ? 'is-busy' : ''}`} onClick={() => void submit()} disabled={!ready}>
         <span className="ml-generate-fill" style={{ transform: `scaleX(${progress !== null ? progress / 100 : 0})` }} />
-        <span className="ml-generate-label">{sending ? <><Loader2 size={16} className="ml-spin" />{sending === 'improving' ? 'Mejorando' : 'Enviando'}</> : progress !== null ? (progress > 0 ? <>Generando <b>{Math.round(progress)}%</b></> : <><Loader2 size={15} className="ml-spin" />En cola</>) : <>{enhance ? <WandSparkles size={16} /> : <Sparkles size={16} />}{upscale ? 'Escalar' : 'Generar'}</>}</span>
+        <span className="ml-generate-label">{sending ? <><Loader2 size={16} className="ml-spin" />{t(sending === 'improving' ? 'composer.generate.improving' : 'composer.generate.sending')}</> : progress !== null ? (progress > 0 ? <>{t('composer.generate.generating')} <b>{Math.round(progress)}%</b></> : <><Loader2 size={15} className="ml-spin" />{t('composer.generate.queued')}</>) : <>{enhance ? <WandSparkles size={16} /> : <Sparkles size={16} />}{t(upscale ? 'composer.generate.upscale' : 'composer.generate.generate')}</>}</span>
         {progress === null && !sending && <kbd>Ctrl ↵</kbd>}
       </button>
     </div>

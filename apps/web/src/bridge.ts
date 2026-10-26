@@ -1,3 +1,5 @@
+import { t, type MessageKey } from './i18n'
+
 let csrf = ''
 let user = ''
 let accountEpoch = 0
@@ -6,7 +8,7 @@ const streams = new Set<EventSource>()
 export const isWeb = true
 
 export async function request(method: string, route: string, body?: unknown, key?: string) {
-  if (!route.startsWith('/v1/') || route.startsWith('//') || /[\r\n\\]/.test(route)) throw new Error('Ruta no permitida')
+  if (!route.startsWith('/v1/') || route.startsWith('//') || /[\r\n\\]/.test(route)) throw new Error(t('shell.bridge.routeNotAllowed'))
   const headers: Record<string, string> = {}
   if (!['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = csrf
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -16,14 +18,14 @@ export async function request(method: string, route: string, body?: unknown, key
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
   if (!response.ok) {
     if (response.status === 401) { clearBrowser(); window.dispatchEvent(new Event('rvl-logged-out')) }
-    let detail = 'Operación no disponible'
+    let detail = t('shell.bridge.unavailable')
     try {
       const data = await response.json()
       if (typeof data.detail === 'string') detail = data.detail
       else if (Array.isArray(data.detail)) {
-        const labels:Record<string,string>={model:'modelo',api_key:'clave API',username:'nombre de usuario',email:'correo',password:'contraseña',prompt:'descripción',code:'código de verificación'}
-        const fields=[...new Set(data.detail.map((item:any)=>labels[String(item.loc?.at(-1))]||'datos del formulario'))]
-        detail='Revisa los campos: '+fields.join(', ')+'. Comprueba que estén completos y respeten los límites indicados.'
+        const labels:Record<string,MessageKey>={model:'shell.bridge.field.model',api_key:'shell.bridge.field.apiKey',username:'shell.bridge.field.username',email:'shell.bridge.field.email',password:'shell.bridge.field.password',prompt:'shell.bridge.field.prompt',code:'shell.bridge.field.code'}
+        const fields=[...new Set(data.detail.map((item:any)=>t(labels[String(item.loc?.at(-1))]||'shell.bridge.field.other')))]
+        detail=t('shell.bridge.checkFields',{fields:fields.join(', ')})
       }
     } catch {}
     throw new Error(`Runtime ${response.status}: ${detail}`)
@@ -70,7 +72,7 @@ export function clearBrowser() {
 
 function artifactRoute(uri: string) {
   const match = /^artifact:\/\/([A-Za-z0-9_-]{1,80})\/(images|references|sources|songs|videos|productions)\/([A-Za-z0-9_.-]+)$/.exec(uri)
-  if (!match) throw new Error('URI inválida')
+  if (!match) throw new Error(t('shell.bridge.invalidUri'))
   return `/v1/artifacts/${match[1]}/${match[2]}/${encodeURIComponent(match[3])}`
 }
 
@@ -81,7 +83,7 @@ async function preview(route: string, hash: string) {
   const response = await request('GET', route)
   if (response.status === 204) return ''
   const value = URL.createObjectURL(await response.blob())
-  if (epoch !== accountEpoch) { URL.revokeObjectURL(value); throw new Error('La cuenta cambió') }
+  if (epoch !== accountEpoch) { URL.revokeObjectURL(value); throw new Error(t('shell.bridge.accountChanged')) }
   urls.set(key, value)
   return value
 }
@@ -100,9 +102,9 @@ async function uploadFile(file: File | Blob, sessionId: string, media = false) {
   })
   if (!response.ok) {
     if (response.status === 401) { clearBrowser(); window.dispatchEvent(new Event('rvl-logged-out')) }
-    throw new Error(`Runtime ${response.status}: No se pudo subir el archivo`)
+    throw new Error(`Runtime ${response.status}: ${t('shell.bridge.uploadFailed')}`)
   }
-  if (epoch !== accountEpoch) throw new Error('La cuenta cambió')
+  if (epoch !== accountEpoch) throw new Error(t('shell.bridge.accountChanged'))
   return response.json()
 }
 
@@ -114,7 +116,7 @@ export async function download(payload: ExportPayload) {
     format, quality: payload.quality || (format === 'webp' ? settings.webpQuality : settings.jpegQuality), background: payload.background || settings.jpegBackground })
   const name = `rinari-${payload.operation || 'generate'}-${new Date().toISOString().replace(/[:.]/g, '-')}-seed-${payload.seed ?? 'unknown'}.${format === 'jpeg' ? 'jpg' : format}`
   const blob = await response.blob()
-  if (epoch !== accountEpoch) throw new Error('La cuenta cambió')
+  if (epoch !== accountEpoch) throw new Error(t('shell.bridge.accountChanged'))
   triggerDownload(URL.createObjectURL(blob), name, true)
   return { cancelled: false, format }
 }
@@ -152,7 +154,7 @@ export async function prepareBrowser(current: any) {
   }
 }
 
-const unsupported = async () => { throw new Error('Esta acción local no existe en la versión web') }
+const unsupported = async () => { throw new Error(t('shell.bridge.webUnsupported')) }
 
 window.visualLab = {
   platform: 'web',
@@ -170,13 +172,13 @@ window.visualLab = {
       const key = 'job:' + user + ':' + jobId
       const old = urls.get(key); if (old) URL.revokeObjectURL(old)
       const value = URL.createObjectURL(await response.blob())
-      if (epoch !== accountEpoch) { URL.revokeObjectURL(value); throw new Error('La cuenta cambió') }
+      if (epoch !== accountEpoch) { URL.revokeObjectURL(value); throw new Error(t('shell.bridge.accountChanged')) }
       urls.set(key, value); return value
     },
     saveUrl: unsupported,
     uploadMedia: (sessionId, file) => file
       // A dropped file skips the picker; the runtime still validates the content.
-      ? (MEDIA_TYPES.includes(file.type) || MEDIA_EXTENSIONS.test(file.name) ? uploadFile(file, sessionId, true) : Promise.reject(new Error('Ese tipo de audio o vídeo no se admite.')))
+      ? (MEDIA_TYPES.includes(file.type) || MEDIA_EXTENSIONS.test(file.name) ? uploadFile(file, sessionId, true) : Promise.reject(new Error(t('shell.bridge.mediaTypeUnsupported'))))
       : new Promise((resolve,reject) => {
       const input = document.createElement('input'); input.type = 'file'; input.accept = MEDIA_TYPES.join(',')
       input.oncancel = () => resolve(null)
@@ -192,7 +194,7 @@ window.visualLab = {
     save: async config => {
       const endpoints = await api('GET', '/v1/account/endpoints')
       const endpoint = endpoints.items.find((e: any) => e.base_url === config.baseUrl)
-      if (!endpoint) throw new Error('Endpoint no aprobado por el administrador')
+      if (!endpoint) throw new Error(t('shell.bridge.endpointNotApproved'))
       await api('PUT', '/v1/account/provider', { endpoint_id: endpoint.id, model: config.model, ...(config.apiKey ? { api_key: config.apiKey } : {}) })
       return window.visualLab.provider.get()
     },
