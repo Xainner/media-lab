@@ -2,6 +2,10 @@
 html, body { margin: 0; background: var(--ink); color: var(--text); }
 body { min-height: 100dvh; overflow-x: hidden; }
 #root { isolation: isolate; }
+/* iOS Safari zooms into any focused field under 16px and stays zoomed in. */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select { font-size: max(16px, 1em) !important; }
+}
 ::selection { background: rgba(255, 138, 61, .45); color: #fff; }
 
 .rvl { position: relative; font-family: var(--f-ui); font-size: 14px; line-height: 1.6; color: var(--text); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }

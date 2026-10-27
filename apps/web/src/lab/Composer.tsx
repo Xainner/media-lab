@@ -21,6 +21,15 @@ const selfWritten: Record<string, MessageKey> = { 'flux3-klein': 'composer.selfW
 
 function Popover({ open, onClose, children, className = '' }: { open: boolean; onClose: () => void; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
+  // Popovers open from their button's left edge; on a phone that can run past the screen.
+  const [shift, setShift] = useState(0)
+  useLayoutEffect(() => {
+    if (!open) { setShift(0); return }
+    const box = ref.current?.getBoundingClientRect()
+    if (!box) return
+    const room = document.documentElement.clientWidth - 8
+    setShift(box.right > room ? Math.max(8 - box.left, room - box.right) : 0)
+  }, [open])
   useEffect(() => {
     if (!open) return
     const away = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) onClose() }
@@ -29,7 +38,7 @@ function Popover({ open, onClose, children, className = '' }: { open: boolean; o
     document.addEventListener('keydown', esc)
     return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc) }
   }, [open, onClose])
-  return <AnimatePresence>{open && <motion.div ref={ref} className={`ml-pop ${className}`} role="dialog"
+  return <AnimatePresence>{open && <motion.div ref={ref} className={`ml-pop ${className}`} role="dialog" style={{ marginLeft: shift }}
     initial={{ opacity: 0, y: 12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }}
     transition={{ type: 'spring', stiffness: 420, damping: 32 }}>{children}</motion.div>}</AnimatePresence>
 }
