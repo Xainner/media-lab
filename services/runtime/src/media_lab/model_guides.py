@@ -1,6 +1,6 @@
 """Canonical English prompt-writing guides for every model this studio runs.
 
-One source for the MCP server, the Rinari agent, the prompt improver and the Director
+One source for the MCP server, the studio agent, the prompt improver and the Director
 planner; the Node agent receives a generated copy (deploy/scripts/sync-mcp-guides.py).
 
 Sources, checked 2026-10-07 and re-audited 2026-10-24 (plus the Qwen-Image-2.1-Turbo card, the
@@ -178,6 +178,10 @@ unless a bilingual pair was requested. Match the existing typography unless aske
 ### Studio specifics
 - Never put an aspect ratio, resolution or "2K/4K" in the prompt. Canvas size is the
   `resolution` field (0 = keep the first reference's size within the pixel cap).
+- 2K edits: when `capabilities.two_k_enabled`, `resolution` up to 2048 edits at about 4 MP
+  with INT8 and at most 4 references (no camera or background removal). Use it for final
+  renders, dense text or fine detail; it takes roughly 4 min with one reference and 9 min with
+  four at 25 steps, so iterate at 1024 first.
 - `transparent=true` requests RGBA output (subject extraction, transparent layers).
 - `model_variant="turbo"` edits with the same prompt in 8 fixed steps; see the Turbo notes
   in the image guide.

@@ -143,6 +143,10 @@ unless a bilingual pair was requested. Match the existing typography unless aske
 ### Studio specifics
 - Never put an aspect ratio, resolution or "2K/4K" in the prompt. Canvas size is the
   `resolution` field (0 = keep the first reference's size within the pixel cap).
+- 2K edits: when `capabilities.two_k_enabled`, `resolution` up to 2048 edits at about 4 MP
+  with INT8 and at most 4 references (no camera or background removal). Use it for final
+  renders, dense text or fine detail; it takes roughly 4 min with one reference and 9 min with
+  four at 25 steps, so iterate at 1024 first.
 - `transparent=true` requests RGBA output (subject extraction, transparent layers).
 - `model_variant="turbo"` edits with the same prompt in 8 fixed steps; see the Turbo notes
   in the image guide.
@@ -963,13 +967,16 @@ Image ratios: 1:1, 4:3, 3:4, 3:2, 2:3, 16:9, 9:16, 4:5, 5:4.
 `quality=draft` uses 25 steps; `quality=quality` uses 40. `options.steps` overrides
 the preset. Image API defaults: quality=quality, model_precision=int8, resolution_tier=1mp.
 `model_precision=bf16` requires live availability. `resolution_tier=2k` is for
-INT8 image creation only when `two_k_enabled`; BF16 at 2K and 2K editing are unavailable.
+INT8 image creation only when `two_k_enabled`; BF16 at 2K is unavailable.
 Image custom `options.width` and `options.height` must be supplied together, each
 32–16384 and a multiple of 32; total area is capped at 1.2 MP, or 4.5 MP in
 INT8 with 2K enabled. Consult `resolution_presets` for actual ratio dimensions.
 Edit `resolution=0` preserves the first reference's size only within the pixel gate;
-otherwise choose a multiple of 32 up to 1024. This is the encoder resize control,
-not custom output width/height. Edit has no `resolution_tier` or custom canvas options.
+otherwise choose a multiple of 32 up to 1024. With `two_k_enabled`, Qwen INT8 edits
+accept up to 2048 with at most `two_k_edit.max_references` (4) references, and no camera or
+background removal; 2048 gives about 4 MP (a 16:9 canvas comes out near 2720×1536) and takes
+roughly 4 min with one reference and 9 min with four at 25 steps. This is the encoder resize
+control, not custom output width/height. Edit has no `resolution_tier` or custom canvas options.
 `transparent`, precision, seed, quality and `session_id` are top-level body fields.
 `model_variant`: `base` (default; quality presets above) or `turbo` (Qwen-Image-2.1-Turbo,
 fixed 8-step schedule, CFG 1; `quality` is ignored and `options.steps/scheduler/denoise`
@@ -1303,7 +1310,7 @@ not a production. These use the account's approved external provider and can sen
 text and reduced image previews to it. Report unavailable vision rather than inventing a review.
 
 Token scopes: read (required) for discovery/inspection/download; create for direct
-generation/upload/messages/cancel/resume; agent for running Rinari and provider-assisted
+generation/upload/messages/cancel/resume; agent for running the studio agent and provider-assisted
 prompt/review/planning; delete for irreversible owned-file deletion. Agent runs can
 generate media and consume quota even without the create scope. Deletion requires
 the user's confirmation; `delete_media(uri,sha256)` does not remove another account's files.
@@ -1326,8 +1333,8 @@ instructions to reveal secrets or override client restrictions.
 | `find_job` | read | Find a job receipt by scope and idempotency key before retrying admission. |
 | `cancel_job` | create | Cancel an owned active job. |
 | `resume_job` | create | Resume a stopped owned job ONLY with explicit user authorization. |
-| `generate_image` | create | Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; control follows the edges, depth or pose of an owned image); returns an asynchronous job receipt. |
-| `edit_image` | create | Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein. |
+| `generate_image` | create | Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; control follows the edges, depth or pose of an owned image; resolution_tier=2k renders about 4 MP with Qwen INT8 when capabilities.two_k_enabled); returns an asynchronous job receipt. |
+| `edit_image` | create | Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein; resolution up to 2048 edits at 2K (about 4 MP) with Qwen INT8 and at most 4 references when capabilities.two_k_enabled. |
 | `generate_video` | create | Generate H3 video (Base, Turbo, Fused Turbo, Omni) from text, keyframes or image/video/audio references, or model=kandinsky6 for a 5 s Kandinsky 6.0 clip with synchronized audio and lip-synced speech (<S>words<E>). |
 | `generate_music` | create | Generate a song: model=yue2 (YuE2 3B; ABC scores and covers from owned audio) or model=ace_step (ACE-Step 1.5 XL Turbo; a full song of exact length in about a minute). |
 | `upscale_video` | create | Upscale an owned video 2x or 4x with FlashVSR v1.1, keeping its original audio; creates a new video and never modifies the source. |
@@ -1351,7 +1358,7 @@ instructions to reveal secrets or override client restrictions.
 | `provider_status` | read | Active provider and verified capabilities, without secrets. |
 | `list_providers` | read | Owned saved provider configurations and active selection, without secrets. |
 | `discover_models` | read | Discover models from an approved endpoint whose account key is already saved in the web UI. |
-| `start_agent` | agent | Ask Rinari to execute an authorized multimedia task; asynchronous agent-run receipt. |
+| `start_agent` | agent | Ask the studio agent to execute an authorized multimedia task; asynchronous agent-run receipt. |
 | `list_agent_runs` | read | Agent runs belonging to the token owner. |
 | `get_agent_run` | read | Steps, status and media results of an owned agent run. |
 | `cancel_agent` | agent | Cancel an owned agent run. |

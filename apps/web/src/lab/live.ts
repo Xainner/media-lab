@@ -7,7 +7,7 @@ import { t } from '../i18n'
 
 export type LabJob = { id: string; status: string; pct: number; queue?: number; error?: string; prompt: string; ratio: number; kind: Modality; model: string; ref?: ArtifactRef; more?: { ref: ArtifactRef; prompt: string }[] }
 export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; upscale: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
-  flux3: boolean; kandinsky6: boolean; sound: Record<string, boolean>; speech: Record<string, boolean> }
+  flux3: boolean; kandinsky6: boolean; twoK: boolean; sound: Record<string, boolean>; speech: Record<string, boolean> }
 
 /** Job operations each composer view lists after a reload; every request() operation must appear here. */
 export const operations: Record<Modality, string[]> = { image: ['generate', 'edit'], video: ['video', 'swap', 'face_refine', 'remove', 'upscale'], audio: ['song', 'stems', 'sound', 'speech'] }
@@ -30,7 +30,8 @@ function modelLabel(job: Job & { request?: any }) {
   if (r.camera) return `${name} · ${t('creations.model.angle')}`
   if (r.remove_background) return `${name} · ${t('creations.model.noBackground')}`
   if (r.control) return `${name} · ${t('creations.model.structure')}`
-  return job.operation === 'edit' ? `${name} · ${t('creations.model.edit')}` : name
+  const label = job.operation === 'edit' ? `${name} · ${t('creations.model.edit')}` : name
+  return r.resolution_tier === '2k' || r.resolution > 1024 ? `${label} · 2K` : label
 }
 
 function toLab(job: Job & { request?: any }, kind: Modality): LabJob {
@@ -57,7 +58,7 @@ export function useMediaSrc(ref?: ArtifactRef) {
 }
 
 export function useCaps() {
-  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, upscale: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, kandinsky6: false, sound: {}, speech: {} })
+  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, upscale: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, kandinsky6: false, twoK: false, sound: {}, speech: {} })
   useEffect(() => {
     let live = true
     runtime('GET', '/v1/capabilities').then(c => {
@@ -66,7 +67,7 @@ export function useCaps() {
       setCaps({ turbo: Boolean(turbo.int8 || turbo.bf16), h3Turbo: Boolean(c.video?.profiles?.turbo?.ready), omni: Boolean(c.video?.profiles?.omni?.ready), fusedTurbo: Boolean(c.video?.profiles?.fused_turbo?.ready), bf16: Boolean(c.model_precisions?.bf16), turboPrecision: turbo.int8 ? 'int8' : 'bf16',
         swap: { character: Boolean(c.swap?.modes?.character?.ready), head: Boolean(c.swap?.modes?.head?.ready), remove: Boolean(c.remove?.ready), scail: Boolean(c.swap?.modes?.scail?.ready) }, stems: Boolean(c.stems?.ready), faceRefine: Boolean(c.face_refine?.ready), upscale: Boolean(c.upscale?.ready), ace: Boolean(c.music?.models?.ace_step?.ready), moss: Boolean(c.image_models?.moss?.ready),
         control: c.image_control?.modes || {}, camera: Boolean(c.image_camera?.ready), cutout: Boolean(c.image_remove_background?.ready), follow: c.video?.control?.modes || {}, loras: Boolean(c.loras?.ready),
-        flux3: Boolean(c.image_models?.flux3?.ready), kandinsky6: Boolean(c.video?.models?.kandinsky6?.ready),
+        flux3: Boolean(c.image_models?.flux3?.ready), kandinsky6: Boolean(c.video?.models?.kandinsky6?.ready), twoK: Boolean(c.two_k_enabled),
         sound: Object.fromEntries(Object.entries(c.sound?.kinds || {}).map(([k, v]: [string, any]) => [k, Boolean(v?.ready)])), speech: c.speech?.voices || {} })
     }).catch(() => {})
     return () => { live = false }
@@ -148,10 +149,12 @@ export function requests(s: Submission): { path: string; body: any; operation: s
       return Array.from({ length: s.count }, () => ({ path: '/v1/jobs/generate', operation: 'generate', body: { prompt: s.prompt, aspect_ratio: s.values.aspect, quality,
         model_variant: s.modelId === 'moss-image' ? 'base' : model_variant, control, session_id, ...loras } }))
     }
+    // 2K is INT8 Qwen only: a 2048 encoder size for edits, the 2K tier for new images.
+    const twoK = s.values.size === '2K' && s.modelId !== 'moss-image'
     const body = s.refs.length
-      ? { path: '/v1/jobs/edit', operation: 'edit', body: { prompt: s.prompt, references: s.refs, quality, model_variant, session_id, ...loras } }
+      ? { path: '/v1/jobs/edit', operation: 'edit', body: { prompt: s.prompt, references: s.refs, quality, model_variant, session_id, ...(twoK ? { resolution: 2048 } : {}), ...loras } }
       : s.modelId === 'moss-image' ? { path: '/v1/jobs/generate', operation: 'generate', body: { model: 'moss', prompt: s.prompt, aspect_ratio: s.values.aspect, quality, session_id } }
-      : { path: '/v1/jobs/generate', operation: 'generate', body: { prompt: s.prompt, aspect_ratio: s.values.aspect, quality, model_variant, session_id, ...loras } }
+      : { path: '/v1/jobs/generate', operation: 'generate', body: { prompt: s.prompt, aspect_ratio: s.values.aspect, quality, model_variant, session_id, ...(twoK ? { resolution_tier: '2k' } : {}), ...loras } }
     return Array.from({ length: s.count }, () => body)
   }
   if (s.kind === 'audio' && s.modelId === 'stable-audio3')

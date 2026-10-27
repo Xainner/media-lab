@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { AtSign, AudioWaveform, Camera, Check, ChevronRight, Clock3, Film, Gauge, Globe, Layers, Loader2, Mic, Minus, Move3d, Music2, Monitor, Paperclip, Plus, RectangleHorizontal, ScanSearch, ShieldCheck, Sparkles, SwatchBook, UserRound, WandSparkles, X, type LucideIcon } from 'lucide-react'
 import { getEnhancerMode, setEnhancerMode, type ArtifactRef } from '../studio/lib/api'
 import { t, type MessageKey } from '../i18n'
-import { FOLLOWS, GUIDES, K6_ASPECTS, label, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, type Modality, type Model } from './data'
+import { FOLLOWS, GUIDES, K6_ASPECTS, TWO_K_REFS, label, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, type Modality, type Model } from './data'
 import { droppedKind, improve, loraBase, mentioned, uploadAudio, uploadImages, useCharacters, useMediaSrc, useProvider, withCharacters, type Caps, type Character, type Lora, type LoraPick, type Submission } from './live'
 
 const statusLabel = (status: Model['status']) => status === 'ready' ? '' : t(status === 'new' ? 'composer.model.status.new' : 'composer.model.status.soon')
@@ -62,7 +62,7 @@ export function ModelPicker({ modality, value, caps, onPick, open, onClose }: { 
   </Popover>
 }
 
-const choiceIcon: Record<string, LucideIcon> = { sound: AudioWaveform, length: Clock3, voice: Mic, speaker: UserRound, language: Globe, resolution: Monitor, aspect: RectangleHorizontal, quality: Gauge, duration: Clock3, mode: Layers, type: Music2, guide: ScanSearch, orbit: Move3d, height: Camera, distance: Camera }
+const choiceIcon: Record<string, LucideIcon> = { sound: AudioWaveform, length: Clock3, voice: Mic, speaker: UserRound, language: Globe, resolution: Monitor, aspect: RectangleHorizontal, quality: Gauge, size: Monitor, duration: Clock3, mode: Layers, type: Music2, guide: ScanSearch, orbit: Move3d, height: Camera, distance: Camera }
 // Image settings that belong to one image mode only.
 const modeOnly: Record<string, string> = { guide: 'Estructura', orbit: 'Ángulo', height: 'Ángulo', distance: 'Ángulo', follow: 'Seguir vídeo', engine: 'Cambiar personaje', scale: 'Escalar', finish: 'Escalar' }
 // Splitting a song has nothing to generate: only the number of stems is a choice.
@@ -189,6 +189,9 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const swap = modality === 'video' ? SWAP_MODES[value('mode')] : undefined
   const imageMode = modality === 'image' ? value('mode') : ''
   const guided = imageMode === 'Estructura', angle = imageMode === 'Ángulo', cutout = imageMode === 'Quitar fondo'
+  // 2K covers Qwen creation and plain edits; angle, cutout and structure keep their 1 MP recipes.
+  const sized = imageMode === 'Crear' && caps.twoK && (model.id === 'qwen-quality' || model.id === 'qwen-turbo')
+  const twoK = sized && value('size') === '2K'
   const split = song && value('type') === 'Separar pistas'
   // Following a clip runs on H3 Ref2VA (base or Turbo); the clip sets format and length.
   const follow = modality === 'video' && value('mode') === 'Seguir vídeo'
@@ -201,7 +204,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const choices = settings[modality].filter(c => !(c.id === 'quality' && model.id === 'qwen-turbo') && !(swap && c.id !== 'mode' && c.id !== 'engine') && !(upscale && c.id !== 'mode' && c.id !== 'scale' && c.id !== 'finish')
       && (!modeOnly[c.id] || modeOnly[c.id] === value('mode')) && !(follow && (c.id === 'aspect' || c.id === 'duration')) && !((angle || cutout) && (c.id === 'aspect' || c.id === 'quality'))
       && (modality !== 'audio' || (audioOnly[c.id] ? audioOnly[c.id] === model.id : song)) && !(c.id === 'speaker' && voice !== 'preset')
-      && !(k6 && (c.id === 'duration' || c.id === 'resolution'))
+      && !(k6 && (c.id === 'duration' || c.id === 'resolution')) && (c.id !== 'size' || sized)
       && (split ? splitOnly[c.id] : c.id !== 'stems'))
     .map(c => c.id === 'mode' ? { ...c, options: c.options.filter(o => modality === 'image' ? imageModeReady(o) : o === 'Escalar' ? caps.upscale : model.id === 'fasth3-omni' ? o === 'Referencias' : k6 ? o === 'Texto' || o === 'Imagen inicial' : o === 'Seguir vídeo' ? followReady : !SWAP_MODES[o] || caps.swap[SWAP_MODES[o]]) }
       : c.id === 'aspect' && k6 ? { ...c, options: K6_ASPECTS }
@@ -216,7 +219,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const cover = song && value('type') === 'Cover'
   const enhance = ai && provider.ready && !cover && !swap && !upscale && !angle && !split && !cutout && !selfWritten[model.id]
   // MOSS-Image only creates; editing stays on Qwen. Klein edits up to 4 photos; Kandinsky takes one opening frame.
-  const limit = upscale ? 0 : swap || guided || angle || cutout ? 1 : model.id === 'moss-image' ? 0 : model.id === 'flux3-klein' ? 4 : k6 ? (value('mode') === 'Imagen inicial' ? 1 : 0) : maxRefs[modality]
+  const limit = upscale ? 0 : swap || guided || angle || cutout ? 1 : model.id === 'moss-image' ? 0 : model.id === 'flux3-klein' ? 4 : k6 ? (value('mode') === 'Imagen inicial' ? 1 : 0) : twoK ? TWO_K_REFS : maxRefs[modality]
   const fixed = !!swap || upscale || angle || split || cutout
   const toggleAi = () => setAi(on => { setEnhancerMode(on ? 'manual' : 'external'); return !on })
   const base = loraBase({ kind: modality, modelId: model.id, values: { mode: value('mode') } })
@@ -261,7 +264,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     setError('')
     // @handles become references and LoRAs before the prompt is improved or sent.
     let submission: Submission = withCharacters({ kind: modality, prompt: prompt.trim(), lyrics, modelId: model.id, count, refs, source, consent,
-      values: Object.fromEntries(settings[modality].map(c => [c.id, value(c.id)])), loras: picked.map(l => ({ id: l.id })) }, library.characters)
+      values: { ...Object.fromEntries(settings[modality].map(c => [c.id, value(c.id)])), size: twoK ? '2K' : '1 MP' }, loras: picked.map(l => ({ id: l.id })) }, library.characters)
     try {
       if (enhance) {
         setSending('improving')
@@ -391,6 +394,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
           setValues(s => ({ ...s, [c.id]: v }))
           if (c.id === 'mode' && (SWAP_MODES[v] || v === 'Estructura' || v === 'Ángulo' || v === 'Quitar fondo')) setRefs(r => r.slice(0, 1))
           if (c.id === 'mode' && v === 'Escalar') setRefs([])
+          if (c.id === 'size' && v === '2K') setRefs(r => r.slice(0, TWO_K_REFS))
           // Structure and angle run on Qwen; MOSS and Klein only create (Klein also edits from the main mode).
           if (c.id === 'mode' && v !== 'Crear' && (model.id === 'moss-image' || model.id === 'flux3-klein')) { setModel(models.find(m => m.id === 'qwen-quality')!); setChosen(true) }
           if (c.id === 'mode' && k6 && v === 'Texto') setRefs([])

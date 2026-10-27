@@ -90,7 +90,7 @@ including the keyframe alignment line the runtime adds for I2VA/FL2VA/L2VA.
 | --- | --- |
 | read | Required. Capabilities/status, own profile/jobs/media/conversations, provider discovery without keys, guides, inspection, analysis, export and downloads. |
 | create | Direct image/edit/video/music/Director, uploads, messages and own-job cancellation/resumption. |
-| agent | Rinari runs and provider-assisted improvement/review/storyboard. Can generate media and consume quota. |
+| agent | Agent runs and provider-assisted improvement/review/storyboard. Can generate media and consume quota. |
 | delete | Permanent deletion of owned files after user confirmation. Not selected by default. |
 
 Tokens last 1–365 days (UI presets 7/30/90/365); at most 20 active per account.
@@ -174,9 +174,9 @@ async def main():
         transport = streamable_http_client(
             "https://media.example.com/mcp", http_client=http
         )
-        async with Client(transport, cache=None) as rinari:
-            catalog = await rinari.list_tools()
-            guide = await rinari.call_tool("prompt_guide", {"topic": "all"})
+        async with Client(transport, cache=None) as studio:
+            catalog = await studio.list_tools()
+            guide = await studio.call_tool("prompt_guide", {"topic": "all"})
             print([tool.name for tool in catalog.tools])
             print(guide)
 
@@ -208,7 +208,7 @@ image/H3/YuE2/Director contracts. The English guide revision adds video uploads 
 synchronized documentation without altering existing token identities or permissions.
 The 0.7.2 guide revision (`0.7.2-mcp-en.2`) adds the per-model guides, compact
 instructions, `check_prompt`, `account_preferences`, model prompt templates and the
-automatic H3 keyframe alignment line. The Rinari agent, prompt improver, image review
+automatic H3 keyframe alignment line. The studio agent, prompt improver, image review
 and Director planner receive the same guides through `agent-prompts.cjs`.
 Media Lab 0.10.0 (`0.10.0-mcp-en.1`) adds upload and download links
 (`create_uploads`, `get_uploads`, `get_download_links`, `get_media.temporary_url`),

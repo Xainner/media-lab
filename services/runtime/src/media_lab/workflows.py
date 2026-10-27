@@ -62,6 +62,7 @@ FLUX3_ENCODER = "qwen3vl_4b_int8_convrot.safetensors"
 FLUX3_UPSAMPLER = "qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors"
 FLUX3_VAE = "flux2-vae.safetensors"
 FLUX3_MAX_REFERENCES = 4
+TWO_K_EDIT_REFERENCES = 4
 ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth")
 
 

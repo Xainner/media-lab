@@ -114,7 +114,7 @@ export async function download(payload: ExportPayload) {
   const format = payload.format || settings.format
   const response = await request('POST', '/v1/artifacts/export', { uri: payload.media.uri, sha256: payload.media.sha256,
     format, quality: payload.quality || (format === 'webp' ? settings.webpQuality : settings.jpegQuality), background: payload.background || settings.jpegBackground })
-  const name = `rinari-${payload.operation || 'generate'}-${new Date().toISOString().replace(/[:.]/g, '-')}-seed-${payload.seed ?? 'unknown'}.${format === 'jpeg' ? 'jpg' : format}`
+  const name = `media-lab-${payload.operation || 'generate'}-${new Date().toISOString().replace(/[:.]/g, '-')}-seed-${payload.seed ?? 'unknown'}.${format === 'jpeg' ? 'jpg' : format}`
   const blob = await response.blob()
   if (epoch !== accountEpoch) throw new Error(t('shell.bridge.accountChanged'))
   triggerDownload(URL.createObjectURL(blob), name, true)
@@ -186,7 +186,7 @@ window.visualLab = {
       input.click()
     }),
     mediaUrl: async uri => artifactRoute(uri),
-    saveMedia: async uri => { triggerDownload(artifactRoute(uri), 'rinari-' + uri.split('/').at(-1)); return { cancelled: false } },
+    saveMedia: async uri => { triggerDownload(artifactRoute(uri), 'media-lab-' + uri.split('/').at(-1)); return { cancelled: false } },
   },
   provider: {
     get: async () => { const value = await api('GET', '/v1/account/provider'); return { ...value, baseUrl: value.baseUrl,

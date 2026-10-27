@@ -189,5 +189,5 @@ def option_catalog():
             "limits": {"video_pixels": 1_100_000, "image_pixels": 1_200_000, "image_2k_pixels": 4_500_000},
             "notes": {"video": "24 fps con audio sincronizado; 5–15 s dentro del rango entrenado. Dimensiones múltiplos de 32. 720p usa 704 píxeles por alineación. Resoluciones altas requieren más VRAM.",
                       "sampling": "Los valores originales son los predeterminados del estudio. Otros muestreadores son experimentales: más pasos no garantizan más calidad.",
-                      "image": "Hasta 1,2 MP; hasta 4,5 MP en INT8 si el servidor habilita 2K. La edición permanece limitada a 1 MP.",
+                      "image": "Hasta 1,2 MP; hasta 4,5 MP en INT8 si el servidor habilita 2K. La edición llega a 2K solo con Qwen INT8 y hasta 4 referencias.",
                       "score": "Estos ajustes se aplican al generar ABC; no alteran una partitura escrita o extraída de audio."}}

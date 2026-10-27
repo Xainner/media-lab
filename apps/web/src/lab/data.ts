@@ -81,6 +81,7 @@ export const settings: Record<Modality, Choice[]> = {
     { id: 'distance', get label() { return t('composer.setting.distance') }, options: Object.keys(DISTANCES) },
     { id: 'aspect', get label() { return t('composer.setting.aspect') }, options: ['1:1', '4:5', '3:4', '2:3', '9:16', '5:4', '4:3', '3:2', '16:9'] },
     { id: 'quality', get label() { return t('composer.setting.quality') }, options: ['Calidad', 'Borrador'] },
+    { id: 'size', get label() { return t('composer.setting.size') }, options: ['1 MP', '2K'] },
   ],
   video: [
     { id: 'mode', get label() { return t('composer.setting.mode') }, options: ['Texto', 'Imagen inicial', 'Referencias', 'Seguir vídeo', 'Cambiar personaje', 'Cambiar cabeza', 'Quitar persona', 'Escalar'] },
@@ -116,6 +117,8 @@ export const SWAP_MODES: Record<string, 'character' | 'head' | 'remove'> = { 'Ca
 
 export const ratioOf = (aspect: string) => { const [w, h] = aspect.split(':').map(Number); return w && h ? w / h : 1 }
 
+/** Qwen at 2K takes this many references; more do not fit in 24 GB. */
+export const TWO_K_REFS = 4
 /** H3 output sizes (options.resolution). Vista previa is the fast default: 640×352 at 16:9. */
 export const RESOLUTIONS: Record<string, string> = { 'Vista previa': 'preview', '480p': '480p', '720p': '720p', 'Nativa': 'native' }
 

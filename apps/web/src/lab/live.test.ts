@@ -12,6 +12,14 @@ test('images fan out per copy and switch to edit when references are attached', 
   expect(edit.body).toMatchObject({ references: [ref], model_variant: 'turbo' })
 })
 
+test('the 2K size creates on the 2K tier and edits with a 2048 encoder size', () => {
+  const sized = (patch: Partial<Submission>) => requests(base({ ...patch, values: { aspect: '1:1', quality: 'Calidad', size: '2K' } }))[0].body
+  expect(sized({})).toMatchObject({ resolution_tier: '2k' })
+  expect(sized({ refs: [ref] })).toMatchObject({ resolution: 2048, references: [ref] })
+  expect(sized({ modelId: 'moss-image' }).resolution_tier).toBeUndefined()
+  expect(requests(base({ refs: [ref] }))[0].body.resolution).toBeUndefined()
+})
+
 test('swap modes send the source clip and one image to the swap job, never through the IA pass', async () => {
   const clip = { uri: 'artifact://s/sources/clip.mp4', sha256: 'c' }
   const swap = (mode: string) => base({ kind: 'video', prompt: 'the dancer', values: { mode, aspect: '16:9', duration: '5 s' }, refs: [ref], source: clip })

@@ -28,7 +28,7 @@ ENGLISH = {
     'Formato de audio': 'Audio format', 'Calidad de compresión': 'Compression quality',
     '24 fps con audio sincronizado; 5–15 s dentro del rango entrenado. Dimensiones múltiplos de 32. 720p usa 704 píxeles por alineación. Resoluciones altas requieren más VRAM.': '24 fps with synchronized audio; 5–15 seconds within the trained range. Dimensions must be multiples of 32. The aligned 720p preset uses 704 pixels. Higher resolutions need more VRAM.',
     'Los valores originales son los predeterminados del estudio. Otros muestreadores son experimentales: más pasos no garantizan más calidad.': 'Original values are the studio defaults. Other samplers are experimental; more steps do not guarantee better quality.',
-    'Hasta 1,2 MP; hasta 4,5 MP en INT8 si el servidor habilita 2K. La edición permanece limitada a 1 MP.': 'Up to 1.2 MP; up to 4.5 MP with INT8 when the server enables 2K. Image editing remains limited to approximately 1 MP.',
+    'Hasta 1,2 MP; hasta 4,5 MP en INT8 si el servidor habilita 2K. La edición llega a 2K solo con Qwen INT8 y hasta 4 referencias.': 'Up to 1.2 MP; up to 4.5 MP with INT8 when the server enables 2K. Image editing reaches 2K only with Qwen INT8 and up to 4 references.',
     'Estos ajustes se aplican al generar ABC; no alteran una partitura escrita o extraída de audio.': 'These settings apply when generating ABC; they do not alter a supplied score or one extracted from audio.',
     'Cuadrado': 'Square', 'Panorámico': 'Landscape', 'Historia vertical': 'Vertical story',
     'Horizontal clásico': 'Classic landscape', 'Retrato clásico': 'Classic portrait',
@@ -184,13 +184,16 @@ Image ratios: 1:1, 4:3, 3:4, 3:2, 2:3, 16:9, 9:16, 4:5, 5:4.
 `quality=draft` uses 25 steps; `quality=quality` uses 40. `options.steps` overrides
 the preset. Image API defaults: quality=quality, model_precision=int8, resolution_tier=1mp.
 `model_precision=bf16` requires live availability. `resolution_tier=2k` is for
-INT8 image creation only when `two_k_enabled`; BF16 at 2K and 2K editing are unavailable.
+INT8 image creation only when `two_k_enabled`; BF16 at 2K is unavailable.
 Image custom `options.width` and `options.height` must be supplied together, each
 32–16384 and a multiple of 32; total area is capped at 1.2 MP, or 4.5 MP in
 INT8 with 2K enabled. Consult `resolution_presets` for actual ratio dimensions.
 Edit `resolution=0` preserves the first reference's size only within the pixel gate;
-otherwise choose a multiple of 32 up to 1024. This is the encoder resize control,
-not custom output width/height. Edit has no `resolution_tier` or custom canvas options.
+otherwise choose a multiple of 32 up to 1024. With `two_k_enabled`, Qwen INT8 edits
+accept up to 2048 with at most `two_k_edit.max_references` (4) references, and no camera or
+background removal; 2048 gives about 4 MP (a 16:9 canvas comes out near 2720×1536) and takes
+roughly 4 min with one reference and 9 min with four at 25 steps. This is the encoder resize
+control, not custom output width/height. Edit has no `resolution_tier` or custom canvas options.
 `transparent`, precision, seed, quality and `session_id` are top-level body fields.
 `model_variant`: `base` (default; quality presets above) or `turbo` (Qwen-Image-2.1-Turbo,
 fixed 8-step schedule, CFG 1; `quality` is ignored and `options.steps/scheduler/denoise`
@@ -519,7 +522,7 @@ not a production. These use the account's approved external provider and can sen
 text and reduced image previews to it. Report unavailable vision rather than inventing a review.
 
 Token scopes: read (required) for discovery/inspection/download; create for direct
-generation/upload/messages/cancel/resume; agent for running Rinari and provider-assisted
+generation/upload/messages/cancel/resume; agent for running the studio agent and provider-assisted
 prompt/review/planning; delete for irreversible owned-file deletion. Agent runs can
 generate media and consume quota even without the create scope. Deletion requires
 the user's confirmation; `delete_media(uri,sha256)` does not remove another account's files.
@@ -633,7 +636,7 @@ def build_guides(operations):
         '# Media Lab — MCP overview',
         'Private studio: Qwen-Image-2.1 (and its 8-step Turbo), MOSS-Image and FLUX 3 Klein images '
         'and edits, MiniMax H3 and Kandinsky 6 audio-video clips, video swaps and upscaling, YuE2 and '
-        'ACE-Step songs, Stable Audio 3 sound, Qwen3-TTS speech, Director music videos and the Rinari '
+        'ACE-Step songs, Stable Audio 3 sound, Qwen3-TTS speech, Director music videos and the studio '
         'agent, all scoped to your account.',
         REMOTE, OVERVIEW, LANGUAGE, '## Model prompt essentials', AGENT_BRIEF, '', catalog])
     return topics

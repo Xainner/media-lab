@@ -54,6 +54,7 @@ export default defineMessages({
 
     // Edit (image to image)
     'studio.edit.resolutionInvalid': 'Resolución de edición: 0 o múltiplos de 32 hasta 1024.',
+    'studio.edit.resolutionInvalid2k': 'Resolución de edición: 0 o múltiplos de 32 hasta 2048.',
     'studio.edit.maxRefs': 'Máximo 10 referencias.',
     'studio.edit.extraFiles': 'Archivos adicionales',
     'studio.edit.refsExceeded': 'Se superaron las 10 referencias.',
@@ -80,9 +81,11 @@ export default defineMessages({
     'studio.edit.qualityFull': 'Calidad · 40 pasos',
     'studio.edit.resKeep': 'Conservar objetivo hasta 1 MP',
     'studio.edit.res512': '512 px · menor coste',
+    'studio.edit.res2k': '2K · más lento',
     'studio.edit.resCustomOption': '{px} px · personalizado',
     'studio.edit.resCustom': 'Resolución personalizada de edición',
     'studio.edit.resCustomHint': '0: conserva el objetivo hasta 1 MP. Otros valores: múltiplos de 32, hasta 1024.',
+    'studio.edit.resCustomHint2k': '0: conserva el objetivo hasta 1 MP. Otros valores: múltiplos de 32, hasta 2048 (2K con INT8 y hasta 4 imágenes).',
     'studio.edit.alpha': 'Conservar/generar alfa',
     'studio.edit.note': 'La primera imagen es el objetivo. Las demás son referencias.',
     'studio.edit.edit': 'EDITAR',
@@ -191,6 +194,7 @@ export default defineMessages({
 
     // Edit (image to image)
     'studio.edit.resolutionInvalid': 'Edit resolution: 0 or a multiple of 32 up to 1024.',
+    'studio.edit.resolutionInvalid2k': 'Edit resolution: 0 or a multiple of 32 up to 2048.',
     'studio.edit.maxRefs': 'Up to 10 references.',
     'studio.edit.extraFiles': 'Extra files',
     'studio.edit.refsExceeded': 'The 10-reference limit was exceeded.',
@@ -217,9 +221,11 @@ export default defineMessages({
     'studio.edit.qualityFull': 'Quality · 40 steps',
     'studio.edit.resKeep': 'Keep target, up to 1 MP',
     'studio.edit.res512': '512 px · lower cost',
+    'studio.edit.res2k': '2K · slower',
     'studio.edit.resCustomOption': '{px} px · custom',
     'studio.edit.resCustom': 'Custom edit resolution',
     'studio.edit.resCustomHint': '0 keeps the target up to 1 MP. Other values: multiples of 32, up to 1024.',
+    'studio.edit.resCustomHint2k': '0 keeps the target up to 1 MP. Other values: multiples of 32, up to 2048 (2K with INT8 and up to 4 images).',
     'studio.edit.alpha': 'Keep/generate alpha',
     'studio.edit.note': 'The first image is the target. The rest are references.',
     'studio.edit.edit': 'EDIT',

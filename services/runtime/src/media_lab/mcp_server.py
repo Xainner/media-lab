@@ -111,8 +111,8 @@ OPERATIONS = [
     ('find_job', 'GET', '/v1/jobs/by-idempotency', 'read', 'Find a job receipt by scope and idempotency key before retrying admission.'),
     ('cancel_job', 'DELETE', '/v1/jobs/{job_id}', 'create', 'Cancel an owned active job.'),
     ('resume_job', 'POST', '/v1/jobs/{job_id}/resume', 'create', 'Resume a stopped owned job ONLY with explicit user authorization.'),
-    ('generate_image', 'POST', '/v1/jobs/generate', 'create', 'Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; control follows the edges, depth or pose of an owned image); returns an asynchronous job receipt.'),
-    ('edit_image', 'POST', '/v1/jobs/edit', 'create', 'Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein.'),
+    ('generate_image', 'POST', '/v1/jobs/generate', 'create', 'Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; control follows the edges, depth or pose of an owned image; resolution_tier=2k renders about 4 MP with Qwen INT8 when capabilities.two_k_enabled); returns an asynchronous job receipt.'),
+    ('edit_image', 'POST', '/v1/jobs/edit', 'create', 'Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein; resolution up to 2048 edits at 2K (about 4 MP) with Qwen INT8 and at most 4 references when capabilities.two_k_enabled.'),
     ('generate_video', 'POST', '/v1/jobs/video', 'create', 'Generate H3 video (Base, Turbo, Fused Turbo, Omni) from text, keyframes or image/video/audio references, or model=kandinsky6 for a 5 s Kandinsky 6.0 clip with synchronized audio and lip-synced speech (<S>words<E>).'),
     ('generate_music', 'POST', '/v1/jobs/song', 'create', 'Generate a song: model=yue2 (YuE2 3B; ABC scores and covers from owned audio) or model=ace_step (ACE-Step 1.5 XL Turbo; a full song of exact length in about a minute).'),
     ('upscale_video', 'POST', '/v1/jobs/upscale', 'create', 'Upscale an owned video 2x or 4x with FlashVSR v1.1, keeping its original audio; creates a new video and never modifies the source.'),
@@ -136,7 +136,7 @@ OPERATIONS = [
     ('provider_status', 'GET', '/v1/account/provider', 'read', 'Active provider and verified capabilities, without secrets.'),
     ('list_providers', 'GET', '/v1/account/providers', 'read', 'Owned saved provider configurations and active selection, without secrets.'),
     ('discover_models', 'GET', '/v1/account/providers/{eid}/models', 'read', 'Discover models from an approved endpoint whose account key is already saved in the web UI.'),
-    ('start_agent', 'POST', '/v1/agent/runs', 'agent', 'Ask Rinari to execute an authorized multimedia task; asynchronous agent-run receipt.'),
+    ('start_agent', 'POST', '/v1/agent/runs', 'agent', 'Ask the studio agent to execute an authorized multimedia task; asynchronous agent-run receipt.'),
     ('list_agent_runs', 'GET', '/v1/agent/runs', 'read', 'Agent runs belonging to the token owner.'),
     ('get_agent_run', 'GET', '/v1/agent/runs/{rid}', 'read', 'Steps, status and media results of an owned agent run.'),
     ('cancel_agent', 'POST', '/v1/agent/runs/{rid}/cancel', 'agent', 'Cancel an owned agent run.'),
@@ -215,7 +215,7 @@ GUIDE = GUIDES['all']
 
 def build_mcp(app, access):
     server = MCPServer('Media Lab', version='0.14.0-mcp-en.1', instructions=GUIDES['overview'],
-                       description='Private image, video, music, Director and Rinari agent studio.')
+                       description='Private image, video, music, Director and agent studio.')
 
     def authorize(ctx, required):
         request = ctx.request_context.request

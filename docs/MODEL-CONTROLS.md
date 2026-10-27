@@ -44,13 +44,16 @@ Image ratios: 1:1, 4:3, 3:4, 3:2, 2:3, 16:9, 9:16, 4:5, 5:4.
 `quality=draft` uses 25 steps; `quality=quality` uses 40. `options.steps` overrides
 the preset. Image API defaults: quality=quality, model_precision=int8, resolution_tier=1mp.
 `model_precision=bf16` requires live availability. `resolution_tier=2k` is for
-INT8 image creation only when `two_k_enabled`; BF16 at 2K and 2K editing are unavailable.
+INT8 image creation only when `two_k_enabled`; BF16 at 2K is unavailable.
 Image custom `options.width` and `options.height` must be supplied together, each
 32–16384 and a multiple of 32; total area is capped at 1.2 MP, or 4.5 MP in
 INT8 with 2K enabled. Consult `resolution_presets` for actual ratio dimensions.
 Edit `resolution=0` preserves the first reference's size only within the pixel gate;
-otherwise choose a multiple of 32 up to 1024. This is the encoder resize control,
-not custom output width/height. Edit has no `resolution_tier` or custom canvas options.
+otherwise choose a multiple of 32 up to 1024. With `two_k_enabled`, Qwen INT8 edits
+accept up to 2048 with at most `two_k_edit.max_references` (4) references, and no camera or
+background removal; 2048 gives about 4 MP (a 16:9 canvas comes out near 2720×1536) and takes
+roughly 4 min with one reference and 9 min with four at 25 steps. This is the encoder resize
+control, not custom output width/height. Edit has no `resolution_tier` or custom canvas options.
 `transparent`, precision, seed, quality and `session_id` are top-level body fields.
 `model_variant`: `base` (default; quality presets above) or `turbo` (Qwen-Image-2.1-Turbo,
 fixed 8-step schedule, CFG 1; `quality` is ignored and `options.steps/scheduler/denoise`

@@ -23,9 +23,12 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
   const [seed, setSeed] = useState('')
   const [quality, setQuality] = useState('quality')
   const [resolution, setResolution] = useState(0)
-  const optionError = optionsError(modelOptions, 'edit') || seedError(seed) || (!Number.isInteger(resolution) || resolution < 0 || resolution > 1024 || resolution % 32 ? t('studio.edit.resolutionInvalid') : '')
+  const [twoK, setTwoK] = useState(false)
   const model = useImageModel(active)
   const { precision, turbo } = model
+  // 2K edits run on INT8 with at most 4 references; anything larger does not fit in 24 GB.
+  const maxResolution = twoK && precision === 'int8' && refs.length <= 4 ? 2048 : 1024
+  const optionError = optionsError(modelOptions, 'edit') || seedError(seed) || (!Number.isInteger(resolution) || resolution < 0 || resolution > maxResolution || resolution % 32 ? t(maxResolution > 1024 ? 'studio.edit.resolutionInvalid2k' : 'studio.edit.resolutionInvalid') : '')
   const [transparent, setTransparent] = useState(false)
   const [job, setJob] = useState<Job | null>(null)
   const [media, setMedia] = useState<ArtifactRef | null>(null)
@@ -41,6 +44,12 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
   const [usedPrompt, setUsedPrompt] = useState('')
 
   useEffect(() => { if (active) setEnhancer(getEnhancerMode()) }, [active])
+  useEffect(() => {
+    if (!active) return
+    let cancelled = false
+    runtime('GET', '/v1/capabilities').then(c => { if (!cancelled) setTwoK(!!c.two_k_enabled) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [active])
 
   useEffect(() => {
     if (!incoming) return
@@ -205,11 +214,11 @@ export default function EditView({ active, incoming }: { active: boolean; incomi
       {turbo && <p className="hint">{t('studio.edit.turboHint')}</p>}
       <div className="field-row">
         {!turbo && <label>{t('studio.shared.qualityLabel')}<select aria-label={t('studio.shared.qualityLabel')} value={quality} onChange={e => setQuality(e.target.value)}><option value="draft">{t('studio.edit.qualityDraft')}</option><option value="quality">{t('studio.edit.qualityFull')}</option></select></label>}
-        <label>{t('studio.shared.resolution')}<select aria-label={t('studio.shared.resolution')} value={resolution} onChange={e => setResolution(Number(e.target.value))}><option value={0}>{t('studio.edit.resKeep')}</option><option value={512}>{t('studio.edit.res512')}</option><option value={768}>768 px</option><option value={1024}>1 MP</option>{![0,512,768,1024].includes(resolution) && <option value={resolution}>{t('studio.edit.resCustomOption', { px: resolution })}</option>}</select></label>
+        <label>{t('studio.shared.resolution')}<select aria-label={t('studio.shared.resolution')} value={resolution} onChange={e => setResolution(Number(e.target.value))}><option value={0}>{t('studio.edit.resKeep')}</option><option value={512}>{t('studio.edit.res512')}</option><option value={768}>768 px</option><option value={1024}>1 MP</option>{maxResolution > 1024 && <option value={2048}>{t('studio.edit.res2k')}</option>}{![0,512,768,1024,2048].includes(resolution) && <option value={resolution}>{t('studio.edit.resCustomOption', { px: resolution })}</option>}</select></label>
       </div>
       <AdvancedOptions>
         <PrecisionSelect state={model} />
-        <label>{t('studio.edit.resCustom')}<input aria-label={t('studio.edit.resCustom')} type="number" min={0} max={1024} step={32} value={resolution} onChange={e => setResolution(Number(e.target.value))}/><small>{t('studio.edit.resCustomHint')}</small></label>
+        <label>{t('studio.edit.resCustom')}<input aria-label={t('studio.edit.resCustom')} type="number" min={0} max={maxResolution} step={32} value={resolution} onChange={e => setResolution(Number(e.target.value))}/><small>{t(maxResolution > 1024 ? 'studio.edit.resCustomHint2k' : 'studio.edit.resCustomHint')}</small></label>
         <SeedField value={seed} onChange={setSeed}/>
         <label className="toggle"><input type="checkbox" checked={transparent} onChange={e => setTransparent(e.target.checked)} /><i /> {t('studio.edit.alpha')}</label>
       </AdvancedOptions>

@@ -55,7 +55,7 @@ export default function Mcp({ current }: { current: { totp_enabled: boolean } })
  function downloadConfig() {
   if (!connection || !secret) return
   const blob = new Blob([JSON.stringify({ mcpServers: { 'media-lab': { type: 'http', url: connection.endpoint, headers: { Authorization: `Bearer ${secret}` } } } }, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'rinari-mcp.json'; link.click(); URL.revokeObjectURL(url)
+  const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'media-lab-mcp.json'; link.click(); URL.revokeObjectURL(url)
  }
  if (!connection) return <><Notice error={error}/><Loading/></>
  return <>
