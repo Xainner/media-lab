@@ -57,8 +57,10 @@ and an MCP server exposes the studio to Claude and other MCP clients.
 
 Plus: a persistent **library** of everything you make, private **characters** you can call with
 `@name` in any prompt, a per-account **LoRA library** (paste a Hugging Face or Civitai link;
-Qwen-Image 2.1 and MiniMax H3 LoRAs are detected and verified), live job progress, and
-invitation-only accounts with TOTP.
+Qwen-Image 2.1 and MiniMax H3 LoRAs are detected and verified), an **AI** button that turns
+a short idea into a model-ready prompt with your LLM provider and that model's guide (FLUX 3
+Klein and Stable Audio 3 use their own official upsamplers instead), drag-and-drop references,
+live job progress, invitation-only accounts with TOTP, and a web UI in **English and Spanish**.
 
 ## Gallery
 
@@ -78,8 +80,8 @@ invitation-only accounts with TOTP.
   </tr>
 </table>
 
-<sub>Screenshots of the real interface with demo data. The studio UI is in Spanish; the API, agent
-guides and MCP server are in English.</sub>
+<sub>Screenshots of the real interface in English, with demo data. The UI also speaks Spanish
+(switch in the account menu); the API, agent guides and MCP server are in English.</sub>
 
 ## Models
 
@@ -145,7 +147,7 @@ unloaded after a short idle period so the cards can be shared with other workloa
 
 ### The agent
 
-Turn on **IA** in the creator, or open the agent, and describe the result you want. The agent
+Turn on **AI** in the creator, or open the agent, and describe the result you want. The agent
 uses an **OpenAI-compatible chat API that you configure per account** (any provider with tool
 calling; vision is optional and verified). The administrator approves which HTTPS endpoints
 may be used; keys are stored encrypted (AES-256-GCM) and the runtime makes the provider calls on
@@ -161,7 +163,7 @@ asks before resuming work or cloning a voice.
 Every account can expose its own studio to MCP clients at `https://<your-origin>/mcp`
 (Streamable HTTP, personal Bearer tokens):
 
-1. In the web app open **Cuenta → Conexiones MCP**, enable MCP and create a token with an
+1. In the web app open **Account → MCP connections**, enable MCP and create a token with an
    expiry and scopes: `read` (required), `create`, `agent`, `delete`.
 2. Copy the token once — only its SHA-256 digest is stored.
 3. Add the server to your client. With Claude Code:
@@ -357,7 +359,7 @@ cd services/runtime && python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
 `apps/web/scripts/dev-qa.cjs` serves the UI against disposable fixtures (no GPUs, no
 credentials). Release notes and validation records live in [`docs/`](docs)
-([0.13.0](docs/RELEASE-0.13.0.md), [0.12.0](docs/RELEASE-0.12.0.md), …); the reference host's
+([0.17.0](docs/RELEASE-0.17.0.md), [0.16.0](docs/RELEASE-0.16.0.md), …); the reference host's
 manual reinstall guide is [`docs/REINSTALL.md`](docs/REINSTALL.md).
 
 ## En español
@@ -365,7 +367,7 @@ manual reinstall guide is [`docs/REINSTALL.md`](docs/REINSTALL.md).
 **Media Lab** es un estudio creativo autoalojado: imágenes, vídeo con audio, canciones, música
 instrumental, efectos y voz con modelos abiertos que corren en tus GPUs, con agente y servidor
 MCP. Está pensado para uso personal y no comercial (tú y tus amigos), con cuentas privadas por
-invitación y 2FA. La interfaz está en español.
+invitación y 2FA. La interfaz está en inglés y español.
 
 Instalación rápida en un servidor Linux con Docker, NVIDIA Container Toolkit y una o más GPUs de
 24 GB (probado con 2× RTX 3090; cada GPU corre su propio worker y cada trabajo usa una sola):
