@@ -1,6 +1,6 @@
 # Media Lab · Web
 
-Estudio multimedia con rutas propias, identidad Rinari y componentes de Animate UI. Las vistas de creación están en `src/studio`; el shell, la autenticación y el tema en `src`.
+Estudio multimedia con rutas propias, identidad Media Lab y componentes de Animate UI. Las vistas de creación están en `src/studio`; el shell, la autenticación y el tema en `src`.
 
 El acceso para agentes externos se habilita en **Cuenta → Conexiones MCP**. Cada token tiene permisos, caducidad y revocación independientes; consulta [la guía MCP](../../docs/MCP.md) para conectar clientes y usar las herramientas.
 

@@ -182,7 +182,7 @@ class EditRequest(ModelRequest):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1, description="Fixed seed to reproduce; unset = random.")
     transparent: bool = Field(default=False, description="Keep or produce a transparent background.")
     remove_background: bool = Field(default=False, description="Cut the single reference out onto a transparent background with Qwen-Image 2.1's own instruction (base variant, 40 steps). The prompt is not used; no camera or options.")
-    resolution: int = Field(default=0, ge=0, le=2048, description="0 keeps the first reference size within about 1 MP; otherwise a multiple of 32 up to 1024.")
+    resolution: int = Field(default=0, ge=0, le=2048, description="0 keeps the first reference size within about 1 MP; otherwise a multiple of 32 up to 1024, or up to 2048 for Qwen INT8 with at most 4 references when capabilities.two_k_enabled (no camera or background removal).")
     loras: list[LoraUse] = Field(default_factory=list, max_length=4, description="Not with remove_background. " + LORAS_HELP)
     model_precision: Literal["int8", "bf16"] = "int8"
     model_variant: ModelVariant = Field(default="base", description=VARIANT_HELP)

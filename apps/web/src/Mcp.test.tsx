@@ -23,7 +23,7 @@ afterEach(() => { cleanup(); api.mockReset() })
 test('token creation sends explicitly chosen permissions and factors, and forgets the one-time secret', async () => {
  const user = userEvent.setup(); const view = render(<Mcp current={{ totp_enabled: true }}/>)
  await user.click(await screen.findByRole('button', { name: 'Crear token' }))
- await user.click(screen.getByLabelText(/Usar Rinari y mi proveedor/))
+ await user.click(screen.getByLabelText(/Usar el agente y mi proveedor/))
  await user.type(screen.getByLabelText('Confirma tu contraseña'), 'private-password')
  await user.type(screen.getByLabelText('Código 2FA o de recuperación'), '123456')
  await user.click(within(screen.getByRole('dialog', { name: 'Crear token de acceso' })).getByRole('button', { name: 'Crear token', exact: true }))

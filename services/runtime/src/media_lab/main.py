@@ -37,7 +37,7 @@ from .prompt_check import PromptCheck, check_prompt
 from .loras import LORA_BASES, LORA_USE_MAX, lora_root, resolve_loras
 from .workflows import (ENCODER, UNET, UNET_BF16, UNET_TURBO, UNET_TURBO_BF16, TURBO_STEPS, VAE, MOSS_STEPS, CAMERA_AZIMUTHS,
                         CAMERA_DISTANCES, CAMERA_ELEVATIONS, CONTROL_MODES, camera_ready, control_ready, diffusion_model,
-                        moss_ready, FLUX3_STEPS, FLUX3_MAX_REFERENCES, flux3_ready)
+                        moss_ready, FLUX3_STEPS, FLUX3_MAX_REFERENCES, TWO_K_EDIT_REFERENCES, flux3_ready)
 
 
 # Jobs run by CreativeJobs (everything except Qwen generate/edit, which JobManager runs).
@@ -128,7 +128,9 @@ def capabilities():
             "webp": {"alpha": True, "lossless": False, "quality": True},
         },
         "two_k_enabled": SETTINGS.enable_2k,
-        "two_k_create_only": True,
+        "two_k_create_only": False,
+        "two_k_edit": {"max_resolution": 2048, "max_references": TWO_K_EDIT_REFERENCES, "precisions": ["int8"],
+                       "models": ["qwen"]},
         "model_precisions": {"int8": True, "bf16": image_model_ready("base", "bf16")},
         "model_variants": {
             "base": {"label": "Qwen-Image 2.1", "steps": {"draft": 25, "quality": 40},
@@ -619,7 +621,15 @@ def generate(body: GenerateRequest, idempotency_key: str | None = Header(default
 def edit(body: EditRequest, idempotency_key: str | None = Header(default=None)):
     try:
         if body.resolution > 1024:
-            raise ValueError("2K editing is unavailable; use 1024")
+            if not SETTINGS.enable_2k:
+                raise ValueError("2K is not enabled on this host; use up to 1024")
+            if body.model != "qwen" or body.model_precision != "int8":
+                raise ValueError("2K editing needs Qwen-Image 2.1 at INT8")
+            if body.camera is not None or body.remove_background:
+                raise ValueError("2K editing does not cover camera moves or background removal; use up to 1024")
+            # 4 references at 2048 already peak at about 23.8 of 24 GB on a 3090.
+            if len(body.references) > TWO_K_EDIT_REFERENCES:
+                raise ValueError(f"2K editing takes up to {TWO_K_EDIT_REFERENCES} references")
         if body.model == "flux3":
             if not flux3_ready(SETTINGS.model_root, "draft"):
                 raise ValueError("FLUX 3 Image Klein is not installed; no automatic substitution")
@@ -633,7 +643,7 @@ def edit(body: EditRequest, idempotency_key: str | None = Header(default=None)):
         if body.resolution == 0 and body.model == "qwen":
             with Image.open(artifacts.resolve(body.references[0].uri, body.references[0].sha256)) as source:
                 if source.width * source.height > 1_200_000:
-                    raise ValueError("Editing a >1 MP reference requires resolution=1024; 2K editing is unavailable")
+                    raise ValueError("Editing a >1 MP reference requires resolution=1024, or up to 2048 with 2K")
         resolve_loras(store, body.loras, "qwen")
         return {"ok": True, **jobs.submit_edit(body, idempotency_key)}
     except IdempotencyConflict as exc:
@@ -727,7 +737,7 @@ def export_artifact(body: ExportRequest):
     return Response(
         data,
         media_type=content_type,
-        headers={"Content-Disposition": f'attachment; filename="rinari-export.{extension}"'},
+        headers={"Content-Disposition": f'attachment; filename="media-lab-export.{extension}"'},
     )
 
 
