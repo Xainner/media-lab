@@ -101,7 +101,7 @@ services:
       MAX_PENDING: "4"
       IDLE_UNLOAD_SECONDS: "120"
       GPU_GUARD_ENABLED: "true"
-      ENABLE_2K: ${ENABLE_2K:-false}
+      ENABLE_2K: ${ENABLE_2K:-true}
       ENABLE_BF16: ${ENABLE_BF16:-false}
       QWEN21_ENCODER: ${QWEN21_ENCODER:-qwen3vl_8b_int8_convrot.safetensors}
     volumes:

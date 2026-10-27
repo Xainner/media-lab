@@ -169,7 +169,8 @@ Options:
   --listen ADDR          127.0.0.1 (default, behind a reverse proxy on this host) or 0.0.0.0.
   --port N               HTTPS port of the web/API/MCP server (default: 8390).
   --hf-token-file PATH   Hugging Face token (default: \$HF_TOKEN_FILE or ~/.cache/huggingface/token).
-  --enable-2k            Allow native 2K image creation (ENABLE_2K=true).
+  --disable-2k           Turn off native 2K image creation and editing (on by default).
+  --enable-2k            Turn it back on after --disable-2k or an earlier install without it.
   --gpus LIST            GPUs to use, one ComfyUI worker each: comma-separated indices or 'all'
                          (default: every GPU with 24 GB or more, detected with nvidia-smi).
   --skip-models          Do not download models.
@@ -217,6 +218,7 @@ while [[ $# -gt 0 ]]; do
     --port) need_value "$@"; OPT_PORT="$2"; shift ;;
     --hf-token-file) need_value "$@"; OPT_TOKEN_FILE="$2"; shift ;;
     --enable-2k) OPT_2K=true ;;
+    --disable-2k) OPT_2K=false ;;
     --gpus) need_value "$@"; OPT_GPUS="$2"; shift ;;
     --single-gpu) OPT_GPUS=0 ;;  # older spelling of --gpus 0
     --skip-models) SKIP_MODELS=1 ;;
@@ -262,7 +264,7 @@ BACKUPS="$STATE_DIR/backups"
 LISTEN="${OPT_LISTEN:-${LISTEN:-127.0.0.1}}"
 PORT="${OPT_PORT:-${PORT:-8390}}"
 HF_TOKEN_PATH="${OPT_TOKEN_FILE:-${HF_TOKEN_PATH:-${HF_TOKEN_FILE:-$HOME/.cache/huggingface/token}}}"
-ENABLE_2K="${OPT_2K:-${ENABLE_2K:-false}}"
+ENABLE_2K="${OPT_2K:-${ENABLE_2K:-true}}"
 GPUS="${OPT_GPUS:-$GPUS}"
 if [[ -z $GPUS && $SINGLE_GPU == 1 ]]; then GPUS=0; fi  # settings saved before --gpus existed
 

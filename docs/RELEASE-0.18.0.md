@@ -13,6 +13,13 @@ cambia (`media-lab-runtime`, misma etiqueta 0.6.0; se reconstruye).
 - **Capacidades:** `two_k_create_only` pasa a `false` y `two_k_edit` describe el límite
   (resolución máxima, referencias, precisión y modelo).
 
+## 2K activado por defecto
+
+- **Instalaciones nuevas:** `ENABLE_2K` vale `true` por defecto en el instalador, en Compose y en
+  los ejemplos de configuración. `--disable-2k` lo apaga.
+- **Reinstalaciones:** el instalador conserva el valor guardado; `--enable-2k` lo activa en una
+  instalación hecha sin 2K.
+
 ## Interfaz
 
 - **Lab:** nuevo chip **Tamaño (1 MP / 2K)** para Qwen en el modo Crear. Sirve para crear (tier 2K)
