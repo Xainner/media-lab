@@ -60,7 +60,7 @@ def load_settings() -> Settings:
         external_comfy_url=os.environ.get("EXTERNAL_COMFY_URL", "http://host.docker.internal:8188").rstrip("/"),
         image_lab_url=os.environ.get("IMAGE_LAB_URL", "http://host.docker.internal:8290").rstrip("/"),
         gpu_guard_enabled=_bool("GPU_GUARD_ENABLED", True),
-        enable_2k=_bool("ENABLE_2K", False),
+        enable_2k=_bool("ENABLE_2K", True),
         enable_bf16=_bool("ENABLE_BF16", False),
         upload_max_bytes=int(os.environ.get("UPLOAD_MAX_BYTES", str(20 * 1024 * 1024))),
         upload_max_pixels=int(os.environ.get("UPLOAD_MAX_PIXELS", str(50_000_000))),
