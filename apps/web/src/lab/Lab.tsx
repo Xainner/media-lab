@@ -192,11 +192,14 @@ export default function Lab({ current, health, groups, onLogout, classic, tone }
     : null
   const native = !!modality || !!page
   useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0 }, [pathname])
+  // On a phone the tab strip scrolls sideways; keep the current section in view.
+  const strip = useRef<HTMLElement>(null)
+  useEffect(() => { strip.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'center' }) }, [pathname])
   return createPortal(<div className="ml" ref={scroller}>
     <a className="ml-skip" href="#ml-main">{t('lab.shell.skip')}</a>
     <header className="ml-nav">
       <Link to="/" className="ml-home" aria-label={t('lab.shell.home')}><Wordmark /></Link>
-      <LayoutGroup><nav className="ml-tabs" aria-label={t('lab.shell.sections')}>{tabs.map(tab => { const on = pathname === tab.path; return <Link key={tab.path} to={tab.path} className={on ? 'is-on' : ''} aria-current={on ? 'page' : undefined}>
+      <LayoutGroup><nav ref={strip} className="ml-tabs" aria-label={t('lab.shell.sections')}>{tabs.map(tab => { const on = pathname === tab.path; return <Link key={tab.path} to={tab.path} className={on ? 'is-on' : ''} aria-current={on ? 'page' : undefined}>
         {on && <motion.span layoutId="ml-tab" className="ml-tab-pill" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
         <span>{t(tab.label)}</span></Link> })}</nav></LayoutGroup>
       <div className="ml-nav-end"><Telemetry health={health} /><AccountMenu current={current} groups={groups} onLogout={onLogout} /></div>
