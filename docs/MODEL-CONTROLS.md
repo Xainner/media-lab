@@ -138,7 +138,10 @@ H3 `profile=base`: 8–40 steps, default 20. `profile=turbo`: the LightX2V Turbo
 official weights (FL2VA LoRA for t2v/i2v, Ref2VA LoRA for r2v), 4–12 steps, default 8, about
 twice as fast as base at the same canvas. `profile=omni`: FastH3 Omni, an 8-step distilled
 Ref2VA checkpoint (FastVideo + Nuva Lab), `mode=r2v` only, 4–12 steps, default 8; not for the
-Director. `profile=fused_turbo`: 4–12 steps,
+Director. `profile=flex`: Pika H3 Flex, official six-step post-trained LoRAs on the real
+weights (FL2VA for t2v/i2v, Ref2VA for r2v); fixed 6 steps and schedule, so `steps` stays 6 and
+`options` cannot set sampler, scheduler, denoise or shifts; no video `control`. About 5–6 min per
+5 s clip at 1344×768 on an RTX 3090. `profile=fused_turbo`: 4–12 steps,
 default 4, experimental and only usable if ready. Do not silently switch profiles
 on failure. More steps are not a quality guarantee. Dense attention does not imply
 Maestro SLA or identical quality. Ratio: 16:9, 9:16 or 1:1; `seconds`: 5–15.

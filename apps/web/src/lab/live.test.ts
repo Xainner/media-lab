@@ -54,7 +54,7 @@ test('angle re-shoots send one photo and the QMA camera, never through the IA pa
 
 test('video model cards pick their H3 profile', () => {
   const video = (modelId: string) => requests(base({ kind: 'video', modelId, values: { mode: 'Texto', aspect: '16:9', duration: '5 s' } }))[0].body.profile
-  expect(['h3', 'h3-turbo', 'h3-fused', 'fasth3-omni'].map(video)).toEqual(['base', 'turbo', 'fused_turbo', 'omni'])
+  expect(['h3', 'h3-turbo', 'h3-fused', 'fasth3-omni', 'h3-flex'].map(video)).toEqual(['base', 'turbo', 'fused_turbo', 'omni', 'flex'])
 })
 
 test('removing a person sends the clip, who to erase and an optional clean frame', () => {

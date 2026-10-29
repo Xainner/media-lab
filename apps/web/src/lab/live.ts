@@ -6,7 +6,7 @@ import { DISTANCES, FOLLOWS, GUIDES, HEIGHTS, LANGUAGES, ORBITS, RESOLUTIONS, ra
 import { t } from '../i18n'
 
 export type LabJob = { id: string; status: string; pct: number; queue?: number; error?: string; prompt: string; ratio: number; kind: Modality; model: string; ref?: ArtifactRef; more?: { ref: ArtifactRef; prompt: string }[] }
-export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; upscale: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
+export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; flex: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; upscale: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
   flux3: boolean; kandinsky6: boolean; twoK: boolean; sound: Record<string, boolean>; speech: Record<string, boolean> }
 
 /** Job operations each composer view lists after a reload; every request() operation must appear here. */
@@ -18,7 +18,7 @@ function modelLabel(job: Job & { request?: any }) {
   if (job.operation === 'video' && r.model === 'kandinsky6') return 'Kandinsky 6'
   if (job.operation === 'sound') return r.kind === 'sfx' || r.kind === 'one_shot' ? 'Stable Audio 3 SFX' : 'Stable Audio 3'
   if (job.operation === 'speech') return ({ design: `Qwen3-TTS · ${t('creations.model.designedVoice')}`, clone: `Qwen3-TTS · ${t('creations.model.clonedVoice')}` } as Record<string, string>)[r.voice] || 'Qwen3-TTS'
-  if (job.operation === 'video') return `${({ turbo: 'H3 Turbo', fused_turbo: 'H3 Fused Turbo', omni: 'FastH3 Omni' } as Record<string, string>)[r.profile] || 'MiniMax H3'}${r.control ? ` · ${t('creations.model.followingVideo')}` : ''}${({ '480p': ' · 480p', '720p': ' · 720p', native: ` · ${t('creations.model.native')}` } as Record<string, string>)[r.options?.resolution] || ''}`
+  if (job.operation === 'video') return `${({ turbo: 'H3 Turbo', fused_turbo: 'H3 Fused Turbo', omni: 'FastH3 Omni', flex: 'H3 Flex' } as Record<string, string>)[r.profile] || 'MiniMax H3'}${r.control ? ` · ${t('creations.model.followingVideo')}` : ''}${({ '480p': ' · 480p', '720p': ' · 720p', native: ` · ${t('creations.model.native')}` } as Record<string, string>)[r.options?.resolution] || ''}`
   if (job.operation === 'swap') return ({ head: 'H3 Head Swap', scail: 'SCAIL-2' } as Record<string, string>)[r.mode] || 'H3 Character Swap'
   if (job.operation === 'face_refine') return 'H3 Face Refine'
   if (job.operation === 'remove') return 'H3 Person Remover'
@@ -58,13 +58,13 @@ export function useMediaSrc(ref?: ArtifactRef) {
 }
 
 export function useCaps() {
-  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, upscale: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, kandinsky6: false, twoK: false, sound: {}, speech: {} })
+  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, flex: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, upscale: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, kandinsky6: false, twoK: false, sound: {}, speech: {} })
   useEffect(() => {
     let live = true
     runtime('GET', '/v1/capabilities').then(c => {
       if (!live) return
       const turbo = c.model_variants?.turbo?.precisions || {}
-      setCaps({ turbo: Boolean(turbo.int8 || turbo.bf16), h3Turbo: Boolean(c.video?.profiles?.turbo?.ready), omni: Boolean(c.video?.profiles?.omni?.ready), fusedTurbo: Boolean(c.video?.profiles?.fused_turbo?.ready), bf16: Boolean(c.model_precisions?.bf16), turboPrecision: turbo.int8 ? 'int8' : 'bf16',
+      setCaps({ turbo: Boolean(turbo.int8 || turbo.bf16), h3Turbo: Boolean(c.video?.profiles?.turbo?.ready), omni: Boolean(c.video?.profiles?.omni?.ready), fusedTurbo: Boolean(c.video?.profiles?.fused_turbo?.ready), flex: Boolean(c.video?.profiles?.flex?.ready), bf16: Boolean(c.model_precisions?.bf16), turboPrecision: turbo.int8 ? 'int8' : 'bf16',
         swap: { character: Boolean(c.swap?.modes?.character?.ready), head: Boolean(c.swap?.modes?.head?.ready), remove: Boolean(c.remove?.ready), scail: Boolean(c.swap?.modes?.scail?.ready) }, stems: Boolean(c.stems?.ready), faceRefine: Boolean(c.face_refine?.ready), upscale: Boolean(c.upscale?.ready), ace: Boolean(c.music?.models?.ace_step?.ready), moss: Boolean(c.image_models?.moss?.ready),
         control: c.image_control?.modes || {}, camera: Boolean(c.image_camera?.ready), cutout: Boolean(c.image_remove_background?.ready), follow: c.video?.control?.modes || {}, loras: Boolean(c.loras?.ready),
         flux3: Boolean(c.image_models?.flux3?.ready), kandinsky6: Boolean(c.video?.models?.kandinsky6?.ready), twoK: Boolean(c.two_k_enabled),
@@ -192,7 +192,7 @@ export function requests(s: Submission): { path: string; body: any; operation: s
     const resolution = RESOLUTIONS[s.values.resolution] || 'preview'
     return [{ path: '/v1/jobs/video', operation: 'video', body: { prompt: s.prompt, mode, first_frame: mode === 'i2v' ? s.refs[0] ?? null : null,
       references: mode === 'r2v' ? s.refs : [], aspect_ratio: s.values.aspect, seconds: seconds(s.values.duration),
-      profile: ({ 'h3-turbo': 'turbo', 'h3-fused': 'fused_turbo', 'fasth3-omni': 'omni' } as Record<string, string>)[s.modelId] || 'base', session_id, ...loras,
+      profile: ({ 'h3-turbo': 'turbo', 'h3-fused': 'fused_turbo', 'fasth3-omni': 'omni', 'h3-flex': 'flex' } as Record<string, string>)[s.modelId] || 'base', session_id, ...loras,
       ...(resolution !== 'preview' ? { options: { resolution } } : {}),
       ...(follow ? { control: { video: s.source, mode: FOLLOWS[s.values.follow] || 'pose', keep_audio: true } } : {}) } }]
   }

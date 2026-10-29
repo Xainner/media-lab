@@ -12,7 +12,7 @@ const maxRefs: Record<Modality, number> = { image: 10, video: 9, audio: 0 }
 const isVideo = (uri: string) => /\.(mp4|webm|mkv|mov)$/i.test(uri)
 
 /** A model can run when it is installed here; Turbo variants also need their weights on the server. */
-export const available = (m: Model, caps: Caps) => m.status !== 'soon' && (m.id !== 'qwen-turbo' || caps.turbo) && (m.id !== 'h3-turbo' || caps.h3Turbo) && (m.id !== 'fasth3-omni' || caps.omni) && (m.id !== 'h3-fused' || caps.fusedTurbo) && (m.id !== 'ace-step' || caps.ace) && (m.id !== 'moss-image' || caps.moss)
+export const available = (m: Model, caps: Caps) => m.status !== 'soon' && (m.id !== 'qwen-turbo' || caps.turbo) && (m.id !== 'h3-turbo' || caps.h3Turbo) && (m.id !== 'fasth3-omni' || caps.omni) && (m.id !== 'h3-fused' || caps.fusedTurbo) && (m.id !== 'h3-flex' || caps.flex) && (m.id !== 'ace-step' || caps.ace) && (m.id !== 'moss-image' || caps.moss)
   && (m.id !== 'flux3-klein' || caps.flux3) && (m.id !== 'kandinsky6' || caps.kandinsky6) && (m.id !== 'stable-audio3' || Object.values(caps.sound).some(Boolean)) && (m.id !== 'qwen3-tts' || Object.values(caps.speech).some(Boolean))
 // Audio settings that belong to one kind of audio model; the rest (type, stems, duration) are for songs.
 const audioOnly: Record<string, string> = { sound: 'stable-audio3', length: 'stable-audio3', voice: 'qwen3-tts', speaker: 'qwen3-tts', language: 'qwen3-tts' }

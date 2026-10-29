@@ -116,7 +116,7 @@ export default function Director({ incoming }: { incoming: ArtifactRef | null })
         <textarea rows={4} value={lyrics} onChange={e => setLyrics(e.target.value)} aria-label={t('lab.director.lyricsLabel')} maxLength={20000} placeholder={t('lab.director.lyricsPlaceholder')} />
         <div className="ml-form-row">
           <Choice label={t('lab.director.format')} value={ratio} onChange={setRatio} options={[['16:9', '16:9'], ['9:16', '9:16'], ['1:1', '1:1']]} />
-          <Choice label={t('lab.director.clips')} value={clips} onChange={setClips} options={[['base', 'H3'], ['turbo', 'H3 Turbo', !caps.h3Turbo], ['fused_turbo', 'H3 Fused', !caps.fusedTurbo]]} />
+          <Choice label={t('lab.director.clips')} value={clips} onChange={setClips} options={[['base', 'H3'], ['turbo', 'H3 Turbo', !caps.h3Turbo], ['flex', 'H3 Flex', !caps.flex], ['fused_turbo', 'H3 Fused', !caps.fusedTurbo]]} />
           <Choice label={t('lab.director.frames')} value={frames} onChange={setFrames} options={[['base', 'Qwen 2.1'], ['turbo', 'Turbo', !caps.turbo]]} />
           {frames === 'base' && <Choice label={t('lab.director.quality')} value={quality} onChange={setQuality} options={[['quality', t('lab.director.qualityHigh')], ['draft', t('lab.director.qualityDraft')]]} />}
         </div>

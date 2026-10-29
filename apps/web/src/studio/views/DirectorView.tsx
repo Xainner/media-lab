@@ -3,7 +3,7 @@ import MediaPreview from '../components/MediaPreview'
 import { useEffect, useState } from 'react'
 import { newSession, runtime, type ArtifactRef } from '../lib/api'
 import { CreativeProgress, useCreativeJob } from './CreativeJob'
-import { H3_PROFILE_HELP, lipSyncTemplate, useH3Profile } from '../lib/h3'
+import { FLEX_FIXED, H3_PROFILE_HELP, h3Options, lipSyncTemplate, useH3Profile } from '../lib/h3'
 import { SemanticData } from '../components/SemanticData'
 import { Action, Actions, EmptyStage, Step, Tool } from '../components/Kit'
 import { TURBO_FIXED, variantOptions } from '../components/ImageModel'
@@ -70,7 +70,7 @@ export default function DirectorView({ incoming }: { incoming?: ArtifactRef | nu
     void runtime('GET', '/v1/capabilities').then(caps => state.submit('/v1/jobs/production', {
       title, song, brief, lyrics, scenes, aspect_ratio: ratio, session_id: newSession(),
       keyframe_precision: keyPrecision, keyframe_variant: keyVariant, keyframe_quality: keyQuality, keyframe_resolution: keyResolution,
-      video_profile: h3.profile, video_steps: h3.steps, video_options: videoOptions.payload,
+      video_profile: h3.profile, video_steps: h3.steps, video_options: h3Options(h3.profile, videoOptions.payload),
       keyframe_options: variantOptions(keyVariant, keyframeOptions.payload), seed: seed ? Number(seed) : null,
     })).catch(e => setError(String(e)))
   }
@@ -96,15 +96,15 @@ export default function DirectorView({ incoming }: { incoming?: ArtifactRef | nu
       <button className="primary" disabled={!analysis || !brief.trim() || loading} onClick={() => void plan()}>{loading ? t('agent.director.planning') : t('agent.director.plan')}</button>
     </Step>
     <Step n="03" title={t('agent.director.clipsTitle')} aside={t('agent.director.clipsAside', { ratio, steps: h3.steps })}>
-      <label>{t('agent.director.clipModel')}<select value={h3.profile} onChange={e => h3.select(e.target.value)}><option value="base" disabled={!h3.profiles.base.ready}>{t('agent.director.h3Base')}</option><option value="turbo" disabled={!h3.profiles.turbo.ready}>{t('agent.director.h3Turbo')}{!h3.profiles.turbo.ready ? t('agent.director.unavailable') : ''}</option><option value="fused_turbo" disabled={!h3.profiles.fused_turbo.ready}>{t('agent.director.h3FusedTurbo')}{!h3.profiles.fused_turbo.ready ? t('agent.director.unavailable') : ''}</option></select></label>
+      <label>{t('agent.director.clipModel')}<select value={h3.profile} onChange={e => h3.select(e.target.value)}><option value="base" disabled={!h3.profiles.base.ready}>{t('agent.director.h3Base')}</option><option value="turbo" disabled={!h3.profiles.turbo.ready}>{t('agent.director.h3Turbo')}{!h3.profiles.turbo.ready ? t('agent.director.unavailable') : ''}</option><option value="flex" disabled={!h3.profiles.flex.ready}>{t('agent.director.h3Flex')}{!h3.profiles.flex.ready ? t('agent.director.unavailable') : ''}</option><option value="fused_turbo" disabled={!h3.profiles.fused_turbo.ready}>{t('agent.director.h3FusedTurbo')}{!h3.profiles.fused_turbo.ready ? t('agent.director.unavailable') : ''}</option></select></label>
       <p className="hint">{H3_PROFILE_HELP[h3.profile]}</p>
       <div className="field-row">
         <label>{t('agent.director.clipSteps')}<input type="number" min={h3.limits.min} max={h3.limits.max} step="1" value={h3.steps} onChange={e => h3.setSteps(Number(e.target.value))} /></label>
         <label>{t('agent.director.ratio')}<select value={ratio} onChange={e => setRatio(e.target.value)}><option>16:9</option><option>9:16</option><option>1:1</option></select></label>
       </div>
-      <VideoQuality profile={h3.profile} steps={h3.steps} setSteps={h3.setSteps}/>
+      {h3.profile !== 'flex' && <VideoQuality profile={h3.profile} steps={h3.steps} setSteps={h3.setSteps}/>}
       <VideoResolution state={videoOptions} ratio={ratio}/>
-      <ModelOptions state={videoOptions} kind="video"/>
+      <ModelOptions state={videoOptions} kind="video" omit={h3.profile === 'flex' ? FLEX_FIXED : []}/>
       <small>{t('agent.director.reusedClips')}</small>
     </Step>
     <Step n="04" title={t('agent.director.keyframesTitle')}>

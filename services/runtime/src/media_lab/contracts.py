@@ -223,15 +223,22 @@ class SessionMessage(BaseModel):
     media: list[ArtifactRef] = Field(default_factory=list, max_length=100)
 
 
-H3Profile = Literal["base", "fused_turbo", "turbo", "omni"]
+H3Profile = Literal["base", "fused_turbo", "turbo", "omni", "flex"]
+# Pika H3 Flex ships one six-step schedule; the sampling controls would break it.
+FLEX_FIXED_OPTIONS = ("sampler", "scheduler", "denoise", "shift_video", "shift_audio")
 
 
 def h3_steps(profile: str, steps: int | None) -> int:
-    low, high, default = {"fused_turbo": (4, 12, 4), "turbo": (4, 12, 8), "omni": (4, 12, 8)}.get(profile, (8, 40, 20))
+    low, high, default = {"fused_turbo": (4, 12, 4), "turbo": (4, 12, 8), "omni": (4, 12, 8), "flex": (6, 6, 6)}.get(profile, (8, 40, 20))
     value = default if steps is None else steps
     if not low <= value <= high:
         raise ValueError(f"H3 {profile} requires {low}-{high} steps")
     return value
+
+
+def check_flex_options(profile: str, options) -> None:
+    if profile == "flex" and options is not None and any(getattr(options, key) is not None for key in FLEX_FIXED_OPTIONS):
+        raise ValueError("H3 Flex usa su programa fijo de 6 pasos: sin sampler, scheduler, denoise ni shifts")
 
 
 class VideoControl(BaseModel):
@@ -254,7 +261,7 @@ class VideoRequest(ModelRequest):
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
     seconds: float = Field(default=5, ge=5, le=15, description="Clip length, 5–15 s at 24 fps.")
     control: VideoControl | None = Field(default=None, description="Follow the motion, outlines or depth of an owned clip (mode r2v; references are optional and give identity). The clip sets length and aspect ratio; profile base or turbo. Check capabilities.video.control.")
-    profile: H3Profile = Field(default="base", description="base: best fidelity, 8–40 steps (default 20). fused_turbo: experimental fast drafts, 4–12 steps. turbo: LightX2V Turbo LoRAs on the real H3 weights (true Ref2VA for r2v), 4–12 steps (default 8). omni: FastH3 Omni, an 8-step distilled Ref2VA checkpoint, r2v only, 4–12 steps (default 8). Check capabilities.video.profiles.")
+    profile: H3Profile = Field(default="base", description="base: best fidelity, 8–40 steps (default 20). fused_turbo: experimental fast drafts, 4–12 steps. turbo: LightX2V Turbo LoRAs on the real H3 weights (true Ref2VA for r2v), 4–12 steps (default 8). omni: FastH3 Omni, an 8-step distilled Ref2VA checkpoint, r2v only, 4–12 steps (default 8). flex: Pika H3 Flex, official six-step LoRAs on the real H3 weights for t2v, i2v and r2v; fixed 6 steps, no sampler, scheduler, denoise or shift options. Check capabilities.video.profiles.")
     steps: int | None = Field(default=None, ge=4, le=40, description="Unset = profile default.")
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1, description="Fixed seed to reproduce; unset = random.")
     session_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,80}$", description=SESSION_HELP)
@@ -282,6 +289,7 @@ class VideoRequest(ModelRequest):
         if self.profile == "omni" and self.mode != "r2v":
             raise ValueError("FastH3 Omni solo genera desde referencias (modo r2v)")
         video_size(self.aspect_ratio, self.options)
+        check_flex_options(self.profile, self.options)
         if self.control and (self.mode != "r2v" or self.profile not in ("base", "turbo")):
             raise ValueError("El control de vídeo usa el modo r2v con el perfil base o turbo")
         if self.mode != 'r2v' and (self.reference_videos or self.reference_audios):
@@ -346,7 +354,8 @@ class ProductionRequest(ModelRequest):
     def profile_steps(self):
         self.video_steps = h3_steps(self.video_profile, self.video_steps)
         if self.video_profile == "omni":
-            raise ValueError("FastH3 Omni solo genera desde referencias; el Director usa Base o Turbo")
+            raise ValueError("FastH3 Omni solo genera desde referencias; el Director usa Base, Turbo o Flex")
+        check_flex_options(self.video_profile, self.video_options)
         video_size(self.aspect_ratio, self.video_options)
         check_turbo_options(self.keyframe_variant, self.keyframe_options)
         return self

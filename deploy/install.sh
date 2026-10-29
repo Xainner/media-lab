@@ -33,7 +33,7 @@ IMAGES_GB=40                 # room for the ComfyUI, web and agent images and bu
 # Model groups. Each group runs existing download scripts (script:arg passes one argument);
 # sizes are approximate downloads.
 # ---------------------------------------------------------------------------------------------
-GROUP_ORDER=(qwen qwen-bf16 qwen-control moss flux3 h3 h3-turbo h3-omni h3-control video-edit
+GROUP_ORDER=(qwen qwen-bf16 qwen-control moss flux3 h3 h3-turbo h3-flex h3-omni h3-control video-edit
              scail2 kandinsky6 yue2 ace-step stable-audio3 tts stems)
 declare -A G_SCRIPTS=(
   [qwen]="download-models.sh download-turbo-flashvsr.sh"
@@ -43,6 +43,7 @@ declare -A G_SCRIPTS=(
   [flux3]="download-flux3-klein-models.sh"
   [h3]="download-h3-models.sh"
   [h3-turbo]="download-h3-turbo-models.sh"
+  [h3-flex]="download-h3-flex-models.sh"
   [h3-omni]="download-fasth3-omni.sh"
   [h3-control]="download-h3-control-models.sh"
   [video-edit]="download-swap-models.sh download-face-models.sh download-remover-models.sh"
@@ -55,12 +56,12 @@ declare -A G_SCRIPTS=(
   [stems]="download-stems-model.sh"
 )
 declare -A G_GB=(
-  [qwen]=44 [qwen-bf16]=14 [qwen-control]=8 [moss]=13 [flux3]=24 [h3]=84 [h3-turbo]=4
+  [qwen]=44 [qwen-bf16]=14 [qwen-control]=8 [moss]=13 [flux3]=24 [h3]=84 [h3-turbo]=4 [h3-flex]=4
   [h3-omni]=22 [h3-control]=5 [video-edit]=5 [scail2]=27 [kandinsky6]=18 [yue2]=5
   [ace-step]=20 [stable-audio3]=18 [tts]=14 [stems]=1
 )
 declare -A G_DEPS=(
-  [qwen-bf16]="qwen" [qwen-control]="qwen" [h3-turbo]="h3" [h3-omni]="h3"
+  [qwen-bf16]="qwen" [qwen-control]="qwen" [h3-turbo]="h3" [h3-flex]="h3" [h3-omni]="h3"
   [h3-control]="h3 qwen-control" [video-edit]="h3" [scail2]="qwen video-edit" [kandinsky6]="moss"
 )
 declare -A G_DESC=(
@@ -71,6 +72,7 @@ declare -A G_DESC=(
   [flux3]="FLUX 3 Klein: fast photorealism and editing (GATED: accept the licence on Hugging Face)"
   [h3]="MiniMax H3 video with audio (Base + Fused Turbo profiles)"
   [h3-turbo]="H3 Turbo profile (LightX2V 8-step LoRAs)"
+  [h3-flex]="H3 Flex profile (Pika Labs 6-step LoRAs)"
   [h3-omni]="FastH3 Omni 8-step reference video"
   [h3-control]="Follow a video's pose, edges or depth (H3 Fun ControlNet-Union 2.0)"
   [video-edit]="Character swap, head swap, face refine and person removal"
@@ -90,6 +92,7 @@ declare -A G_LICENSE=(
   [flux3]="FLUX Kommunity License (gated)"
   [h3]="MiniMax H3 Community License; Fused Turbo merge: research use"
   [h3-turbo]="MiniMax H3 Community License"
+  [h3-flex]="MiniMax H3 Community License (Pika Labs derivative; keep its NOTICE)"
   [h3-omni]="MiniMax H3 Community License"
   [h3-control]="MiniMax H3 Community License; RT-DETR: see upstream"
   [video-edit]="MiniMax H3 Community License; Meta SAM License; Apache-2.0; others: see upstream"
@@ -102,7 +105,7 @@ declare -A G_LICENSE=(
   [stems]="MIT"
 )
 PRESET_MINIMAL="qwen"
-PRESET_RECOMMENDED="qwen qwen-control moss flux3 h3 h3-turbo ace-step stable-audio3 tts stems"
+PRESET_RECOMMENDED="qwen qwen-control moss flux3 h3 h3-turbo h3-flex ace-step stable-audio3 tts stems"
 PRESET_ALL="${GROUP_ORDER[*]}"
 
 # ---------------------------------------------------------------------------------------------
