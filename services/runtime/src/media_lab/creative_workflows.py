@@ -17,6 +17,12 @@ H3_FUSED_VAE_SHA256 = "9bb2d96f218c76babd85e0611b85ca8fb330a90546c01a0005e8a58a5
 H3_TURBO_FL_LORA = "minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
 H3_TURBO_REF_LORA = "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors"
 H3_TURBO_SHIFT = (6.0, 3.0)
+# Pika H3 Flex (Pika Labs): six-step post-trained LoRAs on the base checkpoints. The Comfy template runs them at
+# 1.0 with lcm, CFG 1 and these fixed sigmas (knots 1000/750/500/250/100/40/0 at shift 12) on the int8 video VAE.
+H3_FLEX_FL_LORA = "pika_h3_flex_fl2va_comfy_bf16.safetensors"
+H3_FLEX_REF_LORA = "pika_h3_flex_ref2va_comfy_bf16.safetensors"
+H3_FLEX_REVISION = "0ddf55ad7067ca1e76812253bd7b4600df87f759"
+H3_FLEX_SIGMAS = "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
 # FastH3 Omni (FastVideo + Nuva Lab): an 8-step distilled Ref2VA checkpoint; official core template is euler /
 # simple, 8 steps, CFG 1, shift 12/3, int8 video VAE (its VSA sparse attention is skipped: Ampere is unverified).
 H3_OMNI = "fasth3_omniref_8step_pruned_int8_convrot.safetensors"
@@ -38,6 +44,8 @@ def h3_profiles(shared_root, fused_root, lora_root) -> dict:
     turbo = base[:-1] + [fused_root / "vae" / H3_FUSED_VIDEO_VAE,
                          lora_root / "loras" / H3_TURBO_FL_LORA, lora_root / "loras" / H3_TURBO_REF_LORA]
     omni = common + [fused_root / "vae" / H3_FUSED_VIDEO_VAE, lora_root / "diffusion_models" / H3_OMNI]
+    flex = base[:-1] + [fused_root / "vae" / H3_FUSED_VIDEO_VAE,
+                        lora_root / "loras" / H3_FLEX_FL_LORA, lora_root / "loras" / H3_FLEX_REF_LORA]
     return {
         "base": {"label": "H3 Base", "ready": all(p.is_file() for p in base),
                  "steps": {"min": 8, "max": 40, "default": 20}, "attention": "dense"},
@@ -51,6 +59,9 @@ def h3_profiles(shared_root, fused_root, lora_root) -> dict:
         "turbo": {"label": "H3 Turbo · 8 pasos", "ready": all(p.is_file() for p in turbo),
                   "steps": {"min": 4, "max": 12, "default": 8}, "attention": "dense",
                   "loras": [H3_TURBO_FL_LORA, H3_TURBO_REF_LORA]},
+        "flex": {"label": "H3 Flex · 6 pasos", "ready": all(p.is_file() for p in flex),
+                 "steps": {"min": 6, "max": 6, "default": 6}, "attention": "dense", "fixed_schedule": True,
+                 "loras": [H3_FLEX_FL_LORA, H3_FLEX_REF_LORA], "revision": H3_FLEX_REVISION},
     }
 
 
@@ -90,12 +101,13 @@ def h3_workflow(prompt: str, mode: str, width: int, height: int, seconds: float,
                 control: tuple[str, str, float] | None = None) -> dict:
     """control = (uploaded clip already at the output size and length, pose|canny|depth, strength)."""
     from .contracts import h3_steps
-    if profile not in {"base", "fused_turbo", "turbo", "omni"}:
+    if profile not in {"base", "fused_turbo", "turbo", "omni", "flex"}:
         raise ValueError("unsupported H3 profile")
     h3_steps(profile, steps)
     fused = profile == "fused_turbo"
     turbo = profile == "turbo"
     omni = profile == "omni"
+    flex = profile == "flex"
     if omni and mode != "r2v":
         raise ValueError("FastH3 Omni solo genera desde referencias (r2v)")
     if mode not in {"t2v", "i2v", "r2v"}:
@@ -108,7 +120,7 @@ def h3_workflow(prompt: str, mode: str, width: int, height: int, seconds: float,
         raise ValueError("reference to video needs references")
     length = h3_length(seconds)
     graph = {
-        "video_vae": {"class_type": "VAELoader", "inputs": {"vae_name": H3_FUSED_VIDEO_VAE if fused or turbo or omni else H3_VIDEO_VAE}},
+        "video_vae": {"class_type": "VAELoader", "inputs": {"vae_name": H3_FUSED_VIDEO_VAE if fused or turbo or omni or flex else H3_VIDEO_VAE}},
         "audio_vae": {"class_type": "VAELoader", "inputs": {"vae_name": H3_AUDIO_VAE}},
         "unet": {"class_type": "UNETLoader", "inputs": {
             "unet_name": H3_FUSED if fused else H3_OMNI if omni else (H3_REF if mode == "r2v" else H3_FL), "weight_dtype": "default"}},
@@ -139,9 +151,16 @@ def h3_workflow(prompt: str, mode: str, width: int, height: int, seconds: float,
     if turbo or omni:
         graph["sampler"]["inputs"]["sampler_name"] = "euler"
         graph["scheduler"]["inputs"]["scheduler"] = "simple"
-    model = ["turbo_lora", 0] if turbo else ["unet", 0]
-    graph["scheduler"]["inputs"]["model"] = graph["guider"]["inputs"]["model"] = model
-    if fused or turbo or omni or (options and (options.shift_video is not None or options.shift_audio is not None)):
+    if flex:
+        graph["flex_lora"] = {"class_type": "LoraLoaderModelOnly", "inputs": {
+            "model": ["unet", 0], "lora_name": H3_FLEX_REF_LORA if mode == "r2v" else H3_FLEX_FL_LORA, "strength_model": 1.0}}
+        graph["scheduler"] = {"class_type": "ManualSigmas", "inputs": {"sigmas": H3_FLEX_SIGMAS}}
+        graph["sampler"]["inputs"]["sampler_name"] = "lcm"
+    model = ["turbo_lora", 0] if turbo else ["flex_lora", 0] if flex else ["unet", 0]
+    if not flex:
+        graph["scheduler"]["inputs"]["model"] = model
+    graph["guider"]["inputs"]["model"] = model
+    if not flex and (fused or turbo or omni or (options and (options.shift_video is not None or options.shift_audio is not None))):
         # Native dense attention: do not stack a second Turbo/SLA LoRA on the bake.
         video_shift, audio_shift = H3_TURBO_SHIFT if turbo else (12.0, 3.0)
         graph["shift"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {

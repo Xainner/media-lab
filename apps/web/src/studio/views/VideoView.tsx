@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { formatUploadErrors, newSession, uploadFiles, type ArtifactRef } from '../lib/api'
 import { CreativeProgress, useCreativeJob } from './CreativeJob'
 import UpscalePanel from '../components/Upscale'
-import { H3_PROFILE_HELP, useH3Profile } from '../lib/h3'
+import { FLEX_FIXED, H3_PROFILE_HELP, h3Options, useH3Profile } from '../lib/h3'
 import MediaPreview from '../components/MediaPreview'
 import AdvancedOptions from '../components/AdvancedOptions'
 import PromptEnhancePanel from '../components/PromptEnhancePanel'
@@ -51,7 +51,7 @@ export default function VideoView({ incoming }: { incoming?: ArtifactRef | null 
   const improveRefs = (mode === 'i2v' ? [first, last].filter((ref): ref is ArtifactRef => !!ref) : mode === 'r2v' ? refs : []).map(({ uri, sha256 }) => ({ uri, sha256 }))
   function generate() {
     void state.submit('/v1/jobs/video', { prompt, mode, first_frame: first, last_frame: last,
-      references: mode === 'r2v' ? refs : [], reference_videos: mode === 'r2v' ? videos : [], reference_audios: mode === 'r2v' ? audios : [], options: modelOptions.payload, seed: seed ? Number(seed) : null, aspect_ratio: ratio, seconds, profile: h3.profile, steps: h3.steps, session_id: newSession() })
+      references: mode === 'r2v' ? refs : [], reference_videos: mode === 'r2v' ? videos : [], reference_audios: mode === 'r2v' ? audios : [], options: h3Options(h3.profile, modelOptions.payload), seed: seed ? Number(seed) : null, aspect_ratio: ratio, seconds, profile: h3.profile, steps: h3.steps, session_id: newSession() })
   }
   const frame = (target: 'first' | 'last') => {
     const value = target === 'first' ? first : last
@@ -67,7 +67,7 @@ export default function VideoView({ incoming }: { incoming?: ArtifactRef | null 
   const busyJob = ['queued', 'running'].includes(state.job?.status || '')
   return <Tool console={<>
     <Step n="01" title={t('studio.video.modelModeTitle')}>
-      <label>{t('studio.video.h3Model')}<select value={h3.profile} onChange={e => h3.select(e.target.value)}><option value="base" disabled={!h3.profiles.base.ready}>{t('studio.video.profileBase')}</option><option value="turbo" disabled={!h3.profiles.turbo.ready}>{t('studio.video.profileTurbo')}{!h3.profiles.turbo.ready ? t('studio.video.unavailable') : ''}</option><option value="fused_turbo" disabled={!h3.profiles.fused_turbo.ready}>{t('studio.video.profileFused')}{!h3.profiles.fused_turbo.ready ? t('studio.video.unavailable') : ''}</option></select></label>
+      <label>{t('studio.video.h3Model')}<select value={h3.profile} onChange={e => h3.select(e.target.value)}><option value="base" disabled={!h3.profiles.base.ready}>{t('studio.video.profileBase')}</option><option value="turbo" disabled={!h3.profiles.turbo.ready}>{t('studio.video.profileTurbo')}{!h3.profiles.turbo.ready ? t('studio.video.unavailable') : ''}</option><option value="flex" disabled={!h3.profiles.flex.ready}>{t('studio.video.profileFlex')}{!h3.profiles.flex.ready ? t('studio.video.unavailable') : ''}</option><option value="fused_turbo" disabled={!h3.profiles.fused_turbo.ready}>{t('studio.video.profileFused')}{!h3.profiles.fused_turbo.ready ? t('studio.video.unavailable') : ''}</option></select></label>
       <p className="hint">{H3_PROFILE_HELP[h3.profile]}</p>
       <Segmented label={t('studio.video.modeLabel')} value={mode} onChange={setMode} options={[{ value: 't2v', label: t('studio.video.modeText') }, { value: 'i2v', label: t('studio.video.modeImage') }, { value: 'r2v', label: t('studio.video.modeRefs') }]} />
     </Step>
@@ -95,10 +95,10 @@ export default function VideoView({ incoming }: { incoming?: ArtifactRef | null 
         <label>{t('studio.video.seconds')}<input type="number" min="5" max="15" step="1" value={seconds} onChange={e => setSeconds(Number(e.target.value))} /></label>
         <label>{t('studio.video.steps')}<input type="number" min={h3.limits.min} max={h3.limits.max} step="1" value={h3.steps} onChange={e => h3.setSteps(Number(e.target.value))} /></label>
       </div>
-      <VideoQuality profile={h3.profile} steps={h3.steps} setSteps={h3.setSteps}/>
+      {h3.profile !== 'flex' && <VideoQuality profile={h3.profile} steps={h3.steps} setSteps={h3.setSteps}/>}
       <VideoResolution state={modelOptions} ratio={ratio}/>
       <AdvancedOptions title={t('studio.video.seed')}><SeedField value={seed} onChange={setSeed}/></AdvancedOptions>
-      <ModelOptions state={modelOptions} kind="video" schedulerDefault={mode === 'r2v' && h3.profile === 'base' ? 'beta' : 'simple'}/>
+      <ModelOptions state={modelOptions} kind="video" omit={h3.profile === 'flex' ? FLEX_FIXED : []} schedulerDefault={mode === 'r2v' && h3.profile === 'base' ? 'beta' : 'simple'}/>
     </Step>
     {optionError && <p className="error" role="alert">{optionError}</p>}
     {uploadError && <p className="error">{uploadError}</p>}

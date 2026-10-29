@@ -88,6 +88,7 @@ export default defineMessages({
     'shell.h3.help.base': 'Recomendado para el resultado final: pesos oficiales de MiniMax (Ref2VA real al usar referencias), máxima fidelidad de identidad y estilo. 20 pasos por defecto; menos es borrador, más no garantiza mejor calidad. Más lento.',
     'shell.h3.help.turbo': 'Rápido con los pesos oficiales: LoRA Turbo de LightX2V sobre H3 (también Ref2VA real con referencias), 8 pasos. Buen equilibrio para iterar y para videoclips; Base sigue siendo la máxima fidelidad. Mismo formato de prompt.',
     'shell.h3.help.fusedTurbo': 'Para borradores e iterar rápido o videoclips con muchas escenas. Fusión experimental de la comunidad (Turbo + Mystic): usa 4 pasos; 8 o 12 solo afinan un poco el dibujo y tardan más. El audio sale más suave que en Base y puede suavizar estilos 2D planos. Mismo formato de prompt.',
+    'shell.h3.help.flex': 'H3 Flex de Pika Labs: LoRAs oficiales de 6 pasos sobre los pesos reales, para texto, imagen y referencias. Pasos y programa fijos (sin sampler, scheduler, denoise ni shifts) y sin seguir vídeo. En una RTX 3090 tarda unos 5–6 min por clip de 5 s. Mismo formato de prompt.',
 
     // studio/components
     'shell.advanced.title': 'Ajustes avanzados',
@@ -336,6 +337,7 @@ export default defineMessages({
     'shell.h3.help.base': 'Recommended for the final result: official MiniMax weights (true Ref2VA when using references), highest identity and style fidelity. 20 steps by default; fewer is a draft, more does not guarantee better quality. Slower.',
     'shell.h3.help.turbo': 'Fast with the official weights: LightX2V Turbo LoRA on top of H3 (also true Ref2VA with references), 8 steps. A good balance for iterating and for music videos; Base is still the highest fidelity. Same prompt format.',
     'shell.h3.help.fusedTurbo': 'For drafts, fast iteration or music videos with many scenes. Experimental community merge (Turbo + Mystic): use 4 steps; 8 or 12 only refine the drawing slightly and take longer. Audio comes out softer than with Base and it can soften flat 2D styles. Same prompt format.',
+    'shell.h3.help.flex': 'H3 Flex by Pika Labs: official 6-step LoRAs on the real weights, for text, image and references. Fixed steps and schedule (no sampler, scheduler, denoise or shifts) and no video following. On an RTX 3090 it takes about 5–6 min per 5 s clip. Same prompt format.',
 
     'shell.advanced.title': 'Advanced settings',
     'shell.result.alt': 'Generated result',

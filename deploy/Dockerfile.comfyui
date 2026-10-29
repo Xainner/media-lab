@@ -4,7 +4,7 @@
 # ships torchaudio 2.11.0+cu130, which the optional H3 packs import.
 FROM pytorch/pytorch:2.12.1-cuda13.0-cudnn9-devel
 
-ARG COMFYUI_REF=483dae4326356b81de05d27aca3f433dd323cc25
+ARG COMFYUI_REF=fd7639f477050e5c25b68fc38a9c2a6b6d988211
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_BREAK_SYSTEM_PACKAGES=1 \

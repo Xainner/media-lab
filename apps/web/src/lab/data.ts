@@ -16,6 +16,7 @@ export const models: Model[] = [
   { id: 'flux3-klein', name: 'FLUX 3 Klein', maker: 'Black Forest Labs', modality: 'image', get blurb() { return t('composer.model.flux3Klein.blurb') }, tags: ['Foto', 'Rápido', 'Edición'], art: art('feed-product'), status: 'new' },
   { id: 'h3', name: 'MiniMax H3', maker: 'MiniMax', modality: 'video', get blurb() { return t('composer.model.h3.blurb') }, tags: ['Audio', '15 s'], art: art('model-video'), status: 'ready' },
   { id: 'h3-turbo', name: 'H3 Turbo', maker: 'MiniMax · LightX2V', modality: 'video', get blurb() { return t('composer.model.h3Turbo.blurb') }, tags: ['Rápido', 'Referencias'], art: art('feed-alley'), status: 'new' },
+  { id: 'h3-flex', name: 'H3 Flex', maker: 'MiniMax · Pika Labs', modality: 'video', get blurb() { return t('composer.model.h3Flex.blurb') }, tags: ['6 pasos', 'Referencias'], art: art('feed-fashion'), status: 'new' },
   { id: 'h3-fused', name: 'H3 Fused Turbo', get maker() { return t('composer.model.makerCommunity') }, modality: 'video', get blurb() { return t('composer.model.h3Fused.blurb') }, tags: ['Experimental'], art: art('model-director'), status: 'ready' },
   { id: 'fasth3-omni', name: 'FastH3 Omni', maker: 'FastVideo · Nuva Lab', modality: 'video', get blurb() { return t('composer.model.fastH3Omni.blurb') }, tags: ['Referencias', 'Rápido'], art: art('feed-desert'), status: 'new' },
   { id: 'kandinsky6', name: 'Kandinsky 6', maker: 'Kandinsky Lab', modality: 'video', get blurb() { return t('composer.model.kandinsky6.blurb') }, tags: ['Lip-sync', 'Audio', '5 s'], art: art('app-musicvideo'), status: 'new' },
@@ -146,6 +147,6 @@ const LABELS: Record<string, MessageKey | [MessageKey, Vars]> = {
   Francés: 'composer.language.french', Alemán: 'composer.language.german', Italiano: 'composer.language.italian', Japonés: 'composer.language.japanese',
   Coreano: 'composer.language.korean', Chino: 'composer.language.chinese', Ruso: 'composer.language.russian',
   'Texto nítido': 'composer.tag.sharpText', Edición: 'composer.tag.editing', Ángulos: 'composer.tag.angles', Tipografía: 'composer.tag.typography',
-  Foto: 'composer.tag.photo', Voz: 'composer.tag.voice', '10 idiomas': 'composer.tag.tenLanguages',
+  Foto: 'composer.tag.photo', Voz: 'composer.tag.voice', '10 idiomas': 'composer.tag.tenLanguages', '6 pasos': 'composer.tag.sixSteps',
 }
 export const label = (id: string) => { const l = LABELS[id]; return !l ? id : typeof l === 'string' ? t(l) : t(l[0], l[1]) }

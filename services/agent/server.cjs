@@ -204,16 +204,19 @@ void (async () => {
   try {
     const users = fs.existsSync(directory) ? fs.readdirSync(directory).filter(n => /^[a-f0-9]{32}$/.test(n)) : [];
     recovery.scan(users);
-    for (const uid of users) {
+    // Keep retrying until the runtime answers: after a host reboot it can take minutes to come up,
+    // and a user left pending would hold the idle check closed until they log in again.
+    // Accounts retry independently, so one that keeps failing does not hold the others back.
+    await Promise.all(users.map(async uid => {
       let resolved = false;
-      for (let attempt = 0; attempt < 6 && !resolved; attempt++) {
+      for (let attempt = 0; !resolved; attempt++) {
         try { await engine(uid); resolved = true; }
         catch (error) {
           if (/Runtime (401|404):/.test(error.message)) { resolved = true; recovery.resolved(uid); } // Disabled/deleted account, no execution.
-          else await new Promise(resolve => setTimeout(resolve, Math.min(16000, 500 * 2 ** attempt)));
+          else await new Promise(resolve => setTimeout(resolve, Math.min(30000, 500 * 2 ** attempt)));
         }
       }
-    }
+    }));
   } catch { /* Keep the lifecycle guard closed on filesystem errors. */ }
 })();
 

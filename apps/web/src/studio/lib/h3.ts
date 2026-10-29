@@ -2,13 +2,19 @@ import { useEffect, useState } from 'react'
 import { runtime } from './api'
 import { t } from '../../i18n'
 
-export type H3Profile = 'base' | 'fused_turbo' | 'turbo'
+export type H3Profile = 'base' | 'fused_turbo' | 'turbo' | 'flex'
 type Profile = { ready: boolean; steps: { min: number; max: number; default: number } }
 const defaults: Record<H3Profile, Profile> = {
   base: { ready: true, steps: { min: 8, max: 40, default: 20 } },
   fused_turbo: { ready: false, steps: { min: 4, max: 12, default: 4 } },
   turbo: { ready: false, steps: { min: 4, max: 12, default: 8 } },
+  flex: { ready: false, steps: { min: 6, max: 6, default: 6 } },
 }
+
+/** Pika H3 Flex runs one fixed six-step schedule; these controls are refused with it. */
+export const FLEX_FIXED = ['sampler', 'scheduler', 'denoise', 'shift_video', 'shift_audio']
+export const h3Options = (profile: H3Profile, payload: Record<string, unknown> | undefined) =>
+  profile === 'flex' && payload ? Object.fromEntries(Object.entries(payload).filter(([key]) => !FLEX_FIXED.includes(key))) : payload
 
 export function useH3Profile() {
   const [profiles, setProfiles] = useState(defaults)
@@ -38,6 +44,7 @@ export const H3_PROFILE_HELP: Record<H3Profile, string> = {
   get base() { return t('shell.h3.help.base') },
   get turbo() { return t('shell.h3.help.turbo') },
   get fused_turbo() { return t('shell.h3.help.fusedTurbo') },
+  get flex() { return t('shell.h3.help.flex') },
 }
 
 /** Wrap a scene's visual direction in the Ref2VA lip-sync structure the runtime expects. */

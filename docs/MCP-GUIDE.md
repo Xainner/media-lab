@@ -317,8 +317,12 @@ r2v only (same six-section Ref2VA prompt), euler / simple, shifts 12 / 3, int8 v
 - Never stack another Turbo/acceleration LoRA on Fused and never "make Base turbo" by lowering
   its steps to 4 (Base rejects fewer than 8). Map requests by name: "Turbo" or "fast" H3 →
   `profile=turbo`; "Fused" or "H3 4 steps" → `profile=fused_turbo`; "FastH3" or "Omni" →
-  `profile=omni`. Use a profile only when capabilities report it ready; otherwise say it is
-  unavailable instead of substituting.
+  `profile=omni`; "Flex", "Pika" or "H3 6 steps" → `profile=flex`. Use a profile only when
+  capabilities report it ready; otherwise say it is unavailable instead of substituting.
+- Flex (Pika H3 Flex): official six-step LoRAs on the real H3 weights for t2v, i2v and r2v, with
+  the Pika schedule (lcm, fixed sigmas, CFG 1). Same prompt formats as Base. Steps stay 6 and the
+  sampling options are refused; no video control. Observed here (RTX 3090, 5 s at 1344×768):
+  about 5–6 min per clip, with sharp frames and identity kept from the first frame or references.
 
 ### 2. Duration
 Output length snaps to the model's 17n+5 frame grid; the clip can differ slightly from the
@@ -1061,7 +1065,10 @@ H3 `profile=base`: 8–40 steps, default 20. `profile=turbo`: the LightX2V Turbo
 official weights (FL2VA LoRA for t2v/i2v, Ref2VA LoRA for r2v), 4–12 steps, default 8, about
 twice as fast as base at the same canvas. `profile=omni`: FastH3 Omni, an 8-step distilled
 Ref2VA checkpoint (FastVideo + Nuva Lab), `mode=r2v` only, 4–12 steps, default 8; not for the
-Director. `profile=fused_turbo`: 4–12 steps,
+Director. `profile=flex`: Pika H3 Flex, official six-step post-trained LoRAs on the real
+weights (FL2VA for t2v/i2v, Ref2VA for r2v); fixed 6 steps and schedule, so `steps` stays 6 and
+`options` cannot set sampler, scheduler, denoise or shifts; no video `control`. About 5–6 min per
+5 s clip at 1344×768 on an RTX 3090. `profile=fused_turbo`: 4–12 steps,
 default 4, experimental and only usable if ready. Do not silently switch profiles
 on failure. More steps are not a quality guarantee. Dense attention does not imply
 Maestro SLA or identical quality. Ratio: 16:9, 9:16 or 1:1; `seconds`: 5–15.
