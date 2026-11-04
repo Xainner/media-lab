@@ -184,7 +184,7 @@ export default defineMessages({
     // Shared confirmation dialog
     'connect.confirm.back': 'Volver',
     'connect.confirm.galleryRemove.title': 'Eliminar archivo',
-    'connect.confirm.galleryRemove.description': 'Esta acción elimina el archivo de tu cuenta. Las referencias históricas pueden perder acceso. Los trabajos activos conservan sus archivos.',
+    'connect.confirm.galleryRemove.description': 'Se borra el archivo y todo lo que solo existía por él: si era el último resultado de su trabajo, también el prompt y los ajustes. No se puede deshacer. Un archivo en uso por un trabajo activo no se borra.',
     'connect.confirm.galleryRemove.yes': 'Eliminar mi archivo',
     'connect.confirm.agentClear.title': 'Una nueva conversación',
     'connect.confirm.agentClear.description': 'El historial permanece guardado. Los trabajos autorizados siguen su curso.',
@@ -195,6 +195,15 @@ export default defineMessages({
     'connect.confirm.loraRemove.title': 'Quitar LoRA',
     'connect.confirm.loraRemove.description': 'Se quita de tu biblioteca y de los personajes que lo usan. Puedes volver a añadirlo con el mismo enlace.',
     'connect.confirm.loraRemove.yes': 'Quitar LoRA',
+    'connect.confirm.jobErase.title': 'Borrar trabajo',
+    'connect.confirm.jobErase.description': 'Se borran todos sus resultados, su prompt y sus ajustes, sin dejar rastro en el estudio. Los archivos que usó como referencia se conservan. No se puede deshacer.',
+    'connect.confirm.jobErase.yes': 'Borrar trabajo',
+    'connect.confirm.sessionErase.title': 'Borrar conversación',
+    'connect.confirm.sessionErase.description': 'Se borran los mensajes, las ejecuciones del agente y todos los trabajos y archivos creados en esta conversación. No se puede deshacer.',
+    'connect.confirm.sessionErase.yes': 'Borrar todo',
+    'connect.confirm.runErase.title': 'Borrar ejecución',
+    'connect.confirm.runErase.description': 'Se borran su registro, los mensajes que añadió y lo que heredaron las ejecuciones posteriores. Los archivos que creó siguen en tu biblioteca. No se puede deshacer.',
+    'connect.confirm.runErase.yes': 'Borrar ejecución',
   },
   en: {
     // MCP connections
@@ -379,7 +388,7 @@ export default defineMessages({
     // Shared confirmation dialog
     'connect.confirm.back': 'Back',
     'connect.confirm.galleryRemove.title': 'Delete file',
-    'connect.confirm.galleryRemove.description': 'This removes the file from your account. Past references may lose access. Active jobs keep their files.',
+    'connect.confirm.galleryRemove.description': 'Deletes the file and everything that only existed for it: if it was the last result of its job, the prompt and settings too. This cannot be undone. A file in use by an active job is not deleted.',
     'connect.confirm.galleryRemove.yes': 'Delete my file',
     'connect.confirm.agentClear.title': 'A new conversation',
     'connect.confirm.agentClear.description': 'Your history stays saved. Authorized jobs keep running.',
@@ -390,5 +399,14 @@ export default defineMessages({
     'connect.confirm.loraRemove.title': 'Remove LoRA',
     'connect.confirm.loraRemove.description': 'It is removed from your library and from the characters that use it. You can add it again with the same link.',
     'connect.confirm.loraRemove.yes': 'Remove LoRA',
+    'connect.confirm.jobErase.title': 'Delete job',
+    'connect.confirm.jobErase.description': 'Deletes all its results, its prompt and its settings, leaving no trace in the studio. Files it used as references are kept. This cannot be undone.',
+    'connect.confirm.jobErase.yes': 'Delete job',
+    'connect.confirm.sessionErase.title': 'Delete conversation',
+    'connect.confirm.sessionErase.description': 'Deletes the messages, the agent runs and every job and file created in this conversation. This cannot be undone.',
+    'connect.confirm.sessionErase.yes': 'Delete everything',
+    'connect.confirm.runErase.title': 'Delete run',
+    'connect.confirm.runErase.description': 'Deletes its log, the messages it added and what later runs inherited from it. The files it created stay in your library. This cannot be undone.',
+    'connect.confirm.runErase.yes': 'Delete run',
   },
 })

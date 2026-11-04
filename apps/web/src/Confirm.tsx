@@ -7,6 +7,9 @@ const copy:Record<string,{title:MessageKey;description:MessageKey;yes:MessageKey
  'agent-clear':{title:'connect.confirm.agentClear.title',description:'connect.confirm.agentClear.description',yes:'connect.confirm.agentClear.yes',tone:'primary'},
  'character-remove':{title:'connect.confirm.characterRemove.title',description:'connect.confirm.characterRemove.description',yes:'connect.confirm.characterRemove.yes',tone:'danger'},
  'lora-remove':{title:'connect.confirm.loraRemove.title',description:'connect.confirm.loraRemove.description',yes:'connect.confirm.loraRemove.yes',tone:'danger'},
+ 'job-erase':{title:'connect.confirm.jobErase.title',description:'connect.confirm.jobErase.description',yes:'connect.confirm.jobErase.yes',tone:'danger'},
+ 'session-erase':{title:'connect.confirm.sessionErase.title',description:'connect.confirm.sessionErase.description',yes:'connect.confirm.sessionErase.yes',tone:'danger'},
+ 'run-erase':{title:'connect.confirm.runErase.title',description:'connect.confirm.runErase.description',yes:'connect.confirm.runErase.yes',tone:'danger'},
 }
 export default function Confirm() {
  const [request,setRequest] = useState<{action:string;resolve:(value:boolean)=>void}|null>(null)

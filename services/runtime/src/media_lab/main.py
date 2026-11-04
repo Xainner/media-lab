@@ -770,7 +770,7 @@ def session(session_id: str):
 
 @app.post("/v1/sessions/{session_id}/messages")
 def add_message(session_id: str, body: SessionMessage):
-    store.add_message(session_id, body.role, body.content, [m.model_dump() for m in body.media])
+    store.add_message(session_id, body.role, body.content, [m.model_dump() for m in body.media], body.run)
     return {"ok": True}
 
 

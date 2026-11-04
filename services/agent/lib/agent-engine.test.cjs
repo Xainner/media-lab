@@ -288,3 +288,53 @@ test('video_upscale sends the known video alias with x2 fast defaults', async t 
   const post = f.requests.find(r => r.route === '/v1/jobs/upscale');
   assert.deepEqual(post.body.video, video); assert.equal(post.body.scale, 2); assert.equal(post.body.quality, 'fast'); assert.ok(post.key);
 });
+
+test('deleting a run removes its file, mirrored messages and what later runs inherited', async t => {
+  let step = 0;
+  const f = fixture(t, { chat: async () => step++ === 0 ? { tool_calls: [call('a', 'image_generate', { prompt: 'secret cat' })] } : { content: 'Listo' } });
+  const first = await f.engine.start({ prompt: 'Dibuja un gato secreto', session: 's' });
+  await settled(f.engine, first.id);
+  const mirrored = f.requests.filter(r => r.route === '/v1/sessions/s/messages');
+  assert.ok(mirrored.length >= 2 && mirrored.every(r => r.body.run === first.id));
+  const second = await f.engine.start({ prompt: 'Otra cosa', session: 's' });
+  await settled(f.engine, second.id);
+  const inherited = f.engine.runs.get(second.id);
+  assert.ok(Object.values(inherited.jobs).some(j => j.runId === first.id));
+  assert.ok(inherited.transcript.some(m => m.content === 'Dibuja un gato secreto'));
+  const result = f.engine.remove({ id: first.id });
+  assert.deepEqual(result.deleted, [first.id]);
+  assert.deepEqual(result.messages.map(m => m.role), ['user', 'tool', 'assistant']);
+  assert.ok(!fs.existsSync(path.join(f.directory, `${first.id}.json`)));
+  assert.throws(() => f.engine.get(first.id), /desconocida/);
+  const kept = JSON.parse(fs.readFileSync(path.join(f.directory, `${second.id}.json`), 'utf8'));
+  assert.ok(!Object.values(kept.jobs).some(j => j.runId === first.id));
+  assert.ok(!JSON.stringify(kept.transcript).includes('gato secreto'));
+  // A restarted engine does not bring it back.
+  assert.equal(new AgentEngine(f.options).get(null, 's').length, 1);
+});
+
+test('a session is deleted whole, never while one of its runs is active', async t => {
+  let release;
+  const gate = new Promise(r => { release = r; });
+  const f = fixture(t, { chat: async () => { await gate; return { content: 'ok' }; } });
+  const run = await f.engine.start({ prompt: 'Hola', session: 'busy' });
+  assert.throws(() => f.engine.remove({ session: 'busy' }), /Ya hay una ejecución/);
+  release(); await settled(f.engine, run.id);
+  assert.deepEqual(f.engine.remove({ session: 'busy' }).deleted, [run.id]);
+  assert.equal(f.engine.get(null, 'busy').length, 0);
+  assert.deepEqual(f.engine.remove({ session: 'empty' }), { deleted: [], messages: [] });
+  assert.throws(() => f.engine.remove({ session: '../x' }), /inválida/);
+});
+
+test('forget drops deleted media and jobs from every run', async t => {
+  let step = 0;
+  const f = fixture(t, { chat: async () => step++ === 0 ? { tool_calls: [call('a', 'image_generate', { prompt: 'secret cat' })] } : { content: 'Listo' } });
+  const run = await f.engine.start({ prompt: 'Crea', session: 's', references: [ref(7)] });
+  await settled(f.engine, run.id);
+  const stored = f.engine.runs.get(run.id), job = Object.values(stored.jobs)[0];
+  f.engine.forget({ uris: [ref(7).uri], jobs: [job.id] });
+  const saved = fs.readFileSync(path.join(f.directory, `${run.id}.json`), 'utf8');
+  assert.ok(!saved.includes(ref(7).uri) || !Object.values(JSON.parse(saved).artifacts).some(r => r.uri === ref(7).uri));
+  assert.ok(!Object.values(JSON.parse(saved).jobs).some(j => j.id === job.id));
+  assert.equal([...f.engine.previewCache.values()].filter(p => p.runId === run.id && !stored.artifacts[p.alias]).length, 0);
+});

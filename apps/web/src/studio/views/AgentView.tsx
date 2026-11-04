@@ -98,12 +98,24 @@ export default function AgentView({ active }: { active: boolean }) {
     session.current = newSession(); localStorage.setItem(sessionKey, session.current)
     setRuns([]); setLegacy([]); setRefs([]); setInput(''); setError('')
   }
+  // Deleting the conversation removes its messages, runs, jobs and files, then opens a new one.
+  async function erase() {
+    if (busy || !await window.visualLab.ui.confirm('session-erase')) return
+    try { await runtime('DELETE', `/v1/sessions/${session.current}`) }
+    catch (e) { if (!/Runtime 404/.test(String(e))) { setError(String(e)); return } } // Nothing was stored yet.
+    session.current = newSession(); localStorage.setItem(sessionKey, session.current)
+    setRuns([]); setLegacy([]); setRefs([]); setInput(''); setError('')
+  }
+  async function eraseRun(id: string) {
+    if (!await window.visualLab.ui.confirm('run-erase')) return
+    try { await window.visualLab.agent.remove(id); setRuns(current => current.filter(r => r.id !== id)) } catch (e) { setError(String(e)) }
+  }
   async function action(kind: 'cancel' | 'continue', id: string, jobId?: string) {
     try { if (kind === 'cancel') await window.visualLab.agent.cancel(id, jobId); else await window.visualLab.agent.continue(id) } catch (e) { setError(String(e)) }
   }
   return <div className="agent">
     <section className="agent-feed glass">
-      <div className="agent-feed-head"><div><p className="eyebrow">{t('agent.chat.eyebrow')}</p><h2>{t('agent.chat.heading')}</h2></div><button className="ghost" disabled={busy} onClick={() => void clear()}>{t('agent.chat.newSession')}</button></div>
+      <div className="agent-feed-head"><div><p className="eyebrow">{t('agent.chat.eyebrow')}</p><h2>{t('agent.chat.heading')}</h2></div><div className="button-row"><button className="ghost" disabled={busy} onClick={() => void clear()}>{t('agent.chat.newSession')}</button><button className="ghost danger" disabled={busy || (!runs.length && !legacy.length)} onClick={() => void erase()}>{t('agent.chat.deleteSession')}</button></div></div>
       {!ready && <div className="proposal"><p>{t('agent.chat.providerMissing')}</p><button onClick={() => {
         setSending(true); void window.visualLab.provider.test().then(() => window.visualLab.provider.get()).then(setProvider).catch(e => setError(String(e))).finally(() => setSending(false))
       }} disabled={sending}>{t('agent.chat.testProvider')}</button></div>}
@@ -133,6 +145,7 @@ export default function AgentView({ active }: { active: boolean }) {
             </div>}
             <div className="button-row">
               {['running', 'recovering'].includes(run.status) && <button className="danger" onClick={() => void action('cancel', run.id)}>{t('agent.chat.cancelRun')}</button>}
+              {!['running', 'recovering'].includes(run.status) && <button className="ghost" onClick={() => void eraseRun(run.id)}>{t('agent.chat.deleteRun')}</button>}
               {['paused', 'failed', 'budget'].includes(run.status) && <button disabled={busy || !ready} onClick={() => void action('continue', run.id)}>{t('agent.chat.continueRun')}</button>}
             </div>
           </div></div>

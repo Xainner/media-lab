@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import mimetypes
 import os
 import secrets
@@ -87,8 +88,15 @@ def create_app(*, state_root: Path | None = None, key_path: Path | None = None,
                origin: str | None = None, attach_runtime: bool = True):
     state = state_root or Path(os.environ["STATE_ROOT"])
     origin = origin or os.getenv("PUBLIC_ORIGIN", "https://media.example.com")
+    # Everything the studio writes (database, media, sidecars) is private to the service user.
+    os.umask(0o077)
+    # httpx logs every ComfyUI poll and file name at INFO; keep only problems.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     vault = Vault(key_path or Path(os.environ["MASTER_KEY_FILE"]))
     accounts = Accounts(state / "media-lab.db", vault)
+    for suffix in ("", "-wal", "-shm"):
+        with suppress(OSError):
+            accounts.path.with_name(accounts.path.name + suffix).chmod(0o600)
     store = TenantStore(accounts.path)
     artifacts = TenantArtifacts(store, state / "artifacts", 20 * 1024 * 1024, 32 * 1024 * 1024)
     mail, providers = Mailbox(accounts, origin), Providers(accounts)
@@ -541,9 +549,47 @@ def create_app(*, state_root: Path | None = None, key_path: Path | None = None,
                 await asyncio.sleep(2)
         return StreamingResponse(events(), media_type="text/event-stream", headers={"X-Accel-Buffering": "no"})
 
+    async def forget_in_agent(removed):
+        """Agent runs keep references and job records; drop them too. Best effort while it is offline."""
+        if not service_key or not (removed["uris"] or removed["jobs"]):
+            return True
+        try:
+            await agent_request(owner(), "POST", "/forget", removed)
+            return True
+        except HTTPException:
+            return False
+
     @app.delete("/v1/library")
-    def delete_media(uri: str, sha256: str):
-        artifacts.delete_media(uri, sha256)
+    async def delete_media(uri: str, sha256: str):
+        removed = await asyncio.to_thread(artifacts.delete_media, uri, sha256)
+        return {"ok": True, "jobs": len(removed["jobs"]), "agent_updated": await forget_in_agent(removed)}
+
+    @app.post("/v1/jobs/{job_id}/erase")
+    async def erase_job(job_id: str):
+        removed = await asyncio.to_thread(artifacts.delete_job, job_id)
+        return {"ok": True, "media": len(removed["uris"]), "agent_updated": await forget_in_agent(removed)}
+
+    @app.delete("/v1/sessions/{session_id}")
+    async def delete_session(session_id: str):
+        if not store.session(session_id):
+            raise NotOwned()
+        if service_key:
+            # The agent refuses while a run of this session is active, before anything is deleted.
+            await agent_request(owner(), "POST", "/delete", {"session": session_id})
+        removed = await asyncio.to_thread(artifacts.delete_session, session_id)
+        return {"ok": True, "media": len(removed["uris"]), "jobs": len(removed["jobs"]),
+                "agent_updated": await forget_in_agent(removed)}
+
+    @app.delete("/v1/agent/runs/{rid}")
+    async def agent_delete(rid: str):
+        own_run(rid)
+        try:
+            deleted = await agent_request(owner(), "POST", "/delete", {"id": rid})
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+            deleted = {}  # The agent no longer has it; still delete what the runtime keeps.
+        store.forget_run(rid, deleted.get("messages") or [])
         return {"ok": True}
 
     @app.get("/v1/loras")

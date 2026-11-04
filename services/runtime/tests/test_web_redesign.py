@@ -170,6 +170,23 @@ def test_erasure_purges_only_target_and_is_idempotent(lab):
     asyncio.run(app.state.admin_ops.tick())
 
 
+def test_erasure_completes_after_mail_was_delivered(lab):
+    app,accounts,artifacts,alice,bob,_=seed_erasure(lab)
+    with accounts.db() as db:
+        email=db.execute('SELECT email FROM users WHERE id=?',(alice,)).fetchone()[0]
+        # Delivered or abandoned mail keeps its row with a blank payload.
+        db.execute("INSERT INTO mail_outbox(id,payload,kind,revision,status,attempts,next_at,lease_until,created_at) "
+                   "VALUES('m1','','invite','0','delivered',1,0,0,?)",(time.time(),))
+        accounts.audit(db,bob,'invite',email)
+    asyncio.run(app.state.admin_ops.tick())
+    with accounts.db() as db:
+        assert db.execute('SELECT status FROM account_deletions WHERE user_id=?',(alice,)).fetchone()[0]=='completed'
+        for table in ('users','jobs','messages','artifacts','sessions'):
+            column='id' if table=='users' else 'owner_id'
+            assert not db.execute(f'SELECT 1 FROM {table} WHERE {column}=?',(alice,)).fetchone(), table
+        assert not db.execute('SELECT 1 FROM admin_audit WHERE target=?',(email,)).fetchone()
+
+
 def test_erasure_drains_admitted_requests_and_blocks_new_sessions(lab):
     app,accounts,artifacts,alice,_,_=seed_erasure(lab)
     accounts.inflight_requests[alice]=1

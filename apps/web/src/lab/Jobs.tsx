@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { LayoutGroup, motion } from 'motion/react'
-import { AudioLines, AudioWaveform, Clapperboard, Film, ImagePlus, Maximize2, Mic, RotateCcw, ScanFace, UserRoundPen, UserRoundX, WandSparkles, X, type LucideIcon } from 'lucide-react'
+import { AudioLines, AudioWaveform, Clapperboard, Film, ImagePlus, Maximize2, Mic, RotateCcw, ScanFace, Trash2, UserRoundPen, UserRoundX, WandSparkles, X, type LucideIcon } from 'lucide-react'
 import { api } from '../bridge'
-import { useMediaSrc } from './live'
+import { LIBRARY_CHANGED, useMediaSrc } from './live'
 import { ratioOf, type Art, type Modality } from './data'
 import { formatDateTime, t, type MessageKey } from '../i18n'
 
@@ -48,6 +48,16 @@ export default function Jobs({ onOpen }: { onOpen: (a: Art) => void }) {
     try { if (resume) await window.visualLab.runtime.request('POST', `/v1/jobs/${j.id}/resume`, {}); else await api('DELETE', `/v1/jobs/${j.id}`); await load() }
     catch (e) { setError(String(e)) } finally { setBusy('') }
   }
+  // Erasing deletes the job's results, prompt and settings; the library drops the results live.
+  const erase = async (j: any) => {
+    if (!await window.visualLab.ui.confirm('job-erase')) return
+    setBusy(j.id); setError('')
+    try {
+      await api('POST', `/v1/jobs/${j.id}/erase`, {})
+      for (const m of j.result?.media || []) window.dispatchEvent(new CustomEvent(LIBRARY_CHANGED, { detail: m.uri }))
+      await load()
+    } catch (e) { setError(String(e)) } finally { setBusy('') }
+  }
   const shown = jobs.filter(j => !filter || (filter === 'active' ? ACTIVE.includes(j.status) : filter === 'failed' ? RESUMABLE.includes(j.status) : j.status === filter))
   const running = jobs.filter(j => ACTIVE.includes(j.status)).length
   return <div className="ml-page">
@@ -80,6 +90,7 @@ export default function Jobs({ onOpen }: { onOpen: (a: Art) => void }) {
             {media.length > 1 && <span className="ml-job-more">+{media.length - 1}</span>}
             {ACTIVE.includes(j.status) && <button type="button" className="ml-btn" disabled={busy === j.id} onClick={() => void act(j, false)}><X size={14} />{t('creations.jobs.cancel')}</button>}
             {RESUMABLE.includes(j.status) && <button type="button" className="ml-btn" disabled={busy === j.id} onClick={() => void act(j, true)}><RotateCcw size={14} />{t('creations.jobs.resume')}</button>}
+            {!ACTIVE.includes(j.status) && <button type="button" className="ml-btn is-danger" disabled={busy === j.id} onClick={() => void erase(j)}><Trash2 size={14} />{t('creations.jobs.delete')}</button>}
           </div>
         </motion.li>
       })}</ol>}

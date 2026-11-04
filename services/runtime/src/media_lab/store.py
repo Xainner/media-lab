@@ -8,6 +8,17 @@ from pathlib import Path
 from typing import Any
 
 
+def flush_deleted(path: Path) -> None:
+    """Write the WAL back and truncate it, so old copies of deleted rows leave the log too."""
+    db = sqlite3.connect(path, timeout=30)
+    try:
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except sqlite3.Error:
+        pass  # A busy reader only delays it; the next checkpoint writes it back.
+    finally:
+        db.close()
+
+
 class IdempotencyConflict(ValueError):
     pass
 
@@ -23,7 +34,12 @@ class Store:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA journal_mode=WAL")
         db.execute("PRAGMA foreign_keys=ON")
+        # Deleted rows are overwritten with zeros instead of lingering in free pages.
+        db.execute("PRAGMA secure_delete=ON")
         return db
+
+    def flush_deleted(self) -> None:
+        flush_deleted(self.path)
 
     def _init(self) -> None:
         with self._db() as db:
@@ -230,7 +246,7 @@ class Store:
                 (row["created_at"],),
             ).fetchone()[0]
 
-    def add_message(self, session_id: str, role: str, content: str, media: list[dict]) -> None:
+    def add_message(self, session_id: str, role: str, content: str, media: list[dict], run: str | None = None) -> None:
         self.ensure_session(session_id, content)
         now = time.time()
         with self._db() as db:

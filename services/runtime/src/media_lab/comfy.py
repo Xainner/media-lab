@@ -35,6 +35,9 @@ class ComfyClient:
     def __init__(self, base_url: str, timeout: int):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        # Working files and prompts of the job running on this worker (one job per GPU at a time).
+        self.job_files: list[dict] = []
+        self.job_prompts: list[str] = []
 
     def health(self) -> dict:
         try:
@@ -69,7 +72,7 @@ class ComfyClient:
             response.raise_for_status()
             data = response.json()
         subfolder = data.get("subfolder") or ""
-        return f"{subfolder}/{data.get('name', filename)}".lstrip("/")
+        return self._uploaded(f"{subfolder}/{data.get('name', filename)}".lstrip("/"))
 
     def upload_audio(self, path: Path, prefix: str) -> str:
         filename = f"{prefix}_{path.name}"
@@ -79,7 +82,55 @@ class ComfyClient:
                 files={"image": (filename, handle, __import__("mimetypes").guess_type(path.name)[0] or "application/octet-stream")})
             response.raise_for_status()
             data = response.json()
-        return f"{data.get('subfolder') or ''}/{data.get('name', filename)}".lstrip("/")
+        return self._uploaded(f"{data.get('subfolder') or ''}/{data.get('name', filename)}".lstrip("/"))
+
+    def _uploaded(self, name: str) -> str:
+        self.job_files.append({"type": "input", "path": name})
+        return name
+
+    def begin_job(self) -> None:
+        self.job_files, self.job_prompts = [], []
+
+    def end_job(self) -> None:
+        """Delete everything the finished job left in ComfyUI: uploads, saved outputs and history.
+
+        The studio already stored its own copy of each result. Best effort: a failure here never
+        fails the job, and the idle sweep removes whatever is left after a day.
+        """
+        files, prompts = self.job_files, self.job_prompts
+        self.begin_job()
+        for prompt_id in prompts:
+            try:
+                files.extend(self._saved_files(self.history(prompt_id)))
+            except Exception:
+                pass
+        try:
+            with httpx.Client(timeout=30) as client:
+                if files:
+                    client.post(f"{self.base_url}/media_lab/cleanup", json={"files": files})
+                if prompts:
+                    client.post(f"{self.base_url}/history", json={"delete": prompts})
+        except Exception:
+            pass
+
+    def sweep(self, older_than: int) -> None:
+        """Delete job leftovers older than older_than seconds (crashed or interrupted jobs)."""
+        try:
+            with httpx.Client(timeout=60) as client:
+                client.post(f"{self.base_url}/media_lab/cleanup", json={"older_than": older_than})
+        except Exception:
+            pass
+
+    @staticmethod
+    def _saved_files(entry: dict) -> list[dict]:
+        found = []
+        for node in (entry.get("outputs") or {}).values():
+            for items in node.values() if isinstance(node, dict) else ():
+                for item in items if isinstance(items, list) else ():
+                    if isinstance(item, dict) and item.get("filename") and item.get("type", "output") in {"output", "temp"}:
+                        found.append({"type": item.get("type", "output"),
+                                      "path": f"{item.get('subfolder') or ''}/{item['filename']}".lstrip("/")})
+        return found
 
     def run(self, workflow: dict, progress: ProgressCallback,
             cancelled: CancelCallback, preview: PreviewCallback | None = None) -> tuple[bytes, dict]:
@@ -147,6 +198,7 @@ class ComfyClient:
                 if response.status_code >= 400:
                     raise ComfyError(f"ComfyUI rejected workflow: {response.text[:1000]}")
                 prompt_id = response.json()["prompt_id"]
+            self.job_prompts.append(prompt_id)
             progress({"pct": 0, "step": 0, "steps": 0, "node": "submitted",
                       "prompt_id": prompt_id})
             if ws is not None:

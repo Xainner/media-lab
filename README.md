@@ -186,7 +186,8 @@ The server ships **55 tools**, English instructions, per-model prompt guides
 | Transform | `upscale_video`, `swap_character`, `refine_faces`, `remove_person`, `separate_stems` |
 | Jobs | `list_jobs`, `get_job`, `wait_for_job` (progress notifications), `get_job_preview`, `find_job`, `cancel_job`, `resume_job` |
 | Files | `create_uploads`, `get_uploads`, `get_download_links`, `get_media`, `inspect_media`, `analyze_audio`, `review_image`, `export_image`, `upload_reference`, `upload_audio`, `upload_video` |
-| Library | `list_library`, `list_gallery`, `list_characters`, `list_loras`, `delete_media` |
+| Library | `list_library`, `list_gallery`, `list_characters`, `list_loras` |
+| Delete (confirm first) | `delete_media`, `delete_job`, `delete_session`, `delete_agent_run` |
 | Agent | `start_agent`, `get_agent_run`, `list_agent_runs`, `cancel_agent`, `continue_agent`, `improve_prompt`, `review_with_agent`, `plan_storyboard` |
 | Conversations & providers | `list_sessions`, `get_session`, `add_message`, `provider_status`, `list_providers`, `discover_models` |
 

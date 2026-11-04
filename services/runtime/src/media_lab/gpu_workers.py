@@ -8,6 +8,9 @@ from concurrent.futures import ThreadPoolExecutor
 from .comfy import ComfyClient, ComfyError
 from .gpu_guard import GpuGuard
 
+# Working files a crashed or interrupted job left in ComfyUI are swept once they are a day old.
+LEFTOVER_SECONDS = 86400
+
 
 class GpuWorkers:
     def __init__(self, settings, store, clients=None, guards=None):
@@ -62,6 +65,7 @@ class GpuWorkers:
     def _execute(self, job_id, gpu, execute):
         with self.locks[gpu]:
             try:
+                self.clients[gpu].begin_job()
                 if self.store.cancel_requested(job_id):
                     return
                 with self.lock:
@@ -86,6 +90,8 @@ class GpuWorkers:
                 self.store.update_job(job_id, status="cancelled" if self.store.cancel_requested(job_id) else "failed",
                                       error=str(exc), completed_at=time.time())
             finally:
+                # The result is stored by now; ComfyUI keeps no copy of the job's inputs or outputs.
+                self.clients[gpu].end_job()
                 with self.lock:
                     self.active.pop(job_id, None)
                     self.assigned.pop(job_id, None)
@@ -125,6 +131,7 @@ class GpuWorkers:
             queue = self.clients[gpu].queue()
             if not (queue.get("queue_running") or queue.get("queue_pending")):
                 self.clients[gpu].free()
+                self.clients[gpu].sweep(LEFTOVER_SECONDS)
         finally:
             self.locks[gpu].release()
 
