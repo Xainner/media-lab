@@ -385,10 +385,36 @@ class TenantArtifacts(ArtifactStore):
     def _has(db, table):
         return bool(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone())
 
-    @staticmethod
-    def _drop_job(db, job_id):
+    def _drop_job(self, db, job_id):
+        job = db.execute("SELECT owner_id,session_id,request_json FROM jobs WHERE id=?", (job_id,)).fetchone()
         db.execute("DELETE FROM idempotency WHERE job_id=?", (job_id,))
         db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+        if job:
+            request = TenantStore._decode(job["request_json"], {})
+            prompt = request.get("prompt") or request.get("title") if isinstance(request, dict) else None
+            self._prune_session(db, job["owner_id"], job["session_id"], prompt)
+
+    def _prune_session(self, db, uid, session_id, prompt):
+        """A session left empty goes too; one whose title is the deleted prompt loses that title."""
+        checks = [("jobs", "session_id"), ("artifacts", "session_id"), ("messages", "session_id"),
+                  ("agent_runs", "session_id")]
+        if self._has(db, "mcp_transfers"):
+            checks.append(("mcp_transfers", "session_id"))
+        if not any(db.execute(f"SELECT 1 FROM {table} WHERE {column}=? AND owner_id=? LIMIT 1",
+                              (session_id, uid)).fetchone() for table, column in checks):
+            db.execute("DELETE FROM sessions WHERE id=? AND owner_id=?", (session_id, uid))
+            try:
+                folder = self._folder(session_id)
+            except ValueError:
+                return
+            for sub in sorted(folder.glob("*"), reverse=True) if folder.is_dir() else ():
+                if sub.is_dir() and not sub.is_symlink() and not any(sub.iterdir()):
+                    sub.rmdir()
+            if folder.is_dir() and not any(folder.iterdir()):
+                folder.rmdir()
+        elif isinstance(prompt, str) and prompt:
+            db.execute("UPDATE sessions SET title='Nueva sesión' WHERE id=? AND owner_id=? AND title=?",
+                       (session_id, uid, prompt[:120]))
 
     def _forget(self, db, uid, uris):
         """Remove every record of these deleted files; returns the jobs deleted with them."""

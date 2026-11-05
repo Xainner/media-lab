@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -31,13 +32,28 @@ class ComfyError(RuntimeError):
     pass
 
 
+# Working files and prompts of the job running on each worker (one job per GPU at a time), keyed by
+# worker URL: the scheduler and the job code may hold different clients for the same worker.
+_WORKER_JOBS: dict[str, dict[str, list]] = {}
+_WORKER_JOBS_LOCK = threading.Lock()
+
+
 class ComfyClient:
     def __init__(self, base_url: str, timeout: int):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        # Working files and prompts of the job running on this worker (one job per GPU at a time).
-        self.job_files: list[dict] = []
-        self.job_prompts: list[str] = []
+
+    def _job(self) -> dict[str, list]:
+        with _WORKER_JOBS_LOCK:
+            return _WORKER_JOBS.setdefault(self.base_url, {"files": [], "prompts": []})
+
+    @property
+    def job_files(self) -> list[dict]:
+        return self._job()["files"]
+
+    @property
+    def job_prompts(self) -> list[str]:
+        return self._job()["prompts"]
 
     def health(self) -> dict:
         try:
@@ -89,7 +105,8 @@ class ComfyClient:
         return name
 
     def begin_job(self) -> None:
-        self.job_files, self.job_prompts = [], []
+        with _WORKER_JOBS_LOCK:
+            _WORKER_JOBS[self.base_url] = {"files": [], "prompts": []}
 
     def end_job(self) -> None:
         """Delete everything the finished job left in ComfyUI: uploads, saved outputs and history.
@@ -97,8 +114,9 @@ class ComfyClient:
         The studio already stored its own copy of each result. Best effort: a failure here never
         fails the job, and the idle sweep removes whatever is left after a day.
         """
-        files, prompts = self.job_files, self.job_prompts
-        self.begin_job()
+        with _WORKER_JOBS_LOCK:
+            job = _WORKER_JOBS.pop(self.base_url, None) or {"files": [], "prompts": []}
+        files, prompts = job["files"], job["prompts"]
         for prompt_id in prompts:
             try:
                 files.extend(self._saved_files(self.history(prompt_id)))

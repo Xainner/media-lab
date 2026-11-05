@@ -34,11 +34,13 @@ def test_end_job_deletes_uploads_outputs_and_history(monkeypatch):
 
     real = httpx.Client
     monkeypatch.setattr(comfy.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    # The scheduler and the job code hold different clients for the same worker.
+    scheduler = ComfyClient("http://comfy", 3600)
     client = ComfyClient("http://comfy", 60)
-    client.begin_job()
+    scheduler.begin_job()
     name = client.upload_audio(Path(__file__), "job_abc12345_voice")
     client.job_prompts.append("p1")
-    client.end_job()
+    scheduler.end_job()
     cleanup = next(body for method, path, body in calls if path == "/media_lab/cleanup")
     assert cleanup["files"] == [{"type": "input", "path": name},
                                 {"type": "output", "path": "media_lab/h3_00001_.mp4"},
@@ -47,6 +49,7 @@ def test_end_job_deletes_uploads_outputs_and_history(monkeypatch):
     # State is reset: a second end_job sends nothing.
     calls.clear()
     client.end_job()
+    scheduler.end_job()
     assert calls == []
 
 

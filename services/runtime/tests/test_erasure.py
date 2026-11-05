@@ -137,3 +137,23 @@ def test_session_delete_endpoint_is_owner_scoped_and_storage_overwrites_deleted_
     assert not (artifacts.root / 'alice_session').exists()
     with store._db() as db:
         assert db.execute('PRAGMA secure_delete').fetchone()[0] == 1
+
+
+def test_erasing_the_only_job_of_a_session_removes_the_session_and_its_prompt_title(lab):
+    _, _, store, artifacts, _, alice, _ = lab
+    with as_owner(alice):
+        store.create_job_once('job_111111111111', 'solo', 'generate', {'prompt': 'a private apple'}, 4)
+        out = artifacts.put_upload('solo', image(), 'image/png')
+        store.update_job('job_111111111111', status='completed', completed_at=time.time(),
+                         result_json={'media': [{'uri': out['uri'], 'sha256': out['sha256']}]})
+        store.create_job_once('job_222222222222', 'pair', 'generate', {'prompt': 'first prompt'}, 4)
+        store.create_job_once('job_333333333333', 'pair', 'generate', {'prompt': 'second prompt'}, 4)
+        for job_id in ('job_111111111111', 'job_222222222222', 'job_333333333333'):
+            store.update_job(job_id, status='completed', completed_at=time.time())
+        assert rows(store, "SELECT title FROM sessions WHERE id='solo'")[0][0] == 'a private apple'
+        artifacts.delete_job('job_111111111111')
+        artifacts.delete_job('job_222222222222')
+    assert not rows(store, "SELECT 1 FROM sessions WHERE id='solo'")
+    assert not (artifacts.root / 'solo').exists()
+    # The other session still has work; it keeps existing without the deleted prompt as its title.
+    assert rows(store, "SELECT title FROM sessions WHERE id='pair'")[0][0] == 'Nueva sesión'
