@@ -42,7 +42,7 @@ interface Window {
   visualLab: {
     platform?: 'web' | 'desktop'
     ui: {
-      confirm(action: 'gallery-remove' | 'agent-clear' | 'character-remove' | 'lora-remove'): Promise<boolean>
+      confirm(action: 'gallery-remove' | 'agent-clear' | 'character-remove' | 'lora-remove' | 'job-erase' | 'session-erase' | 'run-erase'): Promise<boolean>
     }
     runtime: {
       request(method: string, path: string, body?: unknown): Promise<any>
@@ -75,6 +75,7 @@ interface Window {
       get(payload: { id?: string; session?: string }): Promise<any>
       cancel(id: string, jobId?: string): Promise<any>
       continue(id: string): Promise<any>
+      remove(id: string): Promise<any>
       onEvent(callback: (run: any) => void): () => void
       review(payload: { prompt: string; media: ArtifactRef }): Promise<{ verdict: string; suggestedPrompt: string | null; alpha: any }>
       directorPlan(payload: { brief: string; lyrics: string; analysis: any }): Promise<{ scenes: any[]; outbound: any }>

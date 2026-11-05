@@ -72,6 +72,9 @@ class TenantStore(Store):
                     created_at REAL NOT NULL,updated_at REAL NOT NULL,UNIQUE(owner_id,handle)
                 );
             """)
+            # Messages the agent mirrors name their run, so deleting the run deletes them too.
+            if "run_id" not in {r[1] for r in db.execute("PRAGMA table_info(messages)")}:
+                db.execute("ALTER TABLE messages ADD COLUMN run_id TEXT")
         super()._init()
 
     @staticmethod
@@ -169,14 +172,32 @@ class TenantStore(Store):
     def lookup_idempotency(self, scope, key):
         return super().lookup_idempotency(f"{owner()}:{scope}", key)
 
-    def add_message(self, session_id, role, content, media):
+    def add_message(self, session_id, role, content, media, run=None):
         uid = owner()
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             self._ensure(db, session_id, uid, content)
             self._check_refs(db, media, uid)
-            db.execute("INSERT INTO messages(owner_id,session_id,role,content,media_json,created_at) VALUES(?,?,?,?,?,?)",
-                       (uid, session_id, role, content, self._json(media), time.time()))
+            db.execute("INSERT INTO messages(owner_id,session_id,role,content,media_json,created_at,run_id) VALUES(?,?,?,?,?,?,?)",
+                       (uid, session_id, role, content, self._json(media), time.time(), run))
+
+    def forget_run(self, run_id, mirrored=()):
+        """Delete an agent run's record and the messages it mirrored into its session.
+
+        Messages mirrored before run_id existed are matched by role and exact content.
+        """
+        uid = owner()
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT session_id FROM agent_runs WHERE id=? AND owner_id=?", (run_id, uid)).fetchone()
+            if not row:
+                raise NotOwned("resource not found")
+            db.execute("DELETE FROM messages WHERE owner_id=? AND run_id=?", (uid, run_id))
+            for message in mirrored:
+                db.execute("DELETE FROM messages WHERE owner_id=? AND session_id=? AND run_id IS NULL AND role=? AND content=?",
+                           (uid, row[0], str(message.get("role", "")), str(message.get("content", ""))))
+            db.execute("DELETE FROM agent_runs WHERE id=? AND owner_id=?", (run_id, uid))
+        self.flush_deleted()
 
     def list_sessions(self, limit=100):
         with self._db() as db:
@@ -235,6 +256,8 @@ def secrets_equal(left, right):
 
 
 class TenantArtifacts(ArtifactStore):
+    KINDS = {"images", "references", "sources", "songs", "videos", "productions"}
+
     def __init__(self, store, *args):
         self.store = store
         super().__init__(*args)
@@ -275,17 +298,169 @@ class TenantArtifacts(ArtifactStore):
     def delete_image(self, uri, sha256):
         return self.delete_media(uri, sha256)
 
+    # Deleting is complete: the file, its registry row and every record that only existed for it
+    # (the job with its prompt once its last output is gone, transfer links, attachments in
+    # messages and character references). Each returns {"uris", "jobs"} so the agent can forget
+    # them too. Files are removed inside the transaction; a file never outlives its registry row.
+
     def delete_media(self, uri, sha256):
         row = self.store.artifact(uri, sha256)
-        path = self.resolve(uri, sha256)
+        uid = owner()
         with self.store._db() as db:
             db.execute("BEGIN IMMEDIATE")
-            active = db.execute("SELECT request_json,result_json FROM jobs WHERE status IN ('queued','running') AND owner_id=?", (owner(),)).fetchall()
-            if any(uri in (job["request_json"] + (job["result_json"] or "")) for job in active):
-                raise ResourceLimit("El archivo está en uso por un trabajo activo")
-            # Commit after filesystem removal; never expose a file outside its registry.
-            path.unlink()
-            path.with_name(path.name + ".json").unlink(missing_ok=True)
-            db.execute("DELETE FROM artifacts WHERE uri=? AND owner_id=?", (row["uri"], owner()))
+            self._refuse_in_use(db, uid, {row["uri"]})
+            self._unlink(row["uri"])
+            jobs = self._forget(db, uid, {row["uri"]})
+        self.store.flush_deleted()
+        return {"uris": [row["uri"]], "jobs": jobs}
+
+    def delete_job(self, job_id):
+        uid = owner()
+        with self.store._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            job = db.execute("SELECT status,result_json FROM jobs WHERE id=? AND owner_id=?", (job_id, uid)).fetchone()
+            if not job:
+                raise NotOwned("resource not found")
+            if job["status"] in {"queued", "running"}:
+                raise ResourceLimit("Cancela el trabajo antes de borrarlo")
+            outputs = self._live(db, uid, self._outputs(job["result_json"]))
+            self._refuse_in_use(db, uid, outputs)
+            for uri in outputs:
+                self._unlink(uri)
+            jobs = self._forget(db, uid, outputs)
+            if job_id not in jobs:
+                self._drop_job(db, job_id)
+                jobs.append(job_id)
+        self.store.flush_deleted()
+        return {"uris": sorted(outputs), "jobs": jobs}
+
+    def delete_session(self, session_id):
+        uid = owner()
+        with self.store._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if not db.execute("SELECT 1 FROM sessions WHERE id=? AND owner_id=?", (session_id, uid)).fetchone():
+                raise NotOwned("resource not found")
+            if db.execute("SELECT 1 FROM jobs WHERE session_id=? AND owner_id=? AND status IN ('queued','running')",
+                          (session_id, uid)).fetchone():
+                raise ResourceLimit("La sesión tiene trabajos activos")
+            uris = {r[0] for r in db.execute("SELECT uri FROM artifacts WHERE session_id=? AND owner_id=?", (session_id, uid))}
+            self._refuse_in_use(db, uid, uris)
+            folder = self._folder(session_id)
+            if folder.exists():
+                shutil.rmtree(folder)
+            jobs = self._forget(db, uid, uris)
+            for (job_id,) in db.execute("SELECT id FROM jobs WHERE session_id=? AND owner_id=?", (session_id, uid)).fetchall():
+                self._drop_job(db, job_id)
+                jobs.append(job_id)
+            db.execute("DELETE FROM agent_runs WHERE session_id=? AND owner_id=?", (session_id, uid))
+            if self._has(db, "mcp_transfers"):
+                db.execute("DELETE FROM mcp_transfers WHERE session_id=? AND owner_id=?", (session_id, uid))
+            db.execute("DELETE FROM messages WHERE session_id=? AND owner_id=?", (session_id, uid))
+            db.execute("DELETE FROM sessions WHERE id=? AND owner_id=?", (session_id, uid))
+        self.store.flush_deleted()
+        return {"uris": sorted(uris), "jobs": jobs}
+
+    @staticmethod
+    def _refuse_in_use(db, uid, uris):
+        active = db.execute("SELECT request_json,result_json FROM jobs WHERE status IN ('queued','running') AND owner_id=?", (uid,)).fetchall()
+        if any(uri in job["request_json"] + (job["result_json"] or "") for job in active for uri in uris):
+            raise ResourceLimit("El archivo está en uso por un trabajo activo")
+
+    @staticmethod
+    def _outputs(result_json):
+        """URIs a job produced: its result media, not the inputs its provenance mentions."""
+        result = TenantStore._decode(result_json, {})
+        media = result.get("media") if isinstance(result, dict) else None
+        return {m["uri"] for m in media or [] if isinstance(m, dict) and isinstance(m.get("uri"), str)}
+
+    @staticmethod
+    def _live(db, uid, uris):
+        uris = list(uris)
+        if not uris:
+            return set()
+        marks = ",".join("?" * len(uris))
+        return {r[0] for r in db.execute(f"SELECT uri FROM artifacts WHERE owner_id=? AND uri IN ({marks})", (uid, *uris))}
+
+    @staticmethod
+    def _has(db, table):
+        return bool(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone())
+
+    def _drop_job(self, db, job_id):
+        job = db.execute("SELECT owner_id,session_id,request_json FROM jobs WHERE id=?", (job_id,)).fetchone()
+        db.execute("DELETE FROM idempotency WHERE job_id=?", (job_id,))
+        db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+        if job:
+            request = TenantStore._decode(job["request_json"], {})
+            prompt = request.get("prompt") or request.get("title") if isinstance(request, dict) else None
+            self._prune_session(db, job["owner_id"], job["session_id"], prompt)
+
+    def _prune_session(self, db, uid, session_id, prompt):
+        """A session left empty goes too; one whose title is the deleted prompt loses that title."""
+        checks = [("jobs", "session_id"), ("artifacts", "session_id"), ("messages", "session_id"),
+                  ("agent_runs", "session_id")]
+        if self._has(db, "mcp_transfers"):
+            checks.append(("mcp_transfers", "session_id"))
+        if not any(db.execute(f"SELECT 1 FROM {table} WHERE {column}=? AND owner_id=? LIMIT 1",
+                              (session_id, uid)).fetchone() for table, column in checks):
+            db.execute("DELETE FROM sessions WHERE id=? AND owner_id=?", (session_id, uid))
+            try:
+                folder = self._folder(session_id)
+            except ValueError:
+                return
+            for sub in sorted(folder.glob("*"), reverse=True) if folder.is_dir() else ():
+                if sub.is_dir() and not sub.is_symlink() and not any(sub.iterdir()):
+                    sub.rmdir()
+            if folder.is_dir() and not any(folder.iterdir()):
+                folder.rmdir()
+        elif isinstance(prompt, str) and prompt:
+            db.execute("UPDATE sessions SET title='Nueva sesión' WHERE id=? AND owner_id=? AND title=?",
+                       (session_id, uid, prompt[:120]))
+
+    def _forget(self, db, uid, uris):
+        """Remove every record of these deleted files; returns the jobs deleted with them."""
+        if not uris:
+            return []
+        marks = ",".join("?" * len(uris))
+        db.execute(f"DELETE FROM artifacts WHERE owner_id=? AND uri IN ({marks})", (uid, *uris))
+        if self._has(db, "mcp_transfers"):
+            db.execute(f"DELETE FROM mcp_transfers WHERE owner_id=? AND uri IN ({marks})", (uid, *uris))
+        gone = []
+        for job in db.execute("SELECT id,result_json FROM jobs WHERE owner_id=? AND status NOT IN ('queued','running')",
+                              (uid,)).fetchall():
+            outputs = self._outputs(job["result_json"])
+            if not outputs & uris:
+                continue
+            if self._live(db, uid, outputs - uris):
+                # Other outputs remain and the prompt is theirs too; only this one is dropped.
+                result = TenantStore._decode(job["result_json"], {})
+                result["media"] = [m for m in result["media"] if not (isinstance(m, dict) and m.get("uri") in uris)]
+                db.execute("UPDATE jobs SET result_json=? WHERE id=?", (TenantStore._json(result), job["id"]))
+            else:
+                self._drop_job(db, job["id"])
+                gone.append(job["id"])
+        for table, column in (("messages", "media_json"), ("characters", "references_json")):
+            for row in db.execute(f"SELECT rowid,{column} FROM {table} WHERE owner_id=?", (uid,)).fetchall():
+                refs = TenantStore._decode(row[1], [])
+                kept = [r for r in refs if not (isinstance(r, dict) and r.get("uri") in uris)] if isinstance(refs, list) else refs
+                if kept != refs:
+                    db.execute(f"UPDATE {table} SET {column}=? WHERE rowid=?", (TenantStore._json(kept), row[0]))
+        return gone
+
+    def _folder(self, session_id):
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", session_id):
+            raise ValueError("invalid session id")
+        root = self.root.resolve()
+        folder = root / session_id
+        if folder.resolve() != folder or root not in folder.parents:
+            raise ValueError("Unsafe artifact directory")
+        return folder
+
+    def _unlink(self, uri):
+        parts = uri.removeprefix("artifact://").split("/")
+        if not uri.startswith("artifact://") or len(parts) != 3 or parts[1] not in self.KINDS or Path(parts[2]).name != parts[2]:
+            raise ValueError("invalid artifact uri")
+        path = self._folder(parts[0]) / parts[1] / parts[2]
+        path.unlink(missing_ok=True)
+        path.with_name(path.name + ".json").unlink(missing_ok=True)
 
 

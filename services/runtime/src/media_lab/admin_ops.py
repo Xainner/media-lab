@@ -12,6 +12,7 @@ from fastapi import HTTPException, Request
 from pydantic import Field
 
 from .security import as_owner, owner, password_matches
+from .store import flush_deleted
 from .tenancy import NotOwned
 from .web_auth import Strict
 
@@ -230,9 +231,13 @@ class AdminOperations:
         with self.accounts.db() as db:
             db.execute('BEGIN IMMEDIATE')
             for item in db.execute('SELECT id,payload FROM mail_outbox').fetchall():
+                # Delivered and abandoned mail is blanked; there is nothing left to read or match.
+                if not item['payload']:
+                    continue
                 data = json.loads(self.accounts.vault.open(item['payload'], f"mail:{item['id']}"))
                 if data.get('recipient') == user['email']:
                     db.execute('DELETE FROM mail_outbox WHERE id=?', (item['id'],))
+            db.execute("UPDATE admin_audit SET target='deleted-account' WHERE target=?", (user['email'],))
             db.execute('DELETE FROM invitation_records WHERE email=?', (user['email'],))
             db.execute('DELETE FROM account_links WHERE user_id=? OR email=?', (uid, user['email']))
             db.execute('DELETE FROM idempotency WHERE job_id IN (SELECT id FROM jobs WHERE owner_id=?)', (uid,))
@@ -250,3 +255,4 @@ class AdminOperations:
         library = getattr(self.app.state, 'loras', None)
         for sha in loras if library else ():
             library._collect(sha)
+        flush_deleted(self.accounts.path)

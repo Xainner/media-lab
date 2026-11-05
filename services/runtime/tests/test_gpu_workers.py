@@ -40,6 +40,17 @@ class FakeComfy:
         self.uploaded = []
         self.error = False
         self.external = False
+        self.jobs_cleaned = 0
+        self.swept = []
+
+    def begin_job(self):
+        pass
+
+    def end_job(self):
+        self.jobs_cleaned += 1
+
+    def sweep(self, older_than):
+        self.swept.append(older_than)
 
     def health(self):
         return {"ok": self.online}
@@ -199,6 +210,8 @@ def test_error_releases_worker_and_next_job_succeeds(lab):
     workers.shutdown()
     workers.free_idle(0)
     assert clients[0].freed == 1
+    # Failed or successful, every job's ComfyUI working files are deleted; idle sweeps leftovers.
+    assert clients[0].jobs_cleaned == 2 and clients[0].swept == [86400]
 
 
 def test_cancelling_wait_for_external_graph_does_not_interrupt_it(lab):

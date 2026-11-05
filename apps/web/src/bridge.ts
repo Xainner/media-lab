@@ -211,6 +211,7 @@ window.visualLab = {
     get: payload => api('GET', payload.id ? `/v1/agent/runs/${encodeURIComponent(payload.id)}` : `/v1/agent/runs?session=${encodeURIComponent(payload.session || '')}`),
     cancel: (id, jobId) => api('POST', `/v1/agent/runs/${encodeURIComponent(id)}/cancel`, { ...(jobId ? { jobId } : {}) }),
     continue: id => api('POST', `/v1/agent/runs/${encodeURIComponent(id)}/continue`, {}),
+    remove: id => api('DELETE', `/v1/agent/runs/${encodeURIComponent(id)}`),
     onEvent: callback => { const stream = new EventSource('/v1/agent/events'); streams.add(stream)
       stream.onmessage = e => { for (const run of JSON.parse(e.data)) callback(run) }
       stream.onerror = () => { void api('GET', '/v1/auth/session').then(current => {

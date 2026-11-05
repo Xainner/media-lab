@@ -221,6 +221,8 @@ class SessionMessage(BaseModel):
     role: Literal["user", "assistant", "tool"]
     content: str = Field(max_length=100_000)
     media: list[ArtifactRef] = Field(default_factory=list, max_length=100)
+    # Set by the studio agent so deleting the run also deletes the messages it mirrored.
+    run: str | None = Field(default=None, pattern=r"^run_[a-f0-9]{24}$")
 
 
 H3Profile = Literal["base", "fused_turbo", "turbo", "omni", "flex"]

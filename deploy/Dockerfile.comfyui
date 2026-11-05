@@ -57,9 +57,11 @@ RUN pip freeze > /tmp/base-constraints.txt \
     && PYTHONPATH=/opt/qwen-tts python -c "import transformers, qwen_tts; assert transformers.__version__ == '4.57.3'"
 
 # In-house Media Lab nodes: only torch/torchaudio from the base image (plus qwen-tts above). Weights
-# live in models/stems and models/tts.
+# live in models/stems and models/tts. media_lab_cleanup only adds the route that deletes a job's
+# working files.
 COPY services/comfyui-nodes/media_lab_stems ComfyUI/custom_nodes/media_lab_stems
 COPY services/comfyui-nodes/media_lab_tts ComfyUI/custom_nodes/media_lab_tts
+COPY services/comfyui-nodes/media_lab_cleanup ComfyUI/custom_nodes/media_lab_cleanup
 
 WORKDIR /workspace/ComfyUI
 EXPOSE 8188

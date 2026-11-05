@@ -211,12 +211,60 @@ class AgentEngine {
   async mirror(run, token, role, content, media = []) {
     if (run.mirrored.includes(token)) return;
     try {
-      await this.runtime('POST', `/v1/sessions/${run.session}/messages`, { role, content: this.redact(content).slice(0, 100000), media: media.map(r => ({ uri: r.uri, sha256: r.sha256 })) });
+      await this.runtime('POST', `/v1/sessions/${run.session}/messages`, { role, content: this.redact(content).slice(0, 100000), media: media.map(r => ({ uri: r.uri, sha256: r.sha256 })), run: run.id });
       run.mirrored.push(token); this.save(run);
     } catch { /* Local structured record remains authoritative while Saturno is offline. */ }
   }
   async recover() {
     for (const run of this.runs.values()) if (run.status === 'recovering') this.drive(run);
+  }
+  // Delete one run, or every run of a session, for good: the file, its previews, and what later
+  // runs of the same session copied from it (its jobs with their prompts, and its request and
+  // answer in their transcripts). Returns the messages it mirrored so the runtime deletes them.
+  remove({ id, session } = {}) {
+    if (!id && !/^[A-Za-z0-9_-]{1,80}$/.test(session || '')) throw new Error('Solicitud o sesión inválida.');
+    const targets = [...this.runs.values()].filter(r => id ? r.id === id : r.session === session);
+    if (id && !targets.length) throw new Error('Ejecución desconocida.');
+    const sessions = new Set(id ? targets.map(r => r.session) : [session]);
+    if ([...sessions].some(s => this.startingSessions.has(s))
+        || [...this.runs.values()].some(r => sessions.has(r.session) && (ACTIVE.has(r.status) || this.executing.has(r.id))))
+      throw new Error('Ya hay una ejecución en esta sesión.');
+    const removed = new Set(targets.map(r => r.id)), messages = targets.flatMap(r => this.mirroredMessages(r));
+    const texts = new Set(targets.flatMap(r => [r.request, r.final].filter(Boolean)));
+    for (const run of targets) {
+      fs.rmSync(path.join(this.directory, `${run.id}.json`), { force: true });
+      this.runs.delete(run.id);
+      for (const [key, item] of this.previewCache) if (item.runId === run.id) this.previewCache.delete(key);
+    }
+    for (const run of this.runs.values()) {
+      if (!sessions.has(run.session)) continue;
+      let changed = false;
+      for (const [key, job] of Object.entries(run.jobs)) if (removed.has(job.runId)) { delete run.jobs[key]; changed = true; }
+      const transcript = run.transcript.filter(m => !(['user', 'assistant'].includes(m.role) && texts.has(m.content)));
+      if (transcript.length !== run.transcript.length) { run.transcript = transcript; changed = true; }
+      if (changed) this.save(run);
+    }
+    return { deleted: [...removed], messages };
+  }
+  mirroredMessages(run) {
+    const text = content => this.redact(String(content)).slice(0, 100000), out = [];
+    if (run.mirrored.includes('request')) out.push({ role: 'user', content: text(run.request) });
+    for (const turn of run.turns) if (run.mirrored.includes(turn.id)) out.push({ role: 'tool', content: text(`${turn.tool}: ${JSON.stringify(turn.result)}`) });
+    if (run.mirrored.includes('final')) out.push({ role: 'assistant', content: text(run.final) });
+    return out;
+  }
+  // Media and jobs deleted in the studio leave no reference, label or prompt behind in any run.
+  forget({ uris = [], jobs = [] } = {}) {
+    if (!Array.isArray(uris) || !Array.isArray(jobs)) throw new Error('Solicitud inválida');
+    const gone = new Set(uris), dropped = new Set(jobs);
+    for (const run of this.runs.values()) {
+      let changed = false;
+      for (const [alias, ref] of Object.entries(run.artifacts)) if (gone.has(ref.uri)) { delete run.artifacts[alias]; changed = true; }
+      for (const [key, job] of Object.entries(run.jobs)) if (dropped.has(job.id)) { delete run.jobs[key]; changed = true; }
+      if (changed) this.save(run);
+    }
+    for (const [key, item] of this.previewCache) if (!this.runs.get(item.runId)?.artifacts[item.alias]) this.previewCache.delete(key);
+    return { ok: true };
   }
   async continue(id) {
     const run = this.runs.get(id);

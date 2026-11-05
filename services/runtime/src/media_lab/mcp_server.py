@@ -144,7 +144,10 @@ OPERATIONS = [
     ('improve_prompt', 'POST', '/v1/agent/improve', 'agent', 'Propose a model-ready English prompt (Qwen image/edit, MOSS caption, H3 or Kandinsky video, or YuE2/ACE-Step style plus lyrics) with the active provider using the studio guides, preserving intent and literal text; no generation.'),
     ('review_with_agent', 'POST', '/v1/agent/review', 'agent', 'Review an owned image with the external provider; verified vision required.'),
     ('plan_storyboard', 'POST', '/v1/agent/director', 'agent', 'Plan scenes with English model prompts from brief, literal lyrics and technical audio analysis; does not generate.'),
-    ('delete_media', 'DELETE', '/v1/library', 'delete', 'Permanently delete an owned media file; obtain user confirmation first.'),
+    ('delete_media', 'DELETE', '/v1/library', 'delete', 'Permanently delete an owned media file and every record that only existed for it (its job, prompt and settings once no other output of that job remains, transfer links, attachments); obtain user confirmation first.'),
+    ('delete_job', 'POST', '/v1/jobs/{job_id}/erase', 'delete', 'Permanently delete a finished owned job: all its outputs, its prompt and settings, and every record of them; cancel active jobs first. Obtain user confirmation first.'),
+    ('delete_session', 'DELETE', '/v1/sessions/{session_id}', 'delete', 'Permanently delete an owned conversation with all its media, jobs, prompts, messages and agent runs; refused while it has active work. Obtain user confirmation first.'),
+    ('delete_agent_run', 'DELETE', '/v1/agent/runs/{rid}', 'delete', 'Permanently delete an owned, finished agent run: its log, the messages it added to the conversation and what later runs inherited from it (its media stays in the library). Obtain user confirmation first.'),
 ]
 
 

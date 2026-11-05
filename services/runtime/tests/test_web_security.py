@@ -351,6 +351,9 @@ def test_limited_user_waits_without_holding_second_gpu(lab):
         def queue(self): return {"queue_running": [], "queue_pending": []}
         def free(self): pass
         def interrupt(self): pass
+        def begin_job(self): pass
+        def end_job(self): pass
+        def sweep(self, older_than): pass
     class Guard:
         def status(self): return {"available": True}
     settings = replace(SETTINGS, idle_unload_seconds=120)

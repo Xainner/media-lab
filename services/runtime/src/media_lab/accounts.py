@@ -82,6 +82,8 @@ class Accounts:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
         db.execute("PRAGMA journal_mode=WAL")
+        # Deleted rows are overwritten with zeros instead of lingering in free pages.
+        db.execute("PRAGMA secure_delete=ON")
         return db
 
     @staticmethod

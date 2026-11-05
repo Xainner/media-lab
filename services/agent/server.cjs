@@ -159,6 +159,8 @@ const server = http.createServer(async (request, response) => {
     else if (request.method === 'POST' && url.pathname === '/start') value = await e.start(body);
     else if (request.method === 'POST' && url.pathname === '/cancel') value = await e.cancel(body.id, body.jobId);
     else if (request.method === 'POST' && url.pathname === '/continue') value = await e.continue(body.id);
+    else if (request.method === 'POST' && url.pathname === '/delete') value = e.remove({ id: body.id, session: body.session });
+    else if (request.method === 'POST' && url.pathname === '/forget') value = e.forget(body);
     else if (request.method === 'POST' && url.pathname === '/disable') {
       for (const r of e.runs.values()) { r.cancelled = true; r.status = 'cancelled'; e.save(r); }
       value = { ok: true };
@@ -191,7 +193,8 @@ const server = http.createServer(async (request, response) => {
     else { response.writeHead(404); return response.end('{"error":"not found"}'); }
     response.end(JSON.stringify(value));
   } catch (error) {
-    const status = error.message === 'Idempotency-Key conflict' ? 409 : error.message === 'Ejecución desconocida.' ? 404 : 400;
+    const status = ['Idempotency-Key conflict', 'Ya hay una ejecución en esta sesión.'].includes(error.message) ? 409
+      : error.message === 'Ejecución desconocida.' ? 404 : 400;
     response.writeHead(status); response.end(JSON.stringify({ error: publicError(error) }));
   } finally {
     if (counted) { const count = (inflight.get(uid) || 1) - 1; if (count) inflight.set(uid, count); else inflight.delete(uid); }
