@@ -307,6 +307,7 @@ for scene clips do not alter the final MP4 preview or original-audio MKV master.
 | `codec` | "h264" | `h264`, `av1` | Codec |
 | `bit_depth` | 8 | `8`, `10` | Color bit depth · SDR output. 8-bit or 10-bit encoding. The model generates SDR; this does not turn the result into HDR. |
 | `crf` | Preset / automatic | 0–63 | Compression quality · CRF. Lower CRF retains more detail and increases file size. H.264: 0–51; AV1: 0–63. Unset: automatic. |
+| `attention` | "dense" | `dense`, `sparse` | Atención. sparse: atención dispersa para renderizar más rápido (VSA en FastH3 Omni, sol-attn en el resto). |
 
 #### `song` options
 

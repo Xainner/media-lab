@@ -307,7 +307,7 @@ r2v only (same six-section Ref2VA prompt), euler / simple, shifts 12 / 3, int8 v
 | Steps | 8–40, default 20 | 4–12, default 4 (where the merge is tuned) |
 | Sampling | res_multistep; beta schedule for r2v, simple otherwise; checkpoint sigma shifts | res_multistep / simple, shifts video 12 / audio 3, no CFG |
 | Best for | Final renders, maximum reference/identity fidelity (true Ref2VA weights), stylised looks | Drafts, fast iteration, many Director scenes, smooth motion |
-| Caveats | Slower: 20 default steps versus 4, so roughly several times the sampling time | Dense attention here (no SLA): soundtrack softer/duller; Mystic can nudge flat 2D styles toward smoother shading; r2v uses the approximated delta |
+| Caveats | Slower: 20 default steps versus 4, so roughly several times the sampling time | Dense attention by default (no SLA): soundtrack softer/duller; Mystic can nudge flat 2D styles toward smoother shading; r2v uses the approximated delta |
 - Fused steps: 4 is the recommended setting. 8 or 12 only sharpen the drawing slightly, take
   longer and do not change the soundtrack or the take; they never turn Fused into Base.
 - Base steps: 20 is the studio default; fewer steps (8–16) are drafts, more (30–40) can help
@@ -323,6 +323,11 @@ r2v only (same six-section Ref2VA prompt), euler / simple, shifts 12 / 3, int8 v
   the Pika schedule (lcm, fixed sigmas, CFG 1). Same prompt formats as Base. Steps stay 6 and the
   sampling options are refused; no video control. Observed here (RTX 3090, 5 s at 1344×768):
   about 5–6 min per clip, with sharp frames and identity kept from the first frame or references.
+- `options.attention="sparse"`: ComfyUI block-sparse attention to render faster: VSA at 10 % for
+  FastH3 Omni (the pattern it was trained with), training-free sol-attn for the other profiles.
+  The default is dense; use sparse only when the user asks for it. Observed here (RTX 3090, 720p,
+  5 s, same seed): sampling about 2.3× faster on Fused Turbo and 1.6× on FastH3 Omni, with the same
+  composition as dense. Base, Turbo and Flex are not measured: do not promise a speed-up there.
 
 ### 2. Duration
 Output length snaps to the model's 17n+5 frame grid; the clip can differ slightly from the
@@ -1234,6 +1239,7 @@ for scene clips do not alter the final MP4 preview or original-audio MKV master.
 | `codec` | "h264" | `h264`, `av1` | Codec |
 | `bit_depth` | 8 | `8`, `10` | Color bit depth · SDR output. 8-bit or 10-bit encoding. The model generates SDR; this does not turn the result into HDR. |
 | `crf` | Preset / automatic | 0–63 | Compression quality · CRF. Lower CRF retains more detail and increases file size. H.264: 0–51; AV1: 0–63. Unset: automatic. |
+| `attention` | "dense" | `dense`, `sparse` | Atención. sparse: atención dispersa para renderizar más rápido (VSA en FastH3 Omni, sol-attn en el resto). |
 
 #### `song` options
 

@@ -84,6 +84,11 @@ class ModelRequest(BaseModel):
                 continue
             if name in data and (data[name] is None or data[name] == [] or data[name] is False):
                 data.pop(name)
+        # H3 options gained attention later; its default stays implicit for the same reason.
+        for name in ('options', 'video_options'):
+            if isinstance(data.get(name), dict):
+                if data[name].get('attention') == 'dense':
+                    data[name].pop('attention')
         # Base is the pre-Turbo default: omit it so older idempotency fingerprints still match.
         for name in ('model_variant', 'keyframe_variant'):
             if data.get(name) == 'base':

@@ -164,7 +164,7 @@ def capabilities():
                   "control": {"model": "MiniMax-H3 Fun ControlNet-Union 2.0", "profiles": ["base", "turbo"],
                               "modes": {mode: h3_control_ready(SETTINGS.model_root, mode) for mode in VIDEO_CONTROL_MODES},
                               "seconds": list(VIDEO_CONTROL_SECONDS), "keeps_audio": True},
-                  "default_profile": "base", "profiles": profiles},
+                  "default_profile": "base", "profiles": profiles, "attention": ["dense", "sparse"]},
         "music": {"model": "YuE2-3B", "modes": ["direct", "full", "melody", "cover"],
                   "ready": (SETTINGS.model_root / "checkpoints" / YUE2).is_file(),
                   "cover_ready": (SETTINGS.model_root / "audio_encoders" / SHEETSAGE).is_file(),

@@ -400,6 +400,7 @@ class CreativeJobs:
         loras = resolve_loras(self.store, body.loras, "h3")
         chain_loras(graph, "unet", loras)
         container = body.options.container if body.options else "mp4"
+        attention = body.options.attention if body.options else "dense"
         with work:
             raw, backend = self._run(job_id, gpu, graph, "videos")
             if body.control:
@@ -408,7 +409,7 @@ class CreativeJobs:
             {"model": {"fused_turbo": "MiniMax-H3 Fused Turbo", "turbo": "MiniMax-H3 Turbo", "omni": "FastH3 Omni", "flex": "Pika H3 Flex"}.get(body.profile, "MiniMax-H3"),
              "profile": body.profile, "steps": body.steps, "width": width, "height": height,
              "options": body.options.values() if body.options else {},
-             "attention": "dense", "workflow": f"h3_{body.profile}_control_v1" if body.control else f"h3_{body.profile}_v1",
+             "attention": attention, "workflow": f"h3_{body.profile}_control_v1" if body.control else f"h3_{body.profile}_v1",
              **({"control": body.control.model_dump(), "control_patch": H3_CONTROL_PATCH} if body.control else {}),
              **({"lora": H3_TURBO_REF_LORA if body.mode == "r2v" else H3_TURBO_FL_LORA,
                  "video_vae": H3_FUSED_VIDEO_VAE} if body.profile == "turbo" else {}),
@@ -422,7 +423,7 @@ class CreativeJobs:
              "prompt": body.prompt, "mode": body.mode,
              "seed": seed, "backend": backend, "gpu": gpu})
         return {"media": [media], "data": {"seed": seed, "gpu": gpu, "mode": body.mode,
-                                          "profile": body.profile, "steps": body.steps, "attention": "dense",
+                                          "profile": body.profile, "steps": body.steps, "attention": attention,
                                           "output": media_probe(self.artifacts.resolve(media["uri"]))}}
 
     def _kandinsky6(self, job_id: str, session: str, gpu: int, body: VideoRequest) -> dict:

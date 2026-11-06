@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AtSign, AudioWaveform, Camera, Check, ChevronRight, Clock3, Film, Gauge, Globe, Layers, Loader2, Mic, Minus, Move3d, Music2, Monitor, Paperclip, Plus, RectangleHorizontal, ScanSearch, ShieldCheck, Sparkles, SwatchBook, UserRound, WandSparkles, X, type LucideIcon } from 'lucide-react'
+import { AtSign, AudioWaveform, Camera, Check, ChevronRight, Clock3, Film, Gauge, Zap, Globe, Layers, Loader2, Mic, Minus, Move3d, Music2, Monitor, Paperclip, Plus, RectangleHorizontal, ScanSearch, ShieldCheck, Sparkles, SwatchBook, UserRound, WandSparkles, X, type LucideIcon } from 'lucide-react'
 import { getEnhancerMode, setEnhancerMode, type ArtifactRef } from '../studio/lib/api'
 import { t, type MessageKey } from '../i18n'
 import { FOLLOWS, GUIDES, K6_ASPECTS, TWO_K_REFS, label, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, type Modality, type Model } from './data'
@@ -62,7 +62,7 @@ export function ModelPicker({ modality, value, caps, onPick, open, onClose }: { 
   </Popover>
 }
 
-const choiceIcon: Record<string, LucideIcon> = { sound: AudioWaveform, length: Clock3, voice: Mic, speaker: UserRound, language: Globe, resolution: Monitor, aspect: RectangleHorizontal, quality: Gauge, size: Monitor, duration: Clock3, mode: Layers, type: Music2, guide: ScanSearch, orbit: Move3d, height: Camera, distance: Camera }
+const choiceIcon: Record<string, LucideIcon> = { sound: AudioWaveform, length: Clock3, voice: Mic, speaker: UserRound, language: Globe, resolution: Monitor, attention: Zap, aspect: RectangleHorizontal, quality: Gauge, size: Monitor, duration: Clock3, mode: Layers, type: Music2, guide: ScanSearch, orbit: Move3d, height: Camera, distance: Camera }
 // Image settings that belong to one image mode only.
 const modeOnly: Record<string, string> = { guide: 'Estructura', orbit: 'Ángulo', height: 'Ángulo', distance: 'Ángulo', follow: 'Seguir vídeo', engine: 'Cambiar personaje', scale: 'Escalar', finish: 'Escalar' }
 // Splitting a song has nothing to generate: only the number of stems is a choice.
@@ -204,7 +204,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const choices = settings[modality].filter(c => !(c.id === 'quality' && model.id === 'qwen-turbo') && !(swap && c.id !== 'mode' && c.id !== 'engine') && !(upscale && c.id !== 'mode' && c.id !== 'scale' && c.id !== 'finish')
       && (!modeOnly[c.id] || modeOnly[c.id] === value('mode')) && !(follow && (c.id === 'aspect' || c.id === 'duration')) && !((angle || cutout) && (c.id === 'aspect' || c.id === 'quality'))
       && (modality !== 'audio' || (audioOnly[c.id] ? audioOnly[c.id] === model.id : song)) && !(c.id === 'speaker' && voice !== 'preset')
-      && !(k6 && (c.id === 'duration' || c.id === 'resolution')) && (c.id !== 'size' || sized)
+      && !(k6 && (c.id === 'duration' || c.id === 'resolution' || c.id === 'attention')) && (c.id !== 'size' || sized)
       && (split ? splitOnly[c.id] : c.id !== 'stems'))
     .map(c => c.id === 'mode' ? { ...c, options: c.options.filter(o => modality === 'image' ? imageModeReady(o) : o === 'Escalar' ? caps.upscale : model.id === 'fasth3-omni' ? o === 'Referencias' : k6 ? o === 'Texto' || o === 'Imagen inicial' : o === 'Seguir vídeo' ? followReady : !SWAP_MODES[o] || caps.swap[SWAP_MODES[o]]) }
       : c.id === 'aspect' && k6 ? { ...c, options: K6_ASPECTS }

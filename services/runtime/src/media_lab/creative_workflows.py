@@ -24,8 +24,12 @@ H3_FLEX_REF_LORA = "pika_h3_flex_ref2va_comfy_bf16.safetensors"
 H3_FLEX_REVISION = "0ddf55ad7067ca1e76812253bd7b4600df87f759"
 H3_FLEX_SIGMAS = "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
 # FastH3 Omni (FastVideo + Nuva Lab): an 8-step distilled Ref2VA checkpoint; official core template is euler /
-# simple, 8 steps, CFG 1, shift 12/3, int8 video VAE (its VSA sparse attention is skipped: Ampere is unverified).
+# simple, 8 steps, CFG 1, shift 12/3, int8 video VAE. Dense by default; options.attention="sparse" runs its VSA.
 H3_OMNI = "fasth3_omniref_8step_pruned_int8_convrot.safetensors"
+# ComfyUI core BlockSparseAttention: FastH3 Omni is trained for VSA at 10 %; the other profiles use the training-free
+# sol-attn at the node's defaults (SLA needs SLA-trained weights, which no installed profile has).
+H3_SPARSE = {"start_percent": 0.2, "end_percent": 1.0, "dense_blocks": "", "min_tokens": 12288, "extra_tokens": 256,
+             "sink_conditioning": "exact_kv_and_rows", "verbose": True}
 # Fun ControlNet-Union 2.0 (10 control blocks) on the Ref2VA transformer; the official Comfy template
 # feeds SDPose skeletons with RT-DETR person boxes, and Canny/Depth Anything 3 cover edges and depth.
 H3_CONTROL_PATCH = "minimax_h3_fun_controlnet_union_2.0_pruned_int8_convrot.safetensors"
@@ -48,19 +52,19 @@ def h3_profiles(shared_root, fused_root, lora_root) -> dict:
                         lora_root / "loras" / H3_FLEX_FL_LORA, lora_root / "loras" / H3_FLEX_REF_LORA]
     return {
         "base": {"label": "H3 Base", "ready": all(p.is_file() for p in base),
-                 "steps": {"min": 8, "max": 40, "default": 20}, "attention": "dense"},
+                 "steps": {"min": 8, "max": 40, "default": 20}, "attention": ["dense", "sparse"]},
         "fused_turbo": {"label": "H3 Fused Turbo · 4 pasos", "ready": all(p.is_file() for p in fused),
-                        "steps": {"min": 4, "max": 12, "default": 4}, "attention": "dense",
+                        "steps": {"min": 4, "max": 12, "default": 4}, "attention": ["dense", "sparse"],
                         "experimental": True, "checkpoint": H3_FUSED, "revision": H3_FUSED_REVISION,
                         "notice": "Turbo y Mystic fusionados. Atención densa, no SLA; calidad no idéntica a Maestro."},
         "omni": {"label": "FastH3 Omni · 8 pasos", "ready": all(p.is_file() for p in omni),
-                 "steps": {"min": 4, "max": 12, "default": 8}, "attention": "dense", "modes": ["r2v"],
+                 "steps": {"min": 4, "max": 12, "default": 8}, "attention": ["dense", "sparse"], "modes": ["r2v"],
                  "checkpoint": H3_OMNI},
         "turbo": {"label": "H3 Turbo · 8 pasos", "ready": all(p.is_file() for p in turbo),
-                  "steps": {"min": 4, "max": 12, "default": 8}, "attention": "dense",
+                  "steps": {"min": 4, "max": 12, "default": 8}, "attention": ["dense", "sparse"],
                   "loras": [H3_TURBO_FL_LORA, H3_TURBO_REF_LORA]},
         "flex": {"label": "H3 Flex · 6 pasos", "ready": all(p.is_file() for p in flex),
-                 "steps": {"min": 6, "max": 6, "default": 6}, "attention": "dense", "fixed_schedule": True,
+                 "steps": {"min": 6, "max": 6, "default": 6}, "attention": ["dense", "sparse"], "fixed_schedule": True,
                  "loras": [H3_FLEX_FL_LORA, H3_FLEX_REF_LORA], "revision": H3_FLEX_REVISION},
     }
 
@@ -215,6 +219,11 @@ def h3_workflow(prompt: str, mode: str, width: int, height: int, seconds: float,
         graph['save']['inputs'].update({'format': options.container, 'format.codec': options.codec})
         if options.crf is not None:
             graph['save']['inputs'].update({'format.codec.encoding': 're-encode', 'format.codec.encoding.crf': options.crf})
+        if options.attention == "sparse":
+            method = {"selection": "vsa", "selection.keep_percent": 10.0} if omni else {"selection": "sol-attn", "selection.tau": 1.3}
+            graph["sparse_attention"] = {"class_type": "BlockSparseAttention", "inputs": {
+                "model": graph["guider"]["inputs"]["model"], **method, **H3_SPARSE}}
+            graph["guider"]["inputs"]["model"] = ["sparse_attention", 0]
     return graph
 
 

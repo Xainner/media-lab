@@ -69,6 +69,7 @@ class VideoOptions(SamplingOptions):
     codec: Literal["h264", "av1"] = "h264"
     bit_depth: Literal[8, 10] | None = None
     crf: int | None = Field(default=None, ge=0, le=63)
+    attention: Literal["dense", "sparse"] = Field(default="dense", description="H3 only: sparse = ComfyUI block-sparse attention (VSA for FastH3 Omni, training-free sol-attn for the other profiles) to render faster; dense = full attention.")
 
     @model_validator(mode="after")
     def combinations(self):
@@ -169,6 +170,8 @@ def option_catalog():
               help="8 o 10 bits de codificación. El modelo genera SDR; esto no convierte el resultado en HDR."),
         field("crf", "Calidad de compresión · CRF", "Archivo de salida", None, min=0, max=63, step=1,
               help="Menor CRF conserva más detalle y ocupa más. H.264: 0–51; AV1: 0–63. Vacío: automático."),
+        field("attention", "Atención", "Rendimiento", "dense", choices=["dense", "sparse"],
+              help="sparse: atención dispersa para renderizar más rápido (VSA en FastH3 Omni, sol-attn en el resto)."),
     ]
     song = sampling("dpm_2", "sgm_uniform")
     for path, group, defaults in [("composition", "Composición", (1, .95, 100, 1.2)), ("score", "Generación de partitura ABC", (.7, .9, 30, 1.005))]:
