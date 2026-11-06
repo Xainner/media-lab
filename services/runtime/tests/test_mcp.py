@@ -212,6 +212,9 @@ def test_full_creative_catalog_contracts_quota_idempotency_and_owned_references(
         assert len(names) >= 35
         video = next(t['inputSchema'] for t in tools if t['name'] == 'generate_video')
         assert 'fused_turbo' in json.dumps(video) and 'first_frame' in json.dumps(video)
+        title = json.dumps(next(t['inputSchema'] for t in tools if t['name'] == 'create_animated_title'))
+        assert 'phrases' in title and 'typewriter' in title and 'first_frame' not in title
+        assert '"title"' in json.dumps(next(t['inputSchema'] for t in tools if t['name'] == 'improve_prompt'))
         assert decoded(call(client, a, 'capabilities'))['model'] == 'Qwen-Image-2.1'
         assert call(client, a, 'generate_video', {'body': {'prompt': 'x', 'seconds': 2}})['isError']
         assert call(client, a, 'generate_music', {'body': {'style': 'pop', 'lyrics': ''}})['isError']

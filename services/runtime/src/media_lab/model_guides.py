@@ -893,6 +893,40 @@ animates it with H3 in I2VA mode, then lays the ORIGINAL song under the finished
   Short clips loop and long clips trim to cover their scene.
 """
 
+TITLES = """## Animated titles (`create_animated_title`)
+
+MiniMax H3 Fused Turbo animates exact lettering over a black or white background: the runtime paints
+that colour as the first and last frame and writes the H3 prompt itself from fixed templates, so you never write
+an H3 prompt for a title. Send structured fields instead:
+
+- `phrases`: the exact on-screen text, verbatim in its own language and script (accents, `¡ ¿`,
+  capitals and punctuation included). One item = one title (up to 160 characters). 2–6 items = a
+  sequence shown one phrase at a time in order (up to 80 characters each, 160 in total). Never add
+  words the user did not ask for; write copy only when the user asks you to.
+- `style`: one preset, or leave it unset and describe the animation in `motion`:
+  dust (gathers from and crumbles into dust), dissolve (soft fade), neon (glowing tubes draw it),
+  typewriter (one character at a time), glitch, smoke, fire (sparks and embers), impact (slams in,
+  shatters), kinetic (bold moves of scale, position and rotation).
+- `motion` (optional, English, up to 800 characters): how the lettering enters, holds readable and
+  leaves. It overrides `style`. Keep it about the lettering only.
+- `look` (optional, English, up to 400 characters): typeface feel, weight, colour and material,
+  e.g. "thin elegant serif in warm gold". Unset = bold clean lettering that contrasts with the
+  background. Never use the background colour for the letters.
+- `background`: `#000000` black (default) or `#FFFFFF` white. Other colours are refused: on them
+  H3 invents scenery behind the text. No chroma key or transparency.
+- `seconds` 5–15: a sequence needs at least 1 s per phrase plus 1 s of empty background at the
+  end; the runtime splits the time by phrase length, keeps the last second empty and fades
+  picture and sound out to the background over the last 0.5 s.
+
+Planning from a description: `improve_prompt` with `mode=title` returns `phrases`, `style`,
+`motion` and `look` from a natural-language request (pass `seconds`). Show the plan to the user
+before generating when the wording was not given literally.
+
+Observed here (RTX 3090, 720p, 5 s): dust, typewriter and a three-word sequence on black were
+legible and correctly spelled; once a stray symbol appeared next to the text, so check the result
+and try another seed when that happens. Treat other presets and colours as unverified.
+"""
+
 AGENT_BRIEF = """Model prompt essentials (read prompt_guide for the full guide before complex prompts):
 - Qwen text-to-image: one English observer description (about 20 sentences, 400–500 words, whatever the brief): opening sentence naming medium, style, subject and background; walk the frame with positional phrases; quote visible text exactly in straight double quotes; one lighting sentence; one closing composition sentence. Hedge invented details lightly, never fixed ones. No quality boosters, no ratio or pixel counts in the prompt; pick aspect_ratio from the subject (3:2 landscape, 2:3 portrait, 1:1 only for icons and covers). transparent=true handles RGBA wording.
 - Qwen editing: for a change to this picture, lead with the operation and change only what was asked, strongly; one blanket clause for what stays, without re-describing it. One image: no tags. Several images: <image1>, <image2>… in reference order, with each image's role; list the canvas first (scene for compositing, body for face swap, person for clothing swap). For a new picture of the subject (new scene, photo shoot, poster) construct the scene actively. Literal text quoted exactly.
@@ -906,18 +940,19 @@ AGENT_BRIEF = """Model prompt essentials (read prompt_guide for the full guide b
 - ACE-Step (model=ace_step): style ≤512 chars, 4–6 compatible dimensions, no BPM/key in it (use bpm, key, time_signature, language parameters); lyrics ≤4096 chars with Title Case tags, one hyphen hint max ([Chorus - anthemic]), 6–10 syllables per line; [Instrumental] for no vocals; max_duration is exact and must fit the lyrics.
 - Stable Audio 3 (generate_sound): no vocals. enhance=true: describe genre/source, instruments/materials, mood/space, tempo in any language. enhance=false: English official format, e.g. "TrackType: Music, VocalType: Instrumental, … BPM: 92. Length: 60 seconds" (TrackType: Instrument / SFX; Length matches seconds; under ~45 words).
 - Qwen3-TTS (generate_speech): text is spoken exactly (numbers as words when it matters, no [laugh] tags). preset: pick the speaker native to the language; instruct = short delivery only. design: instruct = gender, age, pitch, timbre, accent, pace, emotion. clone: only with the voice owner's permission (consent=true), 3–30 s clean clip plus its exact reference_text.
+- Animated titles (create_animated_title): send exact phrases (1 title or 2–6 shown in order), a style preset or English motion, optional look and a black (#000000) or white (#FFFFFF) background; the runtime writes the H3 prompt. improve_prompt mode=title plans them from a description.
 - Video upscaling: upscale_video runs FlashVSR v1.1 on an owned video (x2 default, x4 for small sources), keeps the original audio and creates a new video; no prompt is involved.
 - Director: image_prompt is a Qwen observer paragraph repeating identity every scene; video_prompt is an H3 Base I2VA body from that keyframe; the song replaces clip audio, so non_diegetic_music is N/A. For a visible singer that must lip-sync, set lip_sync: true and write a Ref2VA video_prompt with <Picture 1> = keyframe and <Audio 1> = the song excerpt (fully_copy)."""
 
 TOPICS = {
     'image': LANGUAGE + '\n' + QWEN_IMAGE + '\n' + MOSS + '\n' + FLUX3,
     'edit': LANGUAGE + '\n' + QWEN_EDIT + '\n' + FLUX3,
-    'video': LANGUAGE + '\n' + H3 + '\n' + KANDINSKY6,
+    'video': LANGUAGE + '\n' + H3 + '\n' + KANDINSKY6 + '\n' + TITLES,
     'music': LANGUAGE + '\n' + YUE2 + '\n' + ACE_STEP,
     'sound': LANGUAGE + '\n' + STABLE_AUDIO3,
     'speech': LANGUAGE + '\n' + QWEN_TTS,
     'director': LANGUAGE + '\n' + DIRECTOR + '\n' + QWEN_IMAGE + '\n' + H3,
 }
 
-MODEL_GUIDE = '\n'.join([LANGUAGE, QWEN_IMAGE, QWEN_EDIT, MOSS, FLUX3, H3, KANDINSKY6, YUE2, ACE_STEP,
+MODEL_GUIDE = '\n'.join([LANGUAGE, QWEN_IMAGE, QWEN_EDIT, MOSS, FLUX3, H3, KANDINSKY6, TITLES, YUE2, ACE_STEP,
                          STABLE_AUDIO3, QWEN_TTS, DIRECTOR])

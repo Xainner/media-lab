@@ -10,6 +10,7 @@ import math
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 
 from PIL import Image
@@ -17,7 +18,7 @@ from PIL import Image
 from .artifacts import ArtifactStore
 from .comfy import ComfyError
 from .config import Settings
-from .contracts import (ArtifactRef, FaceRefineRequest, RemoveRequest, ProductionRequest, SoundRequest, SpeechRequest, StemsRequest, SongRequest, SwapRequest, UpscaleRequest, VideoRequest, PRESETS_1MP, PRESETS_2K,
+from .contracts import (AnimatedTitleRequest, ArtifactRef, FaceRefineRequest, RemoveRequest, ProductionRequest, SoundRequest, SpeechRequest, StemsRequest, SongRequest, SwapRequest, UpscaleRequest, VideoRequest, PRESETS_1MP, PRESETS_2K,
                         UPSCALE_MAX_INPUT_PIXELS, UPSCALE_MAX_SECONDS, UPSCALE_MAX_WORK_SECONDS,
                         steps_for, upscale_estimate)
 from .creative_workflows import (h3_workflow, yue2_workflow, flashvsr_workflow, flashvsr_tile, FLASHVSR_MODES,
@@ -32,7 +33,7 @@ from .creative_workflows import (h3_workflow, yue2_workflow, flashvsr_workflow, 
                                 H3_CONTROL_PATCH, VIDEO_CONTROL_SECONDS, SCAIL_MODEL, SCAIL_DPO_LORA, SCAIL_DISTILL_LORA,
                                 SCAIL_STEPS, scail_frames, scail_size, scail_workflow, SA3_CHECKPOINTS, SA3_KINDS, SA3_STEPS,
                                 sa3_workflow, kandinsky6_workflow, K6_DIT, K6_SIZES, K6_STEPS, speech_workflow, TTS_CHECKPOINTS,
-                                TTS_REFERENCE_SECONDS)
+                                TTS_REFERENCE_SECONDS, TITLE_FADE, title_prompt)
 from .face_refine import FACE_CROP, crop_frames, face_windows, parse_boxes, paste_frames
 from .store import Store
 from .gpu_workers import GpuWorkers
@@ -43,7 +44,7 @@ from .jobs import QueueFull
 
 # The 3090's 24 GiB budget is dominated by the H3 DiT and Qwen3-VL encoder.
 # These aligned canvases keep the initial guided path inside the measured gate.
-from .model_options import video_size, image_canvas
+from .model_options import VideoOptions, video_size, image_canvas
 
 
 def nearest_video_aspect(width: int, height: int) -> str:
@@ -102,6 +103,22 @@ def ffmpeg(command: list[str], timeout: int) -> None:
     done = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
     if done.returncode:
         raise RuntimeError("ffmpeg: " + " ".join(done.stderr.strip().splitlines()[-3:])[:600])
+
+
+def title_fade(raw: bytes, work: Path, background: str) -> bytes:
+    """Fade picture and sound out to the background colour over the last TITLE_FADE seconds.
+
+    H3 often holds the last phrase until the closing frame, which then cuts to the flat colour; the fade
+    makes every title end cleanly whatever the model did."""
+    clip, final = work / "title.mp4", work / "title-faded.mp4"
+    clip.write_bytes(raw)
+    # The fade completes on the last video frame (the container can run a little longer with the audio).
+    info = video_info(clip)
+    start = f"{max(0.0, (info['frames'] - 1) / info['fps'] - TITLE_FADE):.3f}"
+    ffmpeg(["ffmpeg", "-y", "-v", "error", "-i", str(clip),
+            "-vf", f"fade=t=out:st={start}:d={TITLE_FADE}:color=0x{background.lstrip('#')}", "-af", f"afade=t=out:st={start}:d={TITLE_FADE}",
+            "-c:v", "libx264", "-crf", "14", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", str(final)], 300)
+    return final.read_bytes()
 
 
 def check_upscale_input(info: dict, scale: int, quality: str = "fast") -> None:
@@ -292,6 +309,8 @@ class CreativeJobs:
                 result = self._sound(job_id, job, gpu)
             elif operation == "speech":
                 result = self._speech(job_id, job, gpu)
+            elif operation == "title":
+                result = self._title(job_id, job, gpu)
             else:
                 result = self._production(job_id, job, gpu)
             if self.store.cancel_requested(job_id):
@@ -354,12 +373,32 @@ class CreativeJobs:
         with self.h3_locks[gpu]:
             return self._video_locked(job_id, job["session_id"], gpu, body)
 
-    def _video_locked(self, job_id: str, session: str, gpu: int, body: VideoRequest) -> dict:
+    def _title(self, job_id: str, job: dict, gpu: int) -> dict:
+        body = AnimatedTitleRequest.model_validate(job["request"])
+        options = VideoOptions(resolution=body.resolution)
+        video = VideoRequest(prompt=title_prompt(body.phrases, body.seconds, body.background, body.style, body.motion, body.look),
+                             mode="i2v", aspect_ratio=body.aspect_ratio, seconds=body.seconds, profile="fused_turbo",
+                             options=options, seed=body.seed)
+        title = {"phrases": body.phrases, "style": body.style, "motion": body.motion, "look": body.look,
+                 "background": body.background}
+        with tempfile.TemporaryDirectory() as directory:
+            # The flat colour opens and closes the clip; it goes straight to ComfyUI and is not kept as a file.
+            frame = Path(directory) / "background.png"
+            Image.new("RGB", video_size(body.aspect_ratio, options), body.background).save(frame)
+            with self.h3_locks[gpu]:
+                return self._video_locked(job_id, job["session_id"], gpu, video, frame=frame,
+                                          provenance={"workflow": "h3_title_v1", "title": title, "fade_out": TITLE_FADE},
+                                          finish=lambda raw, work: title_fade(raw, work, body.background))
+
+    def _video_locked(self, job_id: str, session: str, gpu: int, body: VideoRequest,
+                      frame: Path | None = None, provenance: dict | None = None,
+                      finish: Callable[[bytes, Path], bytes] | None = None) -> dict:
         client = self.clients[gpu]
         def upload(ref):
             return client.upload_image(self.artifacts.resolve(ref.uri, ref.sha256), job_id) if ref else None
-        first = upload(body.first_frame)
-        last = upload(body.last_frame)
+        # A generated frame (animated titles) is both the first and the last frame.
+        first = client.upload_image(frame, job_id) if frame else upload(body.first_frame)
+        last = first if frame else upload(body.last_frame)
         refs = [upload(ref) for ref in body.references]
         seed = body.seed if body.seed is not None else secrets.randbits(53)
         width, height = video_size(body.aspect_ratio, body.options)
@@ -405,6 +444,8 @@ class CreativeJobs:
             raw, backend = self._run(job_id, gpu, graph, "videos")
             if body.control:
                 raw = self._control_finish(raw, source, Path(work.name), container, body.control.keep_audio)
+            if finish:
+                raw = finish(raw, Path(work.name))
         media = self.artifacts.put_media(session, raw, {"mp4": "video/mp4", "mkv": "video/x-matroska", "webm": "video/webm"}[body.options.container if body.options else "mp4"], "videos",
             {"model": {"fused_turbo": "MiniMax-H3 Fused Turbo", "turbo": "MiniMax-H3 Turbo", "omni": "FastH3 Omni", "flex": "Pika H3 Flex"}.get(body.profile, "MiniMax-H3"),
              "profile": body.profile, "steps": body.steps, "width": width, "height": height,
@@ -421,7 +462,7 @@ class CreativeJobs:
                  "video_vae_sha256": H3_FUSED_VAE_SHA256} if body.profile == "fused_turbo" else {}),
              **({"loras": [{"file": f, "strength": s} for f, s in loras]} if loras else {}),
              "prompt": body.prompt, "mode": body.mode,
-             "seed": seed, "backend": backend, "gpu": gpu})
+             "seed": seed, "backend": backend, "gpu": gpu, **(provenance or {})})
         return {"media": [media], "data": {"seed": seed, "gpu": gpu, "mode": body.mode,
                                           "profile": body.profile, "steps": body.steps, "attention": attention,
                                           "output": media_probe(self.artifacts.resolve(media["uri"]))}}

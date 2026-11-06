@@ -43,9 +43,9 @@ class UploadSlot(BaseModel):
 class PromptImprovement(BaseModel):
     model_config = ConfigDict(extra='forbid')
     prompt: str = Field(min_length=1, max_length=20000, description='Complete original request. Preserve literal quoted text and every explicit requirement.')
-    mode: Literal['t2i', 'i2i', 'moss', 't2v', 'i2v', 'r2v', 'kandinsky', 'song', 'ace_song'] = Field(default='t2i', description='Target: Qwen image (t2i) or edit (i2i), MOSS-Image caption (moss), H3 video (t2v/i2v/r2v), Kandinsky 6 (kandinsky: returns prompt and audio_prompt), YuE2 song (song) or ACE-Step song (ace_song: also bpm, key, time_signature, language); song modes return style and lyrics. FLUX 3 Klein, Stable Audio 3 and Qwen3-TTS need no improver. Proposing a prompt does not execute it.')
+    mode: Literal['t2i', 'i2i', 'moss', 't2v', 'i2v', 'r2v', 'kandinsky', 'song', 'ace_song', 'title'] = Field(default='t2i', description='Target: Qwen image (t2i) or edit (i2i), MOSS-Image caption (moss), H3 video (t2v/i2v/r2v), Kandinsky 6 (kandinsky: returns prompt and audio_prompt), YuE2 song (song) or ACE-Step song (ace_song: also bpm, key, time_signature, language); song modes return style and lyrics; title returns phrases, style, motion and look for create_animated_title (exact text kept verbatim). FLUX 3 Klein, Stable Audio 3 and Qwen3-TTS need no improver. Proposing a prompt does not execute it.')
     references: list[ArtifactRef] = Field(default_factory=list, max_length=16, description='Owned images in request order: edit references, the H3 or Kandinsky first frame, or H3 r2v reference images.')
-    seconds: float | None = Field(default=None, ge=5, le=15, description='H3 only: requested clip duration for timing shots and dialogue.')
+    seconds: float | None = Field(default=None, ge=5, le=15, description='H3 and title only: requested clip duration for timing shots, dialogue or phrases.')
 
 
 class AgentReview(BaseModel):
@@ -122,6 +122,7 @@ OPERATIONS = [
     ('generate_sound', 'POST', '/v1/jobs/sound', 'create', 'Generate instrumental music, a solo instrument part, sound effects/ambience or a one-shot sample of exact length with Stable Audio 3 (Medium or Small SFX); no vocals or lyrics.'),
     ('generate_speech', 'POST', '/v1/jobs/speech', 'create', 'Speak a text with Qwen3-TTS: a preset studio voice (with optional delivery), a voice designed from a description, or a clone of an owned reference clip ONLY with the voice owner’s permission (consent=true).'),
     ('swap_character', 'POST', '/v1/jobs/swap', 'create', 'Replace a person in an owned 2–15 s video with the character from an owned image (mode=character, H3 Character Swap) or only their head (mode=head, experimental Head Swap), or with SCAIL-2 (mode=scail, tight body motion), keeping motion, scene, camera and the original audio; creates a new video.'),
+    ('create_animated_title', 'POST', '/v1/jobs/title', 'create', 'Animate exact title text (one title, or 2–6 phrases shown one at a time) over a solid background colour with MiniMax H3 Fused Turbo: style preset or free motion, lettering look, 5–15 s, 16:9/9:16/1:1. Text stays verbatim in its own language; no chroma key or transparency. improve_prompt mode=title can plan phrases, style and motion from a description.'),
     ('create_production', 'POST', '/v1/jobs/production', 'create', 'Create a music video from an owned song and complete storyboard with English scene prompts.'),
     ('list_library', 'GET', '/v1/library', 'read', 'Search and paginate owned images, audio, videos and references.'),
     ('list_characters', 'GET', '/v1/characters', 'read', 'Owned private characters (@handle, look description, reference images, optional LoRA) to reuse the same person or mascot across images and videos.'),
@@ -141,7 +142,7 @@ OPERATIONS = [
     ('get_agent_run', 'GET', '/v1/agent/runs/{rid}', 'read', 'Steps, status and media results of an owned agent run.'),
     ('cancel_agent', 'POST', '/v1/agent/runs/{rid}/cancel', 'agent', 'Cancel an owned agent run.'),
     ('continue_agent', 'POST', '/v1/agent/runs/{rid}/continue', 'agent', 'Continue an owned stopped agent run with explicit user authorization.'),
-    ('improve_prompt', 'POST', '/v1/agent/improve', 'agent', 'Propose a model-ready English prompt (Qwen image/edit, MOSS caption, H3 or Kandinsky video, or YuE2/ACE-Step style plus lyrics) with the active provider using the studio guides, preserving intent and literal text; no generation.'),
+    ('improve_prompt', 'POST', '/v1/agent/improve', 'agent', 'Propose a model-ready English prompt (Qwen image/edit, MOSS caption, H3 or Kandinsky video, YuE2/ACE-Step style plus lyrics, or with mode=title an animated-title plan of exact phrases, style and motion) with the active provider using the studio guides, preserving intent and literal text; no generation.'),
     ('review_with_agent', 'POST', '/v1/agent/review', 'agent', 'Review an owned image with the external provider; verified vision required.'),
     ('plan_storyboard', 'POST', '/v1/agent/director', 'agent', 'Plan scenes with English model prompts from brief, literal lyrics and technical audio analysis; does not generate.'),
     ('delete_media', 'DELETE', '/v1/library', 'delete', 'Permanently delete an owned media file and every record that only existed for it (its job, prompt and settings once no other output of that job remains, transfer links, attachments); obtain user confirmation first.'),

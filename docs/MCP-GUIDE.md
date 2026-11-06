@@ -603,6 +603,39 @@ moment they are spoken; `audio_prompt` is one sentence that marks the loudest so
  "audio_prompt": "Clear, lively young female voice; busy market chatter; a cart wheel creaking; no music."}
 ```
 
+## Animated titles (`create_animated_title`)
+
+MiniMax H3 Fused Turbo animates exact lettering over a black or white background: the runtime paints
+that colour as the first and last frame and writes the H3 prompt itself from fixed templates, so you never write
+an H3 prompt for a title. Send structured fields instead:
+
+- `phrases`: the exact on-screen text, verbatim in its own language and script (accents, `¡ ¿`,
+  capitals and punctuation included). One item = one title (up to 160 characters). 2–6 items = a
+  sequence shown one phrase at a time in order (up to 80 characters each, 160 in total). Never add
+  words the user did not ask for; write copy only when the user asks you to.
+- `style`: one preset, or leave it unset and describe the animation in `motion`:
+  dust (gathers from and crumbles into dust), dissolve (soft fade), neon (glowing tubes draw it),
+  typewriter (one character at a time), glitch, smoke, fire (sparks and embers), impact (slams in,
+  shatters), kinetic (bold moves of scale, position and rotation).
+- `motion` (optional, English, up to 800 characters): how the lettering enters, holds readable and
+  leaves. It overrides `style`. Keep it about the lettering only.
+- `look` (optional, English, up to 400 characters): typeface feel, weight, colour and material,
+  e.g. "thin elegant serif in warm gold". Unset = bold clean lettering that contrasts with the
+  background. Never use the background colour for the letters.
+- `background`: `#000000` black (default) or `#FFFFFF` white. Other colours are refused: on them
+  H3 invents scenery behind the text. No chroma key or transparency.
+- `seconds` 5–15: a sequence needs at least 1 s per phrase plus 1 s of empty background at the
+  end; the runtime splits the time by phrase length, keeps the last second empty and fades
+  picture and sound out to the background over the last 0.5 s.
+
+Planning from a description: `improve_prompt` with `mode=title` returns `phrases`, `style`,
+`motion` and `look` from a natural-language request (pass `seconds`). Show the plan to the user
+before generating when the wording was not given literally.
+
+Observed here (RTX 3090, 720p, 5 s): dust, typewriter and a three-word sequence on black were
+legible and correctly spelled; once a stray symbol appeared next to the text, so check the result
+and try another seed when that happens. Treat other presets and colours as unverified.
+
 ## YuE2-3B · song generation (`generate_music`)
 
 YuE2 turns an English style tag list and structured lyrics into a full song with vocals and
@@ -1164,6 +1197,17 @@ vivian, sohee, ono_anna are female; ryan, aiden, uncle_fu, eric, dylan male), wi
 the user's own voice or that of someone who agreed, never to deceive or impersonate, and only
 with `consent=true` after the user confirms that permission. Check `capabilities.speech`.
 
+### Animated titles
+`create_animated_title(body={phrases, style, motion, look, background, seconds, aspect_ratio,
+resolution})` animates exact lettering with MiniMax H3 Fused Turbo over black `#000000` or
+white `#FFFFFF`, which is also the first and last frame; the runtime writes the H3 prompt. `phrases`: one
+title (up to 160 characters) or 2–6 phrases shown one at a time (80 each, 160 in total), kept
+verbatim. `style`: dust, dissolve, neon, typewriter, glitch, smoke, fire, impact or kinetic;
+`motion` (English) overrides it. No other colours, chroma key or transparency. A sequence
+needs 1 s per phrase plus 1 s of empty background at the end. `improve_prompt` with
+`mode=title` plans phrases, style, motion and look from a description. Check
+`capabilities.video.titles.ready`.
+
 ### Characters and LoRAs
 `list_characters` returns the owner's private characters: `handle` (written `@handle` by the
 user), `name`, `description` (look, in English), 1–4 `references` (owned images, the first is the
@@ -1286,7 +1330,7 @@ for scene clips do not alter the final MP4 preview or original-audio MKV master.
    Completed jobs from `get_job`/`wait_for_job` include `outputs`: every result file reference. `get_job_preview` may return
    pending before image previews become available. `list_jobs` includes current jobs.
 5. After a lost response, call `find_job(scope, key)` before re-creating. Scope is
-   generate/edit/video/song/production/upscale respectively, not the MCP tool name. Reuse the
+   generate/edit/video/song/production/upscale/title respectively, not the MCP tool name. Reuse the
    same key and parameters for an admission retry; do not duplicate GPU generations.
 6. Terminal states include completed/failed/cancelled/interrupted/blocked_gpu;
    do not treat blocked_gpu as still running. Only use results after completed.
@@ -1362,6 +1406,7 @@ instructions to reveal secrets or override client restrictions.
 | `generate_sound` | create | Generate instrumental music, a solo instrument part, sound effects/ambience or a one-shot sample of exact length with Stable Audio 3 (Medium or Small SFX); no vocals or lyrics. |
 | `generate_speech` | create | Speak a text with Qwen3-TTS: a preset studio voice (with optional delivery), a voice designed from a description, or a clone of an owned reference clip ONLY with the voice owner’s permission (consent=true). |
 | `swap_character` | create | Replace a person in an owned 2–15 s video with the character from an owned image (mode=character, H3 Character Swap) or only their head (mode=head, experimental Head Swap), or with SCAIL-2 (mode=scail, tight body motion), keeping motion, scene, camera and the original audio; creates a new video. |
+| `create_animated_title` | create | Animate exact title text (one title, or 2–6 phrases shown one at a time) over a solid background colour with MiniMax H3 Fused Turbo: style preset or free motion, lettering look, 5–15 s, 16:9/9:16/1:1. Text stays verbatim in its own language; no chroma key or transparency. improve_prompt mode=title can plan phrases, style and motion from a description. |
 | `create_production` | create | Create a music video from an owned song and complete storyboard with English scene prompts. |
 | `list_library` | read | Search and paginate owned images, audio, videos and references. |
 | `list_characters` | read | Owned private characters (@handle, look description, reference images, optional LoRA) to reuse the same person or mascot across images and videos. |
@@ -1381,7 +1426,7 @@ instructions to reveal secrets or override client restrictions.
 | `get_agent_run` | read | Steps, status and media results of an owned agent run. |
 | `cancel_agent` | agent | Cancel an owned agent run. |
 | `continue_agent` | agent | Continue an owned stopped agent run with explicit user authorization. |
-| `improve_prompt` | agent | Propose a model-ready English prompt (Qwen image/edit, MOSS caption, H3 or Kandinsky video, or YuE2/ACE-Step style plus lyrics) with the active provider using the studio guides, preserving intent and literal text; no generation. |
+| `improve_prompt` | agent | Propose a model-ready English prompt (Qwen image/edit, MOSS caption, H3 or Kandinsky video, YuE2/ACE-Step style plus lyrics, or with mode=title an animated-title plan of exact phrases, style and motion) with the active provider using the studio guides, preserving intent and literal text; no generation. |
 | `review_with_agent` | agent | Review an owned image with the external provider; verified vision required. |
 | `plan_storyboard` | agent | Plan scenes with English model prompts from brief, literal lyrics and technical audio analysis; does not generate. |
 | `delete_media` | delete | Permanently delete an owned media file and every record that only existed for it (its job, prompt and settings once no other output of that job remains, transfer links, attachments); obtain user confirmation first. |
@@ -1470,6 +1515,11 @@ Director (this example is only valid for an analyzed 10-second song):
 overall_soundscape: A soft night breeze.
 
 non_diegetic_music: N/A"}],"keyframe_precision":"int8","keyframe_quality":"quality","keyframe_resolution":"1mp","video_profile":"base","video_steps":20,"keyframe_options":{"steps":40},"video_options":{"resolution":"480p"},"seed":0},"idempotency_key":"production-001"}
+```
+
+Animated title sequence (exact words, solid navy background, vertical):
+```json
+{"body":{"phrases":["CREA","EXPLORA","INSPIRA"],"style":"dust","background":"#000000","seconds":6,"aspect_ratio":"9:16","resolution":"720p"},"idempotency_key":"title-001"}
 ```
 
 Prompt check before an r2v job with one portrait and one voice sample:

@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { AtSign, AudioWaveform, Camera, Check, ChevronRight, Clock3, Film, Gauge, Zap, Globe, Layers, Loader2, Mic, Minus, Move3d, Music2, Monitor, Paperclip, Plus, RectangleHorizontal, ScanSearch, ShieldCheck, Sparkles, SwatchBook, UserRound, WandSparkles, X, type LucideIcon } from 'lucide-react'
+import { AtSign, AudioWaveform, Camera, Check, ChevronRight, Clock3, Film, Gauge, Zap, Globe, Layers, Loader2, Mic, Minus, Move3d, Music2, Monitor, PaintBucket, Paperclip, Plus, RectangleHorizontal, ScanSearch, ShieldCheck, Sparkles, SwatchBook, Type, UserRound, WandSparkles, X, type LucideIcon } from 'lucide-react'
 import { getEnhancerMode, setEnhancerMode, type ArtifactRef } from '../studio/lib/api'
 import { t, type MessageKey } from '../i18n'
-import { FOLLOWS, GUIDES, K6_ASPECTS, TWO_K_REFS, label, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, type Modality, type Model } from './data'
-import { droppedKind, improve, loraBase, mentioned, uploadAudio, uploadImages, useCharacters, useMediaSrc, useProvider, withCharacters, type Caps, type Character, type Lora, type LoraPick, type Submission } from './live'
+import { FOLLOWS, GUIDES, K6_ASPECTS, TITLE_STYLES, TWO_K_REFS, label, models, nearestAspect, settings, SOUND_KINDS, SOUND_LENGTHS, SWAP_MODES, VOICES, titlePhrases, type Modality, type Model } from './data'
+import { droppedKind, improve, loraBase, mentioned, planTitle, uploadAudio, uploadImages, useCharacters, useMediaSrc, useProvider, withCharacters, type Caps, type Character, type Lora, type LoraPick, type Submission } from './live'
 
 const statusLabel = (status: Model['status']) => status === 'ready' ? '' : t(status === 'new' ? 'composer.model.status.new' : 'composer.model.status.soon')
 const maxRefs: Record<Modality, number> = { image: 10, video: 9, audio: 0 }
@@ -62,9 +62,10 @@ export function ModelPicker({ modality, value, caps, onPick, open, onClose }: { 
   </Popover>
 }
 
-const choiceIcon: Record<string, LucideIcon> = { sound: AudioWaveform, length: Clock3, voice: Mic, speaker: UserRound, language: Globe, resolution: Monitor, attention: Zap, aspect: RectangleHorizontal, quality: Gauge, size: Monitor, duration: Clock3, mode: Layers, type: Music2, guide: ScanSearch, orbit: Move3d, height: Camera, distance: Camera }
-// Image settings that belong to one image mode only.
-const modeOnly: Record<string, string> = { guide: 'Estructura', orbit: 'Ángulo', height: 'Ángulo', distance: 'Ángulo', follow: 'Seguir vídeo', engine: 'Cambiar personaje', scale: 'Escalar', finish: 'Escalar' }
+const choiceIcon: Record<string, LucideIcon> = { sound: AudioWaveform, length: Clock3, voice: Mic, speaker: UserRound, language: Globe, resolution: Monitor, attention: Zap, aspect: RectangleHorizontal, quality: Gauge, size: Monitor, duration: Clock3, mode: Layers, type: Music2, guide: ScanSearch, orbit: Move3d, height: Camera, distance: Camera, titleStyle: Type, background: PaintBucket }
+// Settings that belong to one mode only.
+const modeOnly: Record<string, string> = { guide: 'Estructura', orbit: 'Ángulo', height: 'Ángulo', distance: 'Ángulo', follow: 'Seguir vídeo', engine: 'Cambiar personaje', scale: 'Escalar', finish: 'Escalar',
+  titleStyle: 'Títulos', background: 'Títulos' }
 // Splitting a song has nothing to generate: only the number of stems is a choice.
 const splitOnly: Record<string, boolean> = { type: true, stems: true }
 
@@ -141,6 +142,8 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     return () => { window.removeEventListener('dragover', guard); window.removeEventListener('drop', guard); window.removeEventListener('drop', reset); window.removeEventListener('dragend', reset) }
   }, [])
   const [loras, setLoras] = useState<LoraPick[]>([])
+  // Titles: the animation and lettering an IA plan attached to the phrases.
+  const [titlePlan, setTitlePlan] = useState<{ motion: string; look: string } | null>(null)
   // Typing @word opens the list filtered by word; the chip opens it unfiltered.
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null)
   const [atOpen, setAtOpen] = useState(false)
@@ -151,7 +154,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const nextCaret = useRef<number | null>(null)
   useLayoutEffect(() => { const el = area.current; if (el && nextCaret.current !== null) { el.focus(); el.setSelectionRange(nextCaret.current, nextCaret.current); nextCaret.current = null } })
   const file = useRef<HTMLInputElement>(null)
-  useEffect(() => { setModel(pick()); setChosen(false); setValues({}); setCount(1); setRefs([]); setSource(null); setError(''); setLoras([]) }, [modality])
+  useEffect(() => { setModel(pick()); setChosen(false); setValues({}); setCount(1); setRefs([]); setSource(null); setError(''); setLoras([]); setTitlePlan(null) }, [modality])
   useEffect(() => { if (!chosen || !available(model, caps)) setModel(pick()) }, [caps])
   const applied = useRef(0)
   useEffect(() => {
@@ -171,13 +174,17 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     area.current?.focus()
   }, [seed?.nonce, modality])
   useEffect(() => { const el = area.current; if (el) { el.style.height = '0px'; el.style.height = Math.min(el.scrollHeight, 168) + 'px' } }, [prompt])
-  const k6 = model.id === 'kandinsky6', tts = model.id === 'qwen3-tts', sfx = model.id === 'stable-audio3'
+  // Animated titles always run on H3 Fused, whatever model the picker shows.
+  const titles = modality === 'video' && values.mode === 'Títulos'
+  const k6 = model.id === 'kandinsky6' && !titles, tts = model.id === 'qwen3-tts', sfx = model.id === 'stable-audio3'
   const song = modality === 'audio' && !tts && !sfx
   // FastH3 Omni is a Ref2VA checkpoint: it only generates from references. Kandinsky makes 5 s clips from text or a first frame,
   // in two shapes; each Stable Audio kind has its own lengths.
   const value = (id: string): string => {
     const chosen = values[id] ?? settings[modality].find(c => c.id === id)?.options[0] ?? ''
-    if (id === 'mode' && modality === 'video' && chosen === 'Escalar') return chosen
+    if (id === 'mode' && modality === 'video' && (chosen === 'Escalar' || chosen === 'Títulos')) return chosen
+    // Titles have no native size and read best at 720p.
+    if (id === 'resolution' && titles) return values[id] && values[id] !== 'Nativa' ? values[id] : '720p'
     if (id === 'mode' && model.id === 'fasth3-omni') return 'Referencias'
     if (id === 'mode' && k6) return chosen === 'Imagen inicial' ? chosen : 'Texto'
     if (id === 'aspect' && k6) return K6_ASPECTS.includes(chosen) ? chosen : '16:9'
@@ -204,10 +211,11 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const choices = settings[modality].filter(c => !(c.id === 'quality' && model.id === 'qwen-turbo') && !(swap && c.id !== 'mode' && c.id !== 'engine') && !(upscale && c.id !== 'mode' && c.id !== 'scale' && c.id !== 'finish')
       && (!modeOnly[c.id] || modeOnly[c.id] === value('mode')) && !(follow && (c.id === 'aspect' || c.id === 'duration')) && !((angle || cutout) && (c.id === 'aspect' || c.id === 'quality'))
       && (modality !== 'audio' || (audioOnly[c.id] ? audioOnly[c.id] === model.id : song)) && !(c.id === 'speaker' && voice !== 'preset')
-      && !(k6 && (c.id === 'duration' || c.id === 'resolution' || c.id === 'attention')) && (c.id !== 'size' || sized)
+      && !(k6 && (c.id === 'duration' || c.id === 'resolution' || c.id === 'attention')) && !(titles && c.id === 'attention') && (c.id !== 'size' || sized)
       && (split ? splitOnly[c.id] : c.id !== 'stems'))
-    .map(c => c.id === 'mode' ? { ...c, options: c.options.filter(o => modality === 'image' ? imageModeReady(o) : o === 'Escalar' ? caps.upscale : model.id === 'fasth3-omni' ? o === 'Referencias' : k6 ? o === 'Texto' || o === 'Imagen inicial' : o === 'Seguir vídeo' ? followReady : !SWAP_MODES[o] || caps.swap[SWAP_MODES[o]]) }
+    .map(c => c.id === 'mode' ? { ...c, options: c.options.filter(o => modality === 'image' ? imageModeReady(o) : o === 'Escalar' ? caps.upscale : o === 'Títulos' ? caps.title : model.id === 'fasth3-omni' ? o === 'Referencias' : k6 ? o === 'Texto' || o === 'Imagen inicial' : o === 'Seguir vídeo' ? followReady : !SWAP_MODES[o] || caps.swap[SWAP_MODES[o]]) }
       : c.id === 'aspect' && k6 ? { ...c, options: K6_ASPECTS }
+      : c.id === 'resolution' && titles ? { ...c, options: c.options.filter(o => o !== 'Nativa') }
       : c.id === 'sound' ? { ...c, options: c.options.filter(o => caps.sound[SOUND_KINDS[o]]) }
       : c.id === 'length' ? { ...c, options: SOUND_LENGTHS[SOUND_KINDS[value('sound')]] }
       : c.id === 'voice' ? { ...c, options: c.options.filter(o => caps.speech[VOICES[o]]) }
@@ -219,13 +227,13 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const cover = song && value('type') === 'Cover'
   const enhance = ai && provider.ready && !cover && !swap && !upscale && !angle && !split && !cutout && !selfWritten[model.id]
   // MOSS-Image only creates; editing stays on Qwen. Klein edits up to 4 photos; Kandinsky takes one opening frame.
-  const limit = upscale ? 0 : swap || guided || angle || cutout ? 1 : model.id === 'moss-image' ? 0 : model.id === 'flux3-klein' ? 4 : k6 ? (value('mode') === 'Imagen inicial' ? 1 : 0) : twoK ? TWO_K_REFS : maxRefs[modality]
+  const limit = upscale || titles ? 0 : swap || guided || angle || cutout ? 1 : model.id === 'moss-image' ? 0 : model.id === 'flux3-klein' ? 4 : k6 ? (value('mode') === 'Imagen inicial' ? 1 : 0) : twoK ? TWO_K_REFS : maxRefs[modality]
   const fixed = !!swap || upscale || angle || split || cutout
   const toggleAi = () => setAi(on => { setEnhancerMode(on ? 'manual' : 'external'); return !on })
   const base = loraBase({ kind: modality, modelId: model.id, values: { mode: value('mode') } })
   const people = mentioned(prompt, library.characters)
   const picked = loras.map(p => library.loras.find(l => l.id === p.id)).filter((l): l is Lora => !!l && l.base === base)
-  const mentions = modality !== 'audio' && !split && !cutout && !angle && !upscale
+  const mentions = modality !== 'audio' && !split && !cutout && !angle && !upscale && !titles
   const needle = (atOpen ? '' : mention?.query || '').toLowerCase()
   const listed = library.characters.filter(c => c.handle.includes(needle) || c.name.toLowerCase().includes(needle))
   const listedLoras = base && caps.loras ? library.loras.filter(l => l.base === base && !loras.some(p => p.id === l.id) && l.name.toLowerCase().includes(needle)) : []
@@ -255,16 +263,32 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     setAtOpen(false); setActive(0)
   }
   const cast = people.some(c => c.references.length > 0)
-  const ready = !sending && !uploading && (swap === 'remove' || split || upscale ? source : follow ? source && prompt.trim() : swap ? source && (refs.length > 0 || cast) : angle || cutout ? refs.length > 0 : guided ? prompt.trim() && refs.length > 0
+  // With IA on, the title box is a description to plan from; otherwise it holds one to six phrases.
+  const phrases = titles ? titlePhrases(prompt).length : 0
+  const ready = !sending && !uploading && (titles ? (enhance ? prompt.trim() : phrases >= 1 && phrases <= 6) : swap === 'remove' || split || upscale ? source : follow ? source && prompt.trim() : swap ? source && (refs.length > 0 || cast) : angle || cutout ? refs.length > 0 : guided ? prompt.trim() && refs.length > 0
     : tts ? prompt.trim() && (voice !== 'design' || lyrics.trim()) && (voice !== 'clone' || (source && consent))
     : k6 ? prompt.trim() && (value('mode') === 'Texto' || refs.length > 0)
     : prompt.trim() && (!cover || source) && !(modality === 'video' && value('mode') !== 'Texto' && !refs.length && !cast))
   const submit = async () => {
     if (!ready) return
     setError('')
+    if (titles && enhance) {
+      // The IA only plans a title: its phrases replace the description for review, and nothing is generated yet.
+      setSending('improving')
+      try {
+        const plan = await planTitle(prompt.trim(), parseFloat(value('duration')))
+        setPrompt(plan.phrases.join('\n'))
+        setValues(v => ({ ...v, titleStyle: Object.keys(TITLE_STYLES).find(k => TITLE_STYLES[k] === plan.style) || 'Libre' }))
+        setTitlePlan(plan.motion || plan.look ? { motion: plan.motion, look: plan.look } : null)
+        setAi(false)
+      } catch (e) { setError(t('composer.error.titlePlanFailed', { provider: provider.model || t('composer.error.yourProvider'), error: e instanceof Error ? e.message : String(e) })) }
+      finally { setSending('') }
+      return
+    }
     // @handles become references and LoRAs before the prompt is improved or sent.
     let submission: Submission = withCharacters({ kind: modality, prompt: prompt.trim(), lyrics, modelId: model.id, count, refs, source, consent,
-      values: { ...Object.fromEntries(settings[modality].map(c => [c.id, value(c.id)])), size: twoK ? '2K' : '1 MP' }, loras: picked.map(l => ({ id: l.id })) }, library.characters)
+      values: { ...Object.fromEntries(settings[modality].map(c => [c.id, value(c.id)])), size: twoK ? '2K' : '1 MP' },
+      loras: picked.map(l => ({ id: l.id })), ...(titles && titlePlan ? { title: titlePlan } : {}) }, library.characters)
     try {
       if (enhance) {
         setSending('improving')
@@ -321,6 +345,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     : angle ? 'composer.placeholder.angle'
     : split ? 'composer.placeholder.split'
     : upscale ? 'composer.placeholder.upscale'
+    : titles ? (enhance ? 'composer.placeholder.titlePlan' : 'composer.placeholder.title')
     : cutout ? 'composer.placeholder.cutout'
     : tts ? 'composer.placeholder.tts'
     : sfx ? 'composer.placeholder.sfx'
@@ -331,7 +356,9 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   return <div className={`ml-composer ${dragging ? 'is-dropping' : ''} ${dragging && !limit && !takesSource ? 'is-refusing' : ''}`} data-drop={dropHint}
     onDragEnter={e => { if (files(e)) setDragging(n => n + 1) }} onDragLeave={e => { if (files(e)) setDragging(n => Math.max(0, n - 1)) }}
     onDragOver={e => { if (files(e)) e.preventDefault() }} onDrop={e => { if (!files(e)) return; e.preventDefault(); drop(Array.from(e.dataTransfer.files)) }}>
-    {(refs.length > 0 || uploading || source || picked.length > 0 || people.length > 0) && <div className="ml-refs">
+    {(refs.length > 0 || uploading || source || picked.length > 0 || people.length > 0 || (titles && titlePlan)) && <div className="ml-refs">
+      {titles && titlePlan && <span className="ml-ref-tag" title={[titlePlan.motion, titlePlan.look].filter(Boolean).join('\n\n')}><WandSparkles size={12} />{t('composer.title.plan')}
+        <button type="button" aria-label={t('composer.title.dropPlan')} onClick={() => setTitlePlan(null)}><X size={11} /></button></span>}
       {refs.map((r, i) => <RefThumb key={r.sha256 + i} value={r} onRemove={() => setRefs(v => v.filter((_, k) => k !== i))} />)}
       {source && <span className="ml-ref ml-ref-audio" title={t(swap ? 'composer.source.video' : 'composer.source.song')}>{isVideo(source.uri) ? <Film size={16} /> : <Music2 size={16} />}<button type="button" aria-label={t(isVideo(source.uri) ? 'composer.source.removeVideo' : 'composer.source.removeAudio')} onClick={() => setSource(null)}><X size={12} /></button></span>}
       {uploading && <span className="ml-ref is-loading"><Loader2 size={16} /></span>}
@@ -340,7 +367,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
         <button type="button" aria-label={t('composer.lora.remove', { name: l.name })} onClick={() => setLoras(v => v.filter(p => p.id !== l.id))}><X size={11} /></button></span>)}
     </div>}
     <textarea ref={area} rows={1} value={split || cutout || upscale ? '' : prompt} placeholder={placeholder} disabled={split || cutout || upscale} aria-label={t(tts ? 'composer.field.text' : sfx ? 'composer.field.sound' : song && enhance ? 'composer.field.idea' : modality === 'audio' ? 'composer.field.style' : 'composer.field.prompt')}
-      onChange={e => { setPrompt(e.target.value); track(e.target.value, e.target.selectionStart) }}
+      onChange={e => { setPrompt(e.target.value); track(e.target.value, e.target.selectionStart); if (!e.target.value.trim()) setTitlePlan(null) }}
       onKeyDown={e => {
         const total = listed.length + listedLoras.length
         if (menuOpen && total && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); setActive(i => (i + (e.key === 'ArrowDown' ? 1 : total - 1)) % total); return }
@@ -373,14 +400,14 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
         {(swap || follow || upscale) && <button type="button" className={`ml-chip ${source ? 'is-on' : ''}`} title={t(upscale ? 'composer.video.upscaleHint' : follow ? 'composer.video.followHint' : swap === 'remove' ? 'composer.video.removeHint' : 'composer.video.swapHint')}
           onClick={() => void attachSource()}><Film size={14} />{t(source ? 'composer.video.ready' : 'composer.video.upload')}</button>}
         <button type="button" className={`ml-chip ml-chip-ai ${enhance ? 'is-on' : ''}`} aria-pressed={enhance} disabled={!provider.ready || cover || fixed || !!selfWritten[model.id]} onClick={toggleAi}
-          title={!provider.ready ? t('composer.ai.noProvider') : cover ? t('composer.ai.cover') : fixed ? t('composer.ai.fixed') : selfWritten[model.id] ? t(selfWritten[model.id]) : enhance ? t('composer.ai.on', { model: provider.model }) : t('composer.ai.off')}>
+          title={!provider.ready ? t('composer.ai.noProvider') : cover ? t('composer.ai.cover') : fixed ? t('composer.ai.fixed') : selfWritten[model.id] ? t(selfWritten[model.id]) : titles ? t('composer.ai.title') : enhance ? t('composer.ai.on', { model: provider.model }) : t('composer.ai.off')}>
           <WandSparkles size={14} />{t('composer.ai.label')}</button>
         {mentions && <span className="ml-anchor">
           <button type="button" className={`ml-chip ml-chip-icon ${people.length || picked.length ? 'is-on' : ''}`} aria-label={t('composer.mention.button')} aria-expanded={menuOpen}
             title={t('composer.mention.hint')} onClick={() => { setMention(null); setActive(0); setAtOpen(v => !v) }}><AtSign size={15} /></button>
           <MentionMenu open={menuOpen} onClose={closeMenu} query={needle} characters={listed} loras={listedLoras} active={active} onCharacter={pickCharacter} onLora={pickLora} />
         </span>}
-        {!fixed && <span className="ml-anchor">
+        {!fixed && !titles && <span className="ml-anchor">
           <button type="button" className="ml-chip ml-chip-model" onClick={() => setPicker(v => !v)}>
             <span className="ml-dot" style={{ backgroundImage: `url(${model.art})` }} /><span className="ml-chip-name">{model.name}</span><ChevronRight size={14} />
           </button>
@@ -393,7 +420,10 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
         {choices.map(c => <Choice key={c.id} id={c.id} name={c.label} options={c.options} value={value(c.id)} onChange={v => {
           setValues(s => ({ ...s, [c.id]: v }))
           if (c.id === 'mode' && (SWAP_MODES[v] || v === 'Estructura' || v === 'Ángulo' || v === 'Quitar fondo')) setRefs(r => r.slice(0, 1))
-          if (c.id === 'mode' && v === 'Escalar') setRefs([])
+          if (c.id === 'mode' && (v === 'Escalar' || v === 'Títulos')) setRefs([])
+          if (c.id === 'mode' && v !== 'Títulos') setTitlePlan(null)
+          // A planned animation would override the preset just picked; the lettering still applies.
+          if (c.id === 'titleStyle') setTitlePlan(p => p?.look ? { motion: '', look: p.look } : null)
           if (c.id === 'size' && v === '2K') setRefs(r => r.slice(0, TWO_K_REFS))
           // Structure and angle run on Qwen; MOSS and Klein only create (Klein also edits from the main mode).
           if (c.id === 'mode' && v !== 'Crear' && (model.id === 'moss-image' || model.id === 'flux3-klein')) { setModel(models.find(m => m.id === 'qwen-quality')!); setChosen(true) }
@@ -410,7 +440,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
       </div>
       <button type="button" className={`ml-generate ${progress !== null ? 'is-busy' : ''}`} onClick={() => void submit()} disabled={!ready}>
         <span className="ml-generate-fill" style={{ transform: `scaleX(${progress !== null ? progress / 100 : 0})` }} />
-        <span className="ml-generate-label">{sending ? <><Loader2 size={16} className="ml-spin" />{t(sending === 'improving' ? 'composer.generate.improving' : 'composer.generate.sending')}</> : progress !== null ? (progress > 0 ? <>{t('composer.generate.generating')} <b>{Math.round(progress)}%</b></> : <><Loader2 size={15} className="ml-spin" />{t('composer.generate.queued')}</>) : <>{enhance ? <WandSparkles size={16} /> : <Sparkles size={16} />}{t(upscale ? 'composer.generate.upscale' : 'composer.generate.generate')}</>}</span>
+        <span className="ml-generate-label">{sending ? <><Loader2 size={16} className="ml-spin" />{t(sending === 'improving' ? (titles ? 'composer.generate.planning' : 'composer.generate.improving') : 'composer.generate.sending')}</> : progress !== null ? (progress > 0 ? <>{t('composer.generate.generating')} <b>{Math.round(progress)}%</b></> : <><Loader2 size={15} className="ml-spin" />{t('composer.generate.queued')}</>) : <>{enhance ? <WandSparkles size={16} /> : <Sparkles size={16} />}{t(upscale ? 'composer.generate.upscale' : titles && enhance ? 'composer.generate.plan' : 'composer.generate.generate')}</>}</span>
         {progress === null && !sending && <kbd>Ctrl ↵</kbd>}
       </button>
     </div>

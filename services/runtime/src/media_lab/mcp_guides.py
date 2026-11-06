@@ -372,6 +372,17 @@ vivian, sohee, ono_anna are female; ryan, aiden, uncle_fu, eric, dylan male), wi
 the user's own voice or that of someone who agreed, never to deceive or impersonate, and only
 with `consent=true` after the user confirms that permission. Check `capabilities.speech`.
 
+### Animated titles
+`create_animated_title(body={phrases, style, motion, look, background, seconds, aspect_ratio,
+resolution})` animates exact lettering with MiniMax H3 Fused Turbo over black `#000000` or
+white `#FFFFFF`, which is also the first and last frame; the runtime writes the H3 prompt. `phrases`: one
+title (up to 160 characters) or 2–6 phrases shown one at a time (80 each, 160 in total), kept
+verbatim. `style`: dust, dissolve, neon, typewriter, glitch, smoke, fire, impact or kinetic;
+`motion` (English) overrides it. No other colours, chroma key or transparency. A sequence
+needs 1 s per phrase plus 1 s of empty background at the end. `improve_prompt` with
+`mode=title` plans phrases, style, motion and look from a description. Check
+`capabilities.video.titles.ready`.
+
 ### Characters and LoRAs
 `list_characters` returns the owner's private characters: `handle` (written `@handle` by the
 user), `name`, `description` (look, in English), 1–4 `references` (owned images, the first is the
@@ -467,6 +478,11 @@ Director (this example is only valid for an analyzed 10-second song):
 {"body":{"title":"Violet stage","song":{"uri":"<owned uri>","sha256":"<owned sha256>"},"brief":"Consistent violet-haired anime singer on a moonlit stage","scenes":[{"start":0,"end":10,"image_prompt":"The image is a wide anime-style illustration of a violet-haired singer with feline-ear headphones standing on a moonlit open-air stage …","video_prompt":"integrated_multimodal_description: [Shot 1] 2D-animated, the singer from <Picture 1> sways gently at the microphone while the camera pushes in with small amplitude at slow speed …\n\noverall_soundscape: A soft night breeze.\n\nnon_diegetic_music: N/A"}],"keyframe_precision":"int8","keyframe_quality":"quality","keyframe_resolution":"1mp","video_profile":"base","video_steps":20,"keyframe_options":{"steps":40},"video_options":{"resolution":"480p"},"seed":0},"idempotency_key":"production-001"}
 ```
 
+Animated title sequence (exact words, solid navy background, vertical):
+```json
+{"body":{"phrases":["CREA","EXPLORA","INSPIRA"],"style":"dust","background":"#000000","seconds":6,"aspect_ratio":"9:16","resolution":"720p"},"idempotency_key":"title-001"}
+```
+
 Prompt check before an r2v job with one portrait and one voice sample:
 ```json
 {"body":{"model":"video","mode":"r2v","seconds":8,"images":1,"audios":1,"prompt":"subject_definitions:\n<Subject 1> is …"}}
@@ -488,7 +504,7 @@ WORKFLOWS = """## Jobs, conversations, providers and agent workflows
    Completed jobs from `get_job`/`wait_for_job` include `outputs`: every result file reference. `get_job_preview` may return
    pending before image previews become available. `list_jobs` includes current jobs.
 5. After a lost response, call `find_job(scope, key)` before re-creating. Scope is
-   generate/edit/video/song/production/upscale respectively, not the MCP tool name. Reuse the
+   generate/edit/video/song/production/upscale/title respectively, not the MCP tool name. Reuse the
    same key and parameters for an admission retry; do not duplicate GPU generations.
 6. Terminal states include completed/failed/cancelled/interrupted/blocked_gpu;
    do not treat blocked_gpu as still running. Only use results after completed.

@@ -15,6 +15,7 @@ export default defineMessages({
     'creations.kind.stems': 'Pistas separadas',
     'creations.kind.sound': 'Sonido',
     'creations.kind.speech': 'Voz',
+    'creations.kind.title': 'Título animado',
     'creations.kind.fallback': 'Creación',
 
     // Job states.
@@ -64,6 +65,7 @@ export default defineMessages({
     'creations.model.followingVideo': 'siguiendo un vídeo',
     'creations.model.native': 'nativa',
     'creations.model.edit': 'edición',
+    'creations.model.title': 'Título',
     'creations.model.angle': 'ángulo',
     'creations.model.noBackground': 'sin fondo',
     'creations.model.structure': 'estructura',
@@ -120,6 +122,7 @@ export default defineMessages({
     'creations.kind.stems': 'Separated stems',
     'creations.kind.sound': 'Sound',
     'creations.kind.speech': 'Voice',
+    'creations.kind.title': 'Animated title',
     'creations.kind.fallback': 'Creation',
 
     'creations.status.queued': 'Queued',
@@ -166,6 +169,7 @@ export default defineMessages({
     'creations.model.followingVideo': 'following a video',
     'creations.model.native': 'native',
     'creations.model.edit': 'edit',
+    'creations.model.title': 'Title',
     'creations.model.angle': 'angle',
     'creations.model.noBackground': 'no background',
     'creations.model.structure': 'structure',

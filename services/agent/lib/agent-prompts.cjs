@@ -23,15 +23,19 @@ const IMPROVE = {
     task: `Write YuE2 inputs. Return ONLY JSON {"style":"comma-separated English tags","lyrics":"structured lyrics"}. ${SONG_RULES} For an instrumental use section tags only and add "instrumental, no vocals" to the style.` },
   ace_song: { guide: 'aceStep', label: 'ACE-Step caption, lyrics and metadata', json: true,
     task: `Write ACE-Step 1.5 inputs. Return ONLY JSON {"style":"English caption of at most 500 characters, without BPM or key","lyrics":"structured lyrics","bpm":96,"key":"D major","time_signature":"4","language":"es"}. ${SONG_RULES} For an instrumental the lyrics are exactly "[Instrumental]". language is the two-letter code of the sung language.` },
+  title: { guide: 'titles', label: 'animated title plan', json: true,
+    task: 'Plan one animated title. Return ONLY JSON {"phrases":["exact on-screen text"],"style":"dust|dissolve|neon|typewriter|glitch|smoke|fire|impact|kinetic|null","motion":"English: how the lettering enters, holds readable and leaves, or empty","look":"English lettering style, or empty"}. Use one phrase for one complete title; use 2–6 phrases only when the request asks for words or lines shown one after another. Keep every quoted or explicitly given word verbatim in its own language, with its accents, capitals and punctuation; write copy only when the request asks you to, in the language it asks for. Limits: one title up to 160 characters; in a sequence up to 80 characters each and 160 in total. Choose a style only when it fits; write motion instead when the request describes a specific animation. Never describe the background: the user chooses black or white separately.' },
 };
 
 const VIDEO = ['t2v', 'i2v', 'r2v'];
+const TITLE_STYLES = ['dust', 'dissolve', 'neon', 'typewriter', 'glitch', 'smoke', 'fire', 'impact', 'kinetic'];
 
 function improveSystem(mode, { references = 0, seconds } = {}) {
   const spec = IMPROVE[mode];
   if (!spec) throw new Error('Modo de prompt no admitido.');
   const context = [`References supplied: ${references}.`];
   if (VIDEO.includes(mode)) context.push(`Requested duration: ${seconds || 5} seconds (use the effective duration table).`);
+  if (mode === 'title') context.push(`Clip length: ${seconds || 5} seconds; a sequence needs at least 1 second per phrase plus 1 second.`);
   return [
     `You propose a ${spec.label} for Media Lab. You never execute tools or generate media.`,
     spec.task,
@@ -49,6 +53,7 @@ function parseImproved(mode, content) {
   let value;
   // Tolerate prose or fences around the object; providers often add them.
   try { value = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)); } catch { throw new Error('El proveedor no devolvió JSON válido'); }
+  if (mode === 'title') return parseTitle(value);
   if (mode === 'kandinsky') {
     if (!text(value.prompt)) throw new Error('Respuesta de vídeo incompleta');
     return { prompt: text(value.prompt), audio_prompt: text(value.audio_prompt) };
@@ -63,6 +68,19 @@ function parseImproved(mode, content) {
   if (['2', '3', '4', '6'].includes(String(value.time_signature))) result.time_signature = String(value.time_signature);
   if (/^[a-z]{2}$/.test(text(value.language))) result.language = text(value.language);
   return result;
+}
+
+// The plan is shown to the user before generating: anything the runtime would refuse is an error, never trimmed.
+function parseTitle(value) {
+  const phrases = Array.isArray(value.phrases) ? value.phrases.map(text) : [];
+  if (!phrases.length || phrases.length > 6 || phrases.some(p => !p || /[\r\n]/.test(p))) throw new Error('El plan de título necesita de 1 a 6 frases de una línea');
+  const total = phrases.reduce((sum, p) => sum + p.length, 0);
+  if (phrases.length === 1 ? total > 160 : phrases.some(p => p.length > 80) || total > 160) throw new Error('El plan de título supera los límites de texto');
+  const style = text(value.style);
+  if (style && style !== 'null' && !TITLE_STYLES.includes(style)) throw new Error(`Estilo de título desconocido: ${style}`);
+  const motion = text(value.motion), look = text(value.look);
+  if (motion.length > 800 || look.length > 400) throw new Error('El plan de título supera los límites de animación o estilo');
+  return { phrases, style: TITLE_STYLES.includes(style) ? style : null, motion, look };
 }
 
 // Includes room for reasoning models, which count their thinking against max_tokens.

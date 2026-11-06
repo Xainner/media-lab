@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { droppedKind, improve, mentioned, operations, requests, speechTags, withCharacters, type Submission } from './live'
+import { droppedKind, improve, mentioned, operations, planTitle, requests, speechTags, withCharacters, type Submission } from './live'
 
 const ref = { uri: 'artifact://s/images/a.png', sha256: 'a' }
 const base = (patch: Partial<Submission>): Submission => ({ kind: 'image', prompt: 'un faro', modelId: 'qwen-quality', values: { aspect: '1:1', quality: 'Calidad' }, count: 1, refs: [], ...patch })
@@ -221,4 +221,32 @@ test('the Escalar mode sends the source clip to FlashVSR, never through the IA p
   expect(operations.video).toContain('upscale')
   vi.stubGlobal('visualLab', { agent: { improve: async () => { throw new Error('no') } } })
   expect(await improve(up({}))).toMatchObject({ prompt: '' })
+})
+
+test('the Títulos mode sends the phrases as written to the title job, whatever model the picker shows', async () => {
+  const title = (prompt: string, values: Record<string, string>, extra: Partial<Submission> = {}) =>
+    base({ kind: 'video', prompt, modelId: 'kandinsky6', values: { mode: 'Títulos', aspect: '9:16', duration: '10 s', resolution: 'Vista previa', titleStyle: 'Neón', background: 'Negro', attention: 'Dispersa', ...values }, ...extra })
+  const [job] = requests(title('¡Hola @ana!\n\n  MEDIA LAB  ', {}))
+  expect(job).toEqual({ path: '/v1/jobs/title', operation: 'title', body: { phrases: ['¡Hola @ana!', 'MEDIA LAB'], style: 'neon', background: '#000000', seconds: 10,
+    aspect_ratio: '9:16', resolution: 'preview', session_id: expect.any(String) } })
+  const custom = requests(title('X', { titleStyle: 'Libre', background: 'Blanco', resolution: 'Nativa' }, { title: { motion: 'Rises from light.', look: '' } }))[0].body
+  expect(custom).toMatchObject({ background: '#FFFFFF', resolution: '720p', motion: 'Rises from light.' })
+  expect(custom.style).toBeUndefined(); expect(custom.look).toBeUndefined()
+  // @handles stay text and no LoRA reaches a title.
+  const characters = [{ id: 'c', handle: 'ana', name: 'Ana', description: '', references: [ref], lora: { id: 'l', name: 'L', base: 'h3' as const, trigger: '', strength: 1, status: 'ready' } }]
+  expect(withCharacters(title('¡Hola @ana!', {}, { loras: [{ id: 'x' }] }), characters)).toMatchObject({ prompt: '¡Hola @ana!', refs: [], loras: [] })
+  expect(operations.video).toContain('title')
+  const improveSpy = vi.fn(async () => ({ prompt: 'no' }))
+  vi.stubGlobal('visualLab', { agent: { improve: improveSpy } })
+  expect(await improve(title('MEDIA LAB', {}))).toMatchObject({ prompt: 'MEDIA LAB' })
+  expect(improveSpy).not.toHaveBeenCalled()
+})
+
+test('a title plan asks the provider in title mode and refuses an empty plan', async () => {
+  const improveSpy = vi.fn(async (..._: unknown[]) => ({ prompt: '', phrases: ['CREA', 'EXPLORA'], style: 'dust', motion: ' Each word rises. ', look: '' }))
+  vi.stubGlobal('visualLab', { agent: { improve: improveSpy } })
+  expect(await planTitle('tres palabras inspiradoras', 6)).toEqual({ phrases: ['CREA', 'EXPLORA'], style: 'dust', motion: 'Each word rises.', look: '' })
+  expect(improveSpy).toHaveBeenCalledWith('tres palabras inspiradoras', 'title', [], 6)
+  vi.stubGlobal('visualLab', { agent: { improve: async () => ({ prompt: 'x' }) } })
+  await expect(planTitle('algo', 5)).rejects.toThrow()
 })

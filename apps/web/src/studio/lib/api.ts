@@ -8,7 +8,7 @@ export type Job = {
   id: string
   job_id?: string
   session_id: string
-  operation: 'generate' | 'edit' | 'video' | 'song' | 'production' | 'upscale' | 'swap' | 'face_refine' | 'remove' | 'stems' | 'sound' | 'speech'
+  operation: 'generate' | 'edit' | 'video' | 'song' | 'production' | 'upscale' | 'swap' | 'face_refine' | 'remove' | 'stems' | 'sound' | 'speech' | 'title'
   status: string
   activity: string[]
   progress?: { pct: number; step: number; steps: number; node: string }
