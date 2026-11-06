@@ -327,6 +327,14 @@ module.exports = {
         "maximum": 63,
         "minimum": 0,
         "type": "integer"
+      },
+      "attention": {
+        "description": "H3 only: sparse = ComfyUI block-sparse attention (VSA for FastH3 Omni, training-free sol-attn for the other profiles) to render faster; dense = full attention.",
+        "enum": [
+          "dense",
+          "sparse"
+        ],
+        "type": "string"
       }
     },
     "type": "object"

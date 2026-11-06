@@ -190,10 +190,12 @@ export function requests(s: Submission): { path: string; body: any; operation: s
     const mode = s.values.mode === 'Imagen inicial' ? 'i2v' : s.values.mode === 'Referencias' || follow ? 'r2v' : 't2v'
     // Preview is the runtime default, so it is left out and older requests keep their fingerprint.
     const resolution = RESOLUTIONS[s.values.resolution] || 'preview'
+    // Defaults (preview, dense attention) are left out so older requests keep their fingerprint.
+    const options = { ...(resolution !== 'preview' ? { resolution } : {}), ...(s.values.attention === 'Dispersa' ? { attention: 'sparse' } : {}) }
     return [{ path: '/v1/jobs/video', operation: 'video', body: { prompt: s.prompt, mode, first_frame: mode === 'i2v' ? s.refs[0] ?? null : null,
       references: mode === 'r2v' ? s.refs : [], aspect_ratio: s.values.aspect, seconds: seconds(s.values.duration),
       profile: ({ 'h3-turbo': 'turbo', 'h3-fused': 'fused_turbo', 'fasth3-omni': 'omni', 'h3-flex': 'flex' } as Record<string, string>)[s.modelId] || 'base', session_id, ...loras,
-      ...(resolution !== 'preview' ? { options: { resolution } } : {}),
+      ...(Object.keys(options).length ? { options } : {}),
       ...(follow ? { control: { video: s.source, mode: FOLLOWS[s.values.follow] || 'pose', keep_audio: true } } : {}) } }]
   }
   const cover = s.values.type === 'Cover'
