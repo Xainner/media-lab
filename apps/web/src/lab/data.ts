@@ -71,6 +71,13 @@ export const LANGUAGES: Record<string, string> = { Automático: 'auto', Español
   Alemán: 'german', Italiano: 'italian', Japonés: 'japanese', Coreano: 'korean', Chino: 'chinese', Ruso: 'russian' }
 /** Kandinsky 6 makes 5 s clips in these two shapes only. */
 export const K6_ASPECTS = ['16:9', '9:16']
+/** Animated title presets (runtime style ids); Libre sends none, so the default fade or the planned motion applies. */
+export const TITLE_STYLES: Record<string, string> = { Polvo: 'dust', Disolver: 'dissolve', Neón: 'neon', 'Máquina de escribir': 'typewriter', Glitch: 'glitch',
+  Humo: 'smoke', Fuego: 'fire', Impacto: 'impact', Cinético: 'kinetic' }
+/** Title backgrounds: only black and white; on other colours H3 invents scenery. */
+export const TITLE_BACKGROUNDS: Record<string, string> = { Negro: '#000000', Blanco: '#FFFFFF' }
+/** Titles take one to six phrases, one per line. */
+export const titlePhrases = (text: string) => text.split(/\r?\n/).map(p => p.trim()).filter(Boolean)
 
 type Choice = { id: string; label: string; options: string[] }
 export const settings: Record<Modality, Choice[]> = {
@@ -85,9 +92,11 @@ export const settings: Record<Modality, Choice[]> = {
     { id: 'size', get label() { return t('composer.setting.size') }, options: ['1 MP', '2K'] },
   ],
   video: [
-    { id: 'mode', get label() { return t('composer.setting.mode') }, options: ['Texto', 'Imagen inicial', 'Referencias', 'Seguir vídeo', 'Cambiar personaje', 'Cambiar cabeza', 'Quitar persona', 'Escalar'] },
+    { id: 'mode', get label() { return t('composer.setting.mode') }, options: ['Texto', 'Imagen inicial', 'Referencias', 'Seguir vídeo', 'Cambiar personaje', 'Cambiar cabeza', 'Quitar persona', 'Escalar', 'Títulos'] },
     { id: 'follow', get label() { return t('composer.setting.follow') }, options: ['Movimiento', 'Bordes', 'Profundidad'] },
     { id: 'engine', get label() { return t('composer.setting.engine') }, options: ['H3', 'SCAIL-2'] },
+    { id: 'titleStyle', get label() { return t('composer.setting.titleStyle') }, options: ['Libre', ...Object.keys(TITLE_STYLES)] },
+    { id: 'background', get label() { return t('composer.setting.background') }, options: ['Negro', 'Blanco'] },
     { id: 'aspect', get label() { return t('composer.setting.aspect') }, options: ['16:9', '9:16', '1:1'] },
     { id: 'duration', get label() { return t('composer.setting.duration') }, options: ['5 s', '10 s', '15 s'] },
     { id: 'resolution', get label() { return t('composer.setting.resolution') }, options: ['Vista previa', '480p', '720p', 'Nativa'] },
@@ -137,6 +146,9 @@ const LABELS: Record<string, MessageKey | [MessageKey, Vars]> = {
   'Cambiar cabeza': 'composer.option.swapHead', 'Quitar persona': 'composer.option.removePerson', Escalar: 'composer.option.upscale', Movimiento: 'composer.option.motion',
   'Vista previa': 'composer.option.preview', Nativa: 'composer.option.native', Rápido: 'composer.option.fast',
   Densa: 'composer.option.dense', Dispersa: 'composer.option.sparse',
+  Títulos: 'composer.option.titles', Libre: 'composer.option.free', Polvo: 'composer.titleStyle.dust', Disolver: 'composer.titleStyle.dissolve', Neón: 'composer.titleStyle.neon',
+  'Máquina de escribir': 'composer.titleStyle.typewriter', Glitch: 'composer.titleStyle.glitch', Humo: 'composer.titleStyle.smoke', Fuego: 'composer.titleStyle.fire',
+  Impacto: 'composer.titleStyle.impact', Cinético: 'composer.titleStyle.kinetic', Negro: 'composer.option.black', Blanco: 'composer.option.white',
   Canción: 'composer.option.song', 'Separar pistas': 'composer.option.splitStems', 'Voz + instrumental': 'composer.option.vocalsInstrumental', '4 pistas': 'composer.option.fourStems',
   Música: 'composer.option.music', Instrumento: 'composer.option.instrument', Efecto: 'composer.option.effect', Golpe: 'composer.option.oneShot',
   'Voz del estudio': 'composer.option.studioVoice', 'Diseñar voz': 'composer.option.designVoice', 'Clonar voz': 'composer.option.cloneVoice',

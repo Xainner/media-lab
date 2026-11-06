@@ -1,6 +1,7 @@
 """Pinned API graphs for native ComfyUI H3 and YuE2 nodes."""
 from __future__ import annotations
 
+import math
 import re
 
 H3_FL = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
@@ -225,6 +226,89 @@ def h3_workflow(prompt: str, mode: str, width: int, height: int, seconds: float,
                 "model": graph["guider"]["inputs"]["model"], **method, **H3_SPARSE}}
             graph["guider"]["inputs"]["model"] = ["sparse_attention", 0]
     return graph
+
+
+# Animated titles: H3 Fused animates lettering over a flat colour that is also the first and last frame.
+TITLE_STYLES = {
+    "dust": "The lettering gathers out of drifting dust particles, settles into crisp letters, then crumbles back into fine dust that drifts away.",
+    "dissolve": "The lettering fades in softly, stays steady, then dissolves smoothly into the background.",
+    "neon": "Glowing neon tubes draw the lettering stroke by stroke, the light flickers once and stays steady, then the tubes power down and go dark.",
+    "typewriter": "The characters appear one at a time from left to right like a typewriter, the full text stays still, then the characters are deleted one at a time.",
+    "glitch": "The lettering snaps in through short digital glitches with a slight colour split, locks into clean letters, then glitches out.",
+    "smoke": "Wisps of smoke curl into the shape of the lettering, the letters become solid and clear, then drift apart as smoke.",
+    "fire": "Flames and sparks trace the outline of the lettering, the letters glow like hot metal, then cool down and burn out into fading embers.",
+    "impact": "The lettering slams into place with a strong impact and a short shockwave, holds firmly, then shatters into pieces that fall away.",
+    "kinetic": "The words move with bold changes of scale, position and rotation, lock together into the final readable layout, then slide out of frame.",
+}
+TITLE_DEFAULT_MOTION = "The lettering fades and slides gently into place, stays steady, then fades out."
+TITLE_TAIL = 1.0          # seconds of empty background before the closing frame
+TITLE_FADE = 0.5          # seconds the runtime fades picture and sound out to the background at the end
+TITLE_MIN_SLOT = 1.0      # seconds per phrase in a sequence
+TITLE_MAX_PHRASES = 6
+
+
+def title_duration(seconds: float) -> float:
+    return h3_length(seconds) / 24
+
+
+def title_slots(phrases: list[str], seconds: float) -> list[tuple[float, float]]:
+    """Time slots for a sequence: at least TITLE_MIN_SLOT each, the rest shared by phrase length."""
+    usable = title_duration(seconds) - TITLE_TAIL
+    if usable < TITLE_MIN_SLOT * len(phrases):
+        raise ValueError(f"{len(phrases)} frases necesitan al menos {math.ceil(TITLE_MIN_SLOT * len(phrases) + TITLE_TAIL)} s")
+    weights = [len(p) + 10 for p in phrases]
+    spare = usable - TITLE_MIN_SLOT * len(phrases)
+    start, slots = 0.0, []
+    for weight in weights:
+        end = start + TITLE_MIN_SLOT + spare * weight / sum(weights)
+        slots.append((round(start, 2), round(end, 2)))
+        start = end
+    return slots
+
+
+def title_ink(background: str) -> str:
+    red, green, blue = (int(background[i:i + 2], 16) for i in (1, 3, 5))
+    return "white" if 0.2126 * red + 0.7152 * green + 0.0722 * blue < 140 else "black"
+
+
+def title_prompt(phrases: list[str], seconds: float, background: str, style: str | None = None,
+                 motion: str | None = None, look: str | None = None) -> str:
+    """English H3 prompt for an animated title over a flat colour; the runtime adds the FL2VA alignment line."""
+    background = background.upper()
+    name = "pure white" if background == "#FFFFFF" else "pure black"
+    stop = round(title_duration(seconds) - TITLE_TAIL, 2)
+    animation = (motion or "").strip() or TITLE_STYLES.get(style or "", TITLE_DEFAULT_MOTION)
+    lettering = (look or "").strip() or f"Bold, clean, highly legible {title_ink(background)} lettering, centred in the frame."
+    exact = ("Spell the text exactly as written, with the same capitals, accents and punctuation. Never add, "
+             "translate, repeat or invent letters, words, symbols, marks or logos.")
+    if len(phrases) == 1:
+        body = [f'Animated title card. The only text in the video is "{phrases[0]}". {exact}',
+                f"Lettering: {lettering}",
+                f"Animation: {animation} The complete text stays fully readable and still for at least one second.",
+                f"Timing: the text has completely left the frame by {stop:.2f} s; from {stop:.2f} s to the end only "
+                "the empty background is visible."]
+    else:
+        slots = title_slots(phrases, seconds)
+        schedule = [f'{index}. {start:.2f}–{end:.2f} s: only "{phrase}" is visible. It enters, stays fully readable and '
+                    f"still for at least half a second, then plays its exit animation and is completely gone by {end:.2f} s."
+                    + (" It does not stay on screen until the end." if index == len(phrases) else "")
+                    for index, (phrase, (start, end)) in enumerate(zip(phrases, slots), 1)]
+        body = [f"Animated title sequence of {len(phrases)} phrases shown one at a time, in this order. {exact} "
+                "Never show two phrases together and never bring back an earlier phrase.",
+                f"Lettering: {lettering}",
+                f"Animation for every phrase: {animation}",
+                "Schedule:\n" + "\n".join(schedule),
+                f"From {stop:.2f} s to the end only the empty background is visible."]
+    return "\n\n".join(body + [
+        f"Background: a flat, uniform {name} background ({background}) fills the whole frame from the first to the last "
+        "frame, with no texture, gradient, vignette, horizon, floor, shadows or lighting changes. The letters and their "
+        "effects never use the background colour.",
+        # Naming what must not appear (people, faces…) made H3 draw it on light backgrounds; describe only what is there.
+        "This is pure motion typography: the frame shows only the lettering and its effect over the flat background, "
+        "which stays empty and unchanged. The meaning of the words is never illustrated. Locked static camera; every "
+        "letter stays inside the frame with a generous safe margin.",
+        "Sound: no speech, singing or music; only subtle sound effects that follow the animation.",
+    ])
 
 
 def h3_control_ready(model_root, mode: str) -> bool:

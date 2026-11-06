@@ -50,7 +50,7 @@ and an MCP server exposes the studio to Claude and other MCP clients.
 | | Create | Edit and transform |
 |---|---|---|
 | **Image** | Text to image with Qwen-Image 2.1 (Base or 8-step Turbo), FLUX 3 Klein photorealism with its own prompt upsampler, MOSS-Image posters with legible text. Nine aspect ratios, native 2K for creating and editing. | Edit or compose up to 10 references (FLUX 3 Klein: up to 4), follow the pose, edges or depth of a photo, re-shoot a subject from a new camera angle, remove the background to a transparent PNG. |
-| **Video** | MiniMax H3 video **with audio** from text, a first/last frame or image/video/audio references, 5–15 s, in Base, Turbo, Pika H3 Flex, Fused Turbo and FastH3 Omni profiles. Kandinsky 6: 5 s clips with speech and **lip-sync**. | Follow another clip's motion, edges or depth; swap a character or just the head (H3 Character Swap, Head Swap, SCAIL-2); refine faces; remove a person; upscale 2× or 4× with FlashVSR. |
+| **Video** | MiniMax H3 video **with audio** from text, a first/last frame or image/video/audio references, 5–15 s, in Base, Turbo, Pika H3 Flex, Fused Turbo and FastH3 Omni profiles. Kandinsky 6: 5 s clips with speech and **lip-sync**. Animated titles: exact text over black or white, one title or a sequence of phrases, with presets or an AI-planned animation. | Follow another clip's motion, edges or depth; swap a character or just the head (H3 Character Swap, Head Swap, SCAIL-2); refine faces; remove a person; upscale 2× or 4× with FlashVSR. |
 | **Music** | Full songs with vocals from style tags and lyrics: ACE-Step 1.5 XL Turbo (exact length, about a minute) or YuE2 3B (up to 15 min, ABC scores). Instrumentals, loops, SFX and one-shots with Stable Audio 3. | Covers from a song's melody (YuE2), stem separation into vocals + instrumental or four stems (Hybrid Demucs). |
 | **Voice** | Qwen3-TTS in 10 languages: nine studio voices with delivery instructions, or a new voice designed from a description. | Clone a voice from a 3–30 s clip — **only with the speaker's permission**; the API refuses without explicit consent. |
 | **Productions** | The **Director** turns a song into a music video: audio analysis, an editable storyboard, keyframes and clips per scene, MP4 preview and a master that keeps the original audio stream. | Reuse your own images and clips per scene; resume interrupted productions. |
@@ -176,13 +176,13 @@ Every account can expose its own studio to MCP clients at `https://<your-origin>
    Other clients need Streamable HTTP with a custom `Authorization` header; the web page also
    offers a ready `mcpServers` configuration and copyable agent instructions.
 
-The server ships **55 tools**, English instructions, per-model prompt guides
+The server ships **59 tools**, English instructions, per-model prompt guides
 (`prompt_guide`, `media-lab://guides/*` resources) and prompt templates:
 
 | Area | Tools |
 |---|---|
 | Discover | `capabilities`, `studio_status`, `account_profile`, `account_preferences`, `prompt_guide`, `check_prompt` |
-| Create | `generate_image`, `edit_image`, `generate_video`, `generate_music`, `generate_sound`, `generate_speech`, `create_production` |
+| Create | `generate_image`, `edit_image`, `generate_video`, `generate_music`, `generate_sound`, `generate_speech`, `create_animated_title`, `create_production` |
 | Transform | `upscale_video`, `swap_character`, `refine_faces`, `remove_person`, `separate_stems` |
 | Jobs | `list_jobs`, `get_job`, `wait_for_job` (progress notifications), `get_job_preview`, `find_job`, `cancel_job`, `resume_job` |
 | Files | `create_uploads`, `get_uploads`, `get_download_links`, `get_media`, `inspect_media`, `analyze_audio`, `review_image`, `export_image`, `upload_reference`, `upload_audio`, `upload_video` |

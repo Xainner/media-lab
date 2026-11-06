@@ -69,8 +69,10 @@ interface Window {
       showInFolder(filePath: string): Promise<boolean>
     }
     agent: {
-      improve(prompt: string, mode?: 't2i' | 'i2i' | 'moss' | 't2v' | 'i2v' | 'r2v' | 'kandinsky' | 'song' | 'ace_song', references?: ArtifactRef[], seconds?: number): Promise<{
-        prompt: string; lyrics?: string; audio_prompt?: string; bpm?: number; key?: string; time_signature?: string; language?: string }>
+      improve(prompt: string, mode?: 't2i' | 'i2i' | 'moss' | 't2v' | 'i2v' | 'r2v' | 'kandinsky' | 'song' | 'ace_song' | 'title', references?: ArtifactRef[], seconds?: number): Promise<{
+        prompt: string; lyrics?: string; audio_prompt?: string; bpm?: number; key?: string; time_signature?: string; language?: string
+        /** mode=title returns a plan instead of a prompt. */
+        phrases?: string[]; style?: string | null; motion?: string; look?: string }>
       start(payload: { prompt: string; session: string; references: ArtifactRef[] }): Promise<any>
       get(payload: { id?: string; session?: string }): Promise<any>
       cancel(id: string, jobId?: string): Promise<any>

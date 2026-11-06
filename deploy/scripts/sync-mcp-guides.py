@@ -8,7 +8,7 @@ sys.path.insert(0, str(ROOT / 'services/runtime/src'))
 from media_lab.mcp_server import GUIDES
 from media_lab.mcp_guides import ENGLISH
 from media_lab.model_guides import (ACE_STEP, AGENT_BRIEF, DIRECTOR, FLUX3, H3, KANDINSKY6, LANGUAGE, MOSS,
-                                    QWEN_EDIT, QWEN_IMAGE, QWEN_TTS, STABLE_AUDIO3, TOPICS, YUE2)
+                                    QWEN_EDIT, QWEN_IMAGE, QWEN_TTS, STABLE_AUDIO3, TITLES, TOPICS, YUE2)
 
 for name, text in [('MCP-GUIDE.md', GUIDES['all']), ('MODEL-CONTROLS.md', '# Model controls\n\n' + GUIDES['controls'])]:
     target = ROOT / 'docs' / name
@@ -23,7 +23,7 @@ text += 'const metadata = ' + json.dumps(ENGLISH, ensure_ascii=False, indent=2) 
 text += 'const modelPromptLanguage = ' + json.dumps(policy) + ';\n'
 guides = {'language': LANGUAGE, 'qwenImage': QWEN_IMAGE, 'qwenEdit': QWEN_EDIT, 'moss': MOSS, 'flux3': FLUX3, 'h3': H3,
           'kandinsky6': KANDINSKY6, 'yue2': YUE2, 'aceStep': ACE_STEP, 'stableAudio3': STABLE_AUDIO3, 'qwenTts': QWEN_TTS,
-          'director': DIRECTOR, 'agentBrief': AGENT_BRIEF, 'topics': TOPICS}
+          'director': DIRECTOR, 'titles': TITLES, 'agentBrief': AGENT_BRIEF, 'topics': TOPICS}
 text += 'const guides = ' + json.dumps(guides, ensure_ascii=False, indent=2) + ';\n'
 text += '''function englishCapabilities(value) {
   if (typeof value === 'string') return metadata[value] ?? value;

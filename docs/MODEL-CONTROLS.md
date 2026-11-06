@@ -232,6 +232,17 @@ vivian, sohee, ono_anna are female; ryan, aiden, uncle_fu, eric, dylan male), wi
 the user's own voice or that of someone who agreed, never to deceive or impersonate, and only
 with `consent=true` after the user confirms that permission. Check `capabilities.speech`.
 
+### Animated titles
+`create_animated_title(body={phrases, style, motion, look, background, seconds, aspect_ratio,
+resolution})` animates exact lettering with MiniMax H3 Fused Turbo over black `#000000` or
+white `#FFFFFF`, which is also the first and last frame; the runtime writes the H3 prompt. `phrases`: one
+title (up to 160 characters) or 2–6 phrases shown one at a time (80 each, 160 in total), kept
+verbatim. `style`: dust, dissolve, neon, typewriter, glitch, smoke, fire, impact or kinetic;
+`motion` (English) overrides it. No other colours, chroma key or transparency. A sequence
+needs 1 s per phrase plus 1 s of empty background at the end. `improve_prompt` with
+`mode=title` plans phrases, style, motion and look from a description. Check
+`capabilities.video.titles.ready`.
+
 ### Characters and LoRAs
 `list_characters` returns the owner's private characters: `handle` (written `@handle` by the
 user), `name`, `description` (look, in English), 1–4 `references` (owned images, the first is the

@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from .model_options import CanvasOptions, ImageOptions, VideoOptions, SongOptions, video_size
-from .creative_workflows import SA3_KINDS, TTS_LANGUAGES, TTS_SPEAKERS
+from .creative_workflows import SA3_KINDS, TITLE_MAX_PHRASES, TITLE_STYLES, TTS_LANGUAGES, TTS_SPEAKERS, title_slots
 from .workflows import CAMERA_AZIMUTHS, CAMERA_DISTANCES, CAMERA_ELEVATIONS, CONTROL_MODES, FLUX3_MAX_REFERENCES, TURBO_STEPS
 
 
@@ -458,6 +458,40 @@ class SpeechRequest(ModelRequest):
         if self.voice == "design" and not self.instruct.strip():
             raise ValueError("Describe la voz que quieres diseñar")
         return self
+
+
+TitleStyle = Literal[tuple(TITLE_STYLES)]
+
+
+class AnimatedTitleRequest(ModelRequest):
+    phrases: list[str] = Field(min_length=1, max_length=TITLE_MAX_PHRASES, description="The exact on-screen text, kept verbatim in its own language. One item: a single title of up to 160 characters. 2–6 items: a sequence shown one phrase at a time, in order (up to 80 characters each, 160 in total). No line breaks inside an item.")
+    style: TitleStyle | None = Field(default=None, description="Animation preset: dust, dissolve, neon, typewriter, glitch, smoke, fire, impact or kinetic. Ignored when motion is set; unset and no motion = a gentle fade and slide.")
+    motion: str | None = Field(default=None, max_length=800, description="Optional English description of how the lettering enters, holds and leaves (overrides style), e.g. from improve_prompt mode=title.")
+    look: str | None = Field(default=None, max_length=400, description="Optional English lettering style: typeface feel, weight, colour, material. Unset = bold clean lettering that contrasts with the background.")
+    background: Literal["#000000", "#FFFFFF"] = Field(default="#000000", description="Solid background: black #000000 (default) or white #FFFFFF; the clip starts and ends on it. Other colours, chroma key and transparency are not offered: H3 invents scenery on them.")
+    seconds: float = Field(default=5, ge=5, le=15, description="Clip length, 5–15 s at 24 fps. A sequence needs at least 1 s per phrase plus 1 s of empty background at the end.")
+    aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
+    resolution: Literal["preview", "480p", "720p"] = Field(default="720p", description="Canvas preset, as for generate_video.")
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1, description="Fixed seed to reproduce; unset = random.")
+    session_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,80}$", description=SESSION_HELP)
+
+    @model_validator(mode="after")
+    def phrase_limits(self):
+        self.phrases = [phrase.strip() for phrase in self.phrases]
+        if any(not phrase or "\n" in phrase or "\r" in phrase for phrase in self.phrases):
+            raise ValueError("Cada frase necesita texto y va en una sola línea")
+        if len(self.phrases) == 1 and len(self.phrases[0]) > 160:
+            raise ValueError("Un título admite hasta 160 caracteres")
+        if len(self.phrases) > 1:
+            if any(len(phrase) > 80 for phrase in self.phrases) or sum(len(p) for p in self.phrases) > 160:
+                raise ValueError("En una secuencia cada frase admite hasta 80 caracteres y 160 en total")
+            title_slots(self.phrases, self.seconds)
+        return self
+
+    @field_validator("background", mode="before")
+    @classmethod
+    def background_case(cls, value):
+        return value.upper() if isinstance(value, str) else value
 
 
 class FaceRefineRequest(ModelRequest):

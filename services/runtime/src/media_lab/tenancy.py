@@ -114,7 +114,8 @@ class TenantStore(Store):
                     raise IdempotencyConflict("Idempotency-Key already used with a different request")
                 return prior["job_id"], False
             # Session and nested reference authorization are inside the admission transaction.
-            self._ensure(db, session_id, uid, request.get("prompt") or request.get("title") or "Nueva sesión")
+            self._ensure(db, session_id, uid, request.get("prompt") or request.get("title")
+                         or " · ".join(request.get("phrases") or []) or "Nueva sesión")
             self._check_refs(db, request, uid)
             if shutil.disk_usage(self.path.parent).free < 10 * 1024 ** 3:
                 raise ResourceLimit("Protección global: quedan menos de 10 GiB libres")

@@ -289,6 +289,36 @@ test('video_upscale sends the known video alias with x2 fast defaults', async t 
   assert.deepEqual(post.body.video, video); assert.equal(post.body.scale, 2); assert.equal(post.body.quality, 'fast'); assert.ok(post.key);
 });
 
+test('video_title sends the exact phrases to the title route only when H3 Fused is ready', async t => {
+  for (const ready of [true, false]) {
+    let n = 0;
+    const args = { phrases: ['¡Hola!', 'MEDIA LAB'], style: 'neon', background: '#FFFFFF', seconds: 6 };
+    const f = fixture(t, { chat: async () => n++ ? { content: 'done' } : { tool_calls: [call('t', 'video_title', args)] } });
+    const base = f.options.runtime;
+    f.engine.runtime = async (...a) => a[1] === '/v1/capabilities' ? { video: { ready: true, titles: { ready } } } : base(...a);
+    assert.ok(f.engine.tools.some(tool => tool.function.name === 'video_title'));
+    const run = await f.engine.start({ prompt: 'Haz un título neón', session: 's' });
+    const done = await settled(f.engine, run.id);
+    const posts = f.requests.filter(r => r.route === '/v1/jobs/title');
+    if (!ready) { assert.equal(posts.length, 0); continue; }
+    assert.equal(done.status, 'completed');
+    assert.deepEqual(posts[0].body.phrases, args.phrases); assert.equal(posts[0].body.style, 'neon'); assert.ok(posts[0].key);
+    assert.equal(Object.values(done.jobs)[0].prompt, '¡Hola! · MEDIA LAB');
+  }
+});
+
+test('title plans are validated, never trimmed', () => {
+  const { improveSystem, parseImproved } = require('./agent-prompts.cjs');
+  assert.match(improveSystem('title', { seconds: 6 }), /Clip length: 6 seconds[\s\S]*Animated titles/);
+  const plan = parseImproved('title', 'Plan:\n{"phrases":[" ¡Bienvenidos! "],"style":"null","motion":"","look":"gold serif"}');
+  assert.deepEqual(plan, { phrases: ['¡Bienvenidos!'], style: null, motion: '', look: 'gold serif' });
+  assert.equal(parseImproved('title', '{"phrases":["A","B"],"style":"dust"}').style, 'dust');
+  for (const bad of ['{"phrases":[]}', '{"phrases":["a\\nb"]}', `{"phrases":${JSON.stringify(Array(7).fill('x'))}}`,
+    `{"phrases":["${'x'.repeat(161)}"]}`, `{"phrases":["${'x'.repeat(81)}","y"]}`, '{"phrases":["x"],"style":"chroma"}',
+    `{"phrases":["x"],"motion":"${'m'.repeat(801)}"}`, 'no json'])
+    assert.throws(() => parseImproved('title', bad));
+});
+
 test('deleting a run removes its file, mirrored messages and what later runs inherited', async t => {
   let step = 0;
   const f = fixture(t, { chat: async () => step++ === 0 ? { tool_calls: [call('a', 'image_generate', { prompt: 'secret cat' })] } : { content: 'Listo' } });

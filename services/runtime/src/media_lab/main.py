@@ -15,13 +15,13 @@ from starlette.concurrency import run_in_threadpool
 from .artifacts import ArtifactStore
 from .comfy import ComfyClient
 from .config import SETTINGS
-from .contracts import (ExportRequest, EditRequest, GenerateRequest, SessionMessage, VideoRequest, SongRequest,
+from .contracts import (AnimatedTitleRequest, ExportRequest, EditRequest, GenerateRequest, SessionMessage, VideoRequest, SongRequest,
                         FaceRefineRequest, ProductionRequest, RemoveRequest, SoundRequest, SpeechRequest, StemsRequest, SwapRequest, UpscaleRequest, UPSCALE_MAX_INPUT_PIXELS, UPSCALE_MAX_SECONDS,
                         UPSCALE_MAX_WORK_SECONDS, UPSCALE_RATE, resolution_presets)
 from .creative import CreativeJobs, FACE_SECONDS, REMOVE_SECONDS, STEMS_SECONDS, SWAP_SECONDS, audio_analysis, check_face_input, check_remove_input, check_stems_input, check_control_input, check_swap_input, check_upscale_input, media_probe, video_info
 from .model_options import option_catalog, image_canvas
 from .contracts import generation_size
-from .creative_workflows import (H3_FL, H3_REF, H3_CLIP, H3_VIDEO_VAE, H3_AUDIO_VAE, YUE2, SHEETSAGE, h3_profiles,
+from .creative_workflows import (H3_FL, H3_REF, H3_CLIP, H3_VIDEO_VAE, H3_AUDIO_VAE, YUE2, SHEETSAGE, h3_profiles, TITLE_STYLES,
                                  FLASHVSR_FILES, FLASHVSR_MODEL, flashvsr_ready, swap_ready, SWAP_LORA,
                                  head_swap_ready, HEAD_LORA, face_refine_ready, FACE_STRENGTHS, ace_ready, ACE_SECONDS,
                                  remover_ready, REMOVER_LORA, stems_ready, STEMS, h3_control_ready, VIDEO_CONTROL_MODES,
@@ -41,7 +41,7 @@ from .workflows import (ENCODER, UNET, UNET_BF16, UNET_TURBO, UNET_TURBO_BF16, T
 
 
 # Jobs run by CreativeJobs (everything except Qwen generate/edit, which JobManager runs).
-CREATIVE_OPERATIONS = {"video", "song", "production", "upscale", "swap", "face_refine", "remove", "stems", "sound", "speech"}
+CREATIVE_OPERATIONS = {"video", "song", "production", "upscale", "swap", "face_refine", "remove", "stems", "sound", "speech", "title"}
 
 app = FastAPI(title="Media Lab Runtime", version="0.6.0")
 store = Store(SETTINGS.db_path)
@@ -164,7 +164,10 @@ def capabilities():
                   "control": {"model": "MiniMax-H3 Fun ControlNet-Union 2.0", "profiles": ["base", "turbo"],
                               "modes": {mode: h3_control_ready(SETTINGS.model_root, mode) for mode in VIDEO_CONTROL_MODES},
                               "seconds": list(VIDEO_CONTROL_SECONDS), "keeps_audio": True},
-                  "default_profile": "base", "profiles": profiles, "attention": ["dense", "sparse"]},
+                  "default_profile": "base", "profiles": profiles, "attention": ["dense", "sparse"],
+                  "titles": {"ready": profiles["fused_turbo"]["ready"], "profile": "fused_turbo", "styles": list(TITLE_STYLES),
+                             "backgrounds": ["#000000", "#FFFFFF"], "aspect_ratios": ["16:9", "9:16", "1:1"],
+                             "resolutions": ["preview", "480p", "720p"], "seconds": [5, 15], "max_phrases": 6}},
         "music": {"model": "YuE2-3B", "modes": ["direct", "full", "melody", "cover"],
                   "ready": (SETTINGS.model_root / "checkpoints" / YUE2).is_file(),
                   "cover_ready": (SETTINGS.model_root / "audio_encoders" / SHEETSAGE).is_file(),
@@ -429,6 +432,19 @@ def stems_job(body: StemsRequest, idempotency_key: str | None = Header(default=N
     except QueueFull as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     except (ValueError, subprocess.SubprocessError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/jobs/title", status_code=202)
+def title_job(body: AnimatedTitleRequest, idempotency_key: str | None = Header(default=None)):
+    try:
+        require_h3_profile("fused_turbo")
+        return {"ok": True, **creative.submit("title", body.model_dump(), 0, key=idempotency_key)}
+    except IdempotencyConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except QueueFull as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 

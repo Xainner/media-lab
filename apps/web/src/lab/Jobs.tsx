@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LayoutGroup, motion } from 'motion/react'
-import { AudioLines, AudioWaveform, Clapperboard, Film, ImagePlus, Maximize2, Mic, RotateCcw, ScanFace, Trash2, UserRoundPen, UserRoundX, WandSparkles, X, type LucideIcon } from 'lucide-react'
+import { AudioLines, AudioWaveform, Clapperboard, Film, ImagePlus, Maximize2, Mic, RotateCcw, ScanFace, Trash2, Type, UserRoundPen, UserRoundX, WandSparkles, X, type LucideIcon } from 'lucide-react'
 import { api } from '../bridge'
 import { LIBRARY_CHANGED, useMediaSrc } from './live'
 import { ratioOf, type Art, type Modality } from './data'
@@ -9,7 +9,8 @@ import { formatDateTime, t, type MessageKey } from '../i18n'
 const KINDS: Record<string, [MessageKey, LucideIcon, Modality]> = { generate: ['creations.kind.generate', ImagePlus, 'image'], edit: ['creations.kind.edit', WandSparkles, 'image'], video: ['creations.kind.video', Film, 'video'],
   song: ['creations.kind.song', AudioLines, 'audio'], production: ['creations.kind.production', Clapperboard, 'video'], upscale: ['creations.kind.upscale', Maximize2, 'video'],
   swap: ['creations.kind.swap', UserRoundPen, 'video'], face_refine: ['creations.kind.faceRefine', ScanFace, 'video'], remove: ['creations.kind.remove', UserRoundX, 'video'],
-  stems: ['creations.kind.stems', AudioLines, 'audio'], sound: ['creations.kind.sound', AudioWaveform, 'audio'], speech: ['creations.kind.speech', Mic, 'audio'] }
+  stems: ['creations.kind.stems', AudioLines, 'audio'], sound: ['creations.kind.sound', AudioWaveform, 'audio'], speech: ['creations.kind.speech', Mic, 'audio'],
+  title: ['creations.kind.title', Type, 'video'] }
 const STATUS: Record<string, MessageKey> = { queued: 'creations.status.queued', running: 'creations.status.running', completed: 'creations.status.completed', failed: 'creations.status.failed',
   cancelled: 'creations.status.cancelled', interrupted: 'creations.status.interrupted', blocked_gpu: 'creations.status.blockedGpu' }
 const STRENGTH: Record<string, MessageKey> = { light: 'creations.jobs.strengthLight', medium: 'creations.jobs.strengthMedium', strong: 'creations.jobs.strengthStrong' }
@@ -28,6 +29,7 @@ function describe(j: any) {
   const r = j.request || {}
   if (j.operation === 'upscale') return `FlashVSR ×${r.scale ?? 2} · ${t(r.quality === 'quality' ? 'creations.jobs.upscaleQuality' : 'creations.jobs.upscaleFast')}`
   if (j.operation === 'swap') return `${r.mode === 'head' ? t('creations.jobs.swapHead') : r.mode === 'scail' ? `${t('creations.jobs.swapCharacter')} · SCAIL-2` : t('creations.jobs.swapCharacter')}${r.target ? ` · ${r.target}` : ''}`
+  if (j.operation === 'title') return `${(r.phrases || []).join(' · ')} · ${r.background || '#000000'}`
   if (j.operation === 'edit' && r.remove_background) return t('creations.jobs.backgroundRemoved')
   if (j.operation === 'stems') return t(r.stems === 'four' ? 'creations.jobs.stemsFour' : 'creations.jobs.stemsTwo')
   if (j.operation === 'remove') return r.target ? t('creations.jobs.removeTarget', { target: r.target }) : t('creations.jobs.removePerson')
