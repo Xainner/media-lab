@@ -83,7 +83,7 @@ export default defineMessages({
 
     // studio/lib
     'shell.api.cancelled': 'La operación fue cancelada.',
-    'shell.api.fileTooLarge': 'El archivo supera el límite de 20 MiB.',
+    'shell.api.fileTooLarge': 'El archivo supera el límite de 1 GiB.',
     'shell.api.imageTypeNotAllowed': 'Tipo de imagen no permitido.',
     'shell.h3.help.base': 'Recomendado para el resultado final: pesos oficiales de MiniMax (Ref2VA real al usar referencias), máxima fidelidad de identidad y estilo. 20 pasos por defecto; menos es borrador, más no garantiza mejor calidad. Más lento.',
     'shell.h3.help.turbo': 'Rápido con los pesos oficiales: LoRA Turbo de LightX2V sobre H3 (también Ref2VA real con referencias), 8 pasos. Buen equilibrio para iterar y para videoclips; Base sigue siendo la máxima fidelidad. Mismo formato de prompt.',
@@ -332,7 +332,7 @@ export default defineMessages({
     'shell.bridge.endpointNotApproved': 'Endpoint not approved by the administrator',
 
     'shell.api.cancelled': 'The operation was cancelled.',
-    'shell.api.fileTooLarge': 'The file exceeds the 20 MiB limit.',
+    'shell.api.fileTooLarge': 'The file exceeds the 1 GiB limit.',
     'shell.api.imageTypeNotAllowed': 'Image type not allowed.',
     'shell.h3.help.base': 'Recommended for the final result: official MiniMax weights (true Ref2VA when using references), highest identity and style fidelity. 20 steps by default; fewer is a draft, more does not guarantee better quality. Slower.',
     'shell.h3.help.turbo': 'Fast with the official weights: LightX2V Turbo LoRA on top of H3 (also true Ref2VA with references), 8 steps. A good balance for iterating and for music videos; Base is still the highest fidelity. Same prompt format.',

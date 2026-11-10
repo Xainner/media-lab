@@ -13,7 +13,7 @@ const isVideo = (uri: string) => /\.(mp4|webm|mkv|mov)$/i.test(uri)
 
 /** A model can run when it is installed here; Turbo variants also need their weights on the server. */
 export const available = (m: Model, caps: Caps) => m.status !== 'soon' && (m.id !== 'qwen-turbo' || caps.turbo) && (m.id !== 'h3-turbo' || caps.h3Turbo) && (m.id !== 'fasth3-omni' || caps.omni) && (m.id !== 'h3-fused' || caps.fusedTurbo) && (m.id !== 'h3-flex' || caps.flex) && (m.id !== 'ace-step' || caps.ace) && (m.id !== 'moss-image' || caps.moss)
-  && (m.id !== 'flux3-klein' || caps.flux3) && (m.id !== 'kandinsky6' || caps.kandinsky6) && (m.id !== 'stable-audio3' || Object.values(caps.sound).some(Boolean)) && (m.id !== 'qwen3-tts' || Object.values(caps.speech).some(Boolean))
+  && (m.id !== 'flux3-klein' || caps.flux3) && (m.id !== 'h3-image' || caps.h3image) && (m.id !== 'kandinsky6' || caps.kandinsky6) && (m.id !== 'stable-audio3' || Object.values(caps.sound).some(Boolean)) && (m.id !== 'qwen3-tts' || Object.values(caps.speech).some(Boolean))
 // Audio settings that belong to one kind of audio model; the rest (type, stems, duration) are for songs.
 const audioOnly: Record<string, string> = { sound: 'stable-audio3', length: 'stable-audio3', voice: 'qwen3-tts', speaker: 'qwen3-tts', language: 'qwen3-tts' }
 // Models that rewrite or read the text themselves, so the IA chip stays off.
@@ -188,6 +188,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     if (id === 'mode' && model.id === 'fasth3-omni') return 'Referencias'
     if (id === 'mode' && k6) return chosen === 'Imagen inicial' ? chosen : 'Texto'
     if (id === 'aspect' && k6) return K6_ASPECTS.includes(chosen) ? chosen : '16:9'
+    if (id === 'size' && model.id === 'h3-image') return chosen === '16 MP' ? chosen : '2K'
     if (id === 'length') { const options = SOUND_LENGTHS[SOUND_KINDS[value('sound')]]; return options.includes(chosen) ? chosen : options[0] }
     return chosen
   }
@@ -197,8 +198,10 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const imageMode = modality === 'image' ? value('mode') : ''
   const guided = imageMode === 'Estructura', angle = imageMode === 'Ángulo', cutout = imageMode === 'Quitar fondo'
   // 2K covers Qwen creation and plain edits; angle, cutout and structure keep their 1 MP recipes.
-  const sized = imageMode === 'Crear' && caps.twoK && (model.id === 'qwen-quality' || model.id === 'qwen-turbo')
-  const twoK = sized && value('size') === '2K'
+  // H3 Image only works from about 4 MP: it picks 2K (4 MP) or its native 16 MP instead.
+  const h3image = imageMode === 'Crear' && model.id === 'h3-image'
+  const sized = imageMode === 'Crear' && (h3image || (caps.twoK && (model.id === 'qwen-quality' || model.id === 'qwen-turbo')))
+  const twoK = sized && !h3image && value('size') === '2K'
   const split = song && value('type') === 'Separar pistas'
   // Following a clip runs on H3 Ref2VA (base or Turbo); the clip sets format and length.
   const follow = modality === 'video' && value('mode') === 'Seguir vídeo'
@@ -208,13 +211,14 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
   const imageModeReady = (o: string) => o === 'Crear' || (o === 'Estructura' ? Object.values(caps.control).some(Boolean) : o === 'Quitar fondo' ? caps.cutout : caps.camera)
   // Swap modes only show up once their LoRAs are installed; the clip decides format and length.
   // Angle re-shoots and cutouts keep the photo's frame and a fixed recipe, so format and quality go away.
-  const choices = settings[modality].filter(c => !(c.id === 'quality' && model.id === 'qwen-turbo') && !(swap && c.id !== 'mode' && c.id !== 'engine') && !(upscale && c.id !== 'mode' && c.id !== 'scale' && c.id !== 'finish')
+  const choices = settings[modality].filter(c => !(c.id === 'quality' && (model.id === 'qwen-turbo' || h3image)) && !(swap && c.id !== 'mode' && c.id !== 'engine') && !(upscale && c.id !== 'mode' && c.id !== 'scale' && c.id !== 'finish')
       && (!modeOnly[c.id] || modeOnly[c.id] === value('mode')) && !(follow && (c.id === 'aspect' || c.id === 'duration')) && !((angle || cutout) && (c.id === 'aspect' || c.id === 'quality'))
       && (modality !== 'audio' || (audioOnly[c.id] ? audioOnly[c.id] === model.id : song)) && !(c.id === 'speaker' && voice !== 'preset')
       && !(k6 && (c.id === 'duration' || c.id === 'resolution' || c.id === 'attention')) && !(titles && c.id === 'attention') && (c.id !== 'size' || sized)
       && (split ? splitOnly[c.id] : c.id !== 'stems'))
     .map(c => c.id === 'mode' ? { ...c, options: c.options.filter(o => modality === 'image' ? imageModeReady(o) : o === 'Escalar' ? caps.upscale : o === 'Títulos' ? caps.title : model.id === 'fasth3-omni' ? o === 'Referencias' : k6 ? o === 'Texto' || o === 'Imagen inicial' : o === 'Seguir vídeo' ? followReady : !SWAP_MODES[o] || caps.swap[SWAP_MODES[o]]) }
       : c.id === 'aspect' && k6 ? { ...c, options: K6_ASPECTS }
+      : c.id === 'size' ? { ...c, options: c.options.filter(o => h3image ? o !== '1 MP' : o !== '16 MP') }
       : c.id === 'resolution' && titles ? { ...c, options: c.options.filter(o => o !== 'Nativa') }
       : c.id === 'sound' ? { ...c, options: c.options.filter(o => caps.sound[SOUND_KINDS[o]]) }
       : c.id === 'length' ? { ...c, options: SOUND_LENGTHS[SOUND_KINDS[value('sound')]] }
@@ -287,7 +291,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
     }
     // @handles become references and LoRAs before the prompt is improved or sent.
     let submission: Submission = withCharacters({ kind: modality, prompt: prompt.trim(), lyrics, modelId: model.id, count, refs, source, consent,
-      values: { ...Object.fromEntries(settings[modality].map(c => [c.id, value(c.id)])), size: twoK ? '2K' : '1 MP' },
+      values: { ...Object.fromEntries(settings[modality].map(c => [c.id, value(c.id)])), size: h3image ? value('size') : twoK ? '2K' : '1 MP' },
       loras: picked.map(l => ({ id: l.id })), ...(titles && titlePlan ? { title: titlePlan } : {}) }, library.characters)
     try {
       if (enhance) {
@@ -413,6 +417,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
           </button>
           <ModelPicker modality={modality} value={model} caps={caps} onPick={m => { setModel(m); setChosen(true); if (m.id === 'moss-image') { setRefs([]); setValues(v => ({ ...v, mode: 'Crear' })) }
             if (m.id === 'flux3-klein') { setRefs(r => r.slice(0, 4)); setValues(v => ({ ...v, mode: 'Crear' })) }
+            if (m.id === 'h3-image') setValues(v => ({ ...v, mode: 'Crear' }))
             if (m.id === 'kandinsky6') setRefs(r => r.slice(0, value('mode') === 'Imagen inicial' ? 1 : 0))
             if (modality === 'audio') { setSource(null); setLyrics('') }
             if (follow && m.id !== 'h3' && m.id !== 'h3-turbo') setValues(v => ({ ...v, mode: 'Referencias' })) }} open={picker} onClose={() => setPicker(false)} />
@@ -426,7 +431,7 @@ export default function Composer({ modality, caps, progress, onGenerate, seed }:
           if (c.id === 'titleStyle') setTitlePlan(p => p?.look ? { motion: '', look: p.look } : null)
           if (c.id === 'size' && v === '2K') setRefs(r => r.slice(0, TWO_K_REFS))
           // Structure and angle run on Qwen; MOSS and Klein only create (Klein also edits from the main mode).
-          if (c.id === 'mode' && v !== 'Crear' && (model.id === 'moss-image' || model.id === 'flux3-klein')) { setModel(models.find(m => m.id === 'qwen-quality')!); setChosen(true) }
+          if (c.id === 'mode' && v !== 'Crear' && ['moss-image', 'flux3-klein', 'h3-image'].includes(model.id)) { setModel(models.find(m => m.id === 'qwen-quality')!); setChosen(true) }
           if (c.id === 'mode' && k6 && v === 'Texto') setRefs([])
           if (c.id === 'voice') { setSource(null); setConsent(false) }
           // Covers only exist in YuE2.

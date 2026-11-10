@@ -94,3 +94,20 @@ def test_delete_image_removes_file_and_sidecar(tmp_path):
         media["uri"].rsplit("/", 1)[-1],
         media["uri"].rsplit("/", 1)[-1] + ".json",
     ])
+
+
+def test_uploads_default_to_1_gib(monkeypatch):
+    from media_lab import main, mcp_files
+    from media_lab.config import load_settings
+    monkeypatch.delenv("UPLOAD_MAX_BYTES", raising=False)
+    assert load_settings().upload_max_bytes == main.MEDIA_UPLOAD_MAX_BYTES == mcp_files.MEDIA_MAX_BYTES == 1024 ** 3
+
+
+def test_generated_images_are_not_bound_by_a_lowered_upload_byte_cap(tmp_path):
+    from media_lab.artifacts import GENERATED_MAX_BYTES
+    data = png("RGB", (10, 20, 30))
+    store = ArtifactStore(tmp_path, len(data) - 1, 1_000_000)
+    with pytest.raises(ValueError):
+        store.put_upload("s1", data, "image/png")
+    assert store.import_image("s1", data, {})["width"] == 32
+    assert GENERATED_MAX_BYTES >= 160 * 1024 * 1024

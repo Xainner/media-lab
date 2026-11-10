@@ -307,6 +307,22 @@ test('video_title sends the exact phrases to the title route only when H3 Fused 
   }
 });
 
+test('image_generate sends MiniMax-H3-Image at 4 or 16 MP only when it is ready', async t => {
+  for (const [ready, tier] of [[true, undefined], [true, '4k'], [false, '4k']]) {
+    let n = 0;
+    const args = { model: 'h3image', prompt: 'The image is a red fox in fresh snow.', aspect_ratio: '16:9', quality: 'draft', ...(tier ? { resolution_tier: tier } : {}) };
+    const f = fixture(t, { chat: async () => n++ ? { content: 'done' } : { tool_calls: [call('i', 'image_generate', args)] } });
+    const base = f.options.runtime;
+    f.engine.runtime = async (...a) => a[1] === '/v1/capabilities' ? { two_k_enabled: false, image_models: { h3image: { ready } } } : base(...a);
+    const run = await f.engine.start({ prompt: 'Un zorro', session: 's' });
+    await settled(f.engine, run.id);
+    const posts = f.requests.filter(r => r.route === '/v1/jobs/generate');
+    if (!ready) { assert.equal(posts.length, 0); continue; }
+    assert.equal(posts[0].body.model, 'h3image'); assert.equal(posts[0].body.resolution_tier, tier || '2k');
+    assert.equal(posts[0].body.quality, undefined); assert.equal(posts[0].body.aspect_ratio, '16:9');
+  }
+});
+
 test('title plans are validated, never trimmed', () => {
   const { improveSystem, parseImproved } = require('./agent-prompts.cjs');
   assert.match(improveSystem('title', { seconds: 6 }), /Clip length: 6 seconds[\s\S]*Animated titles/);

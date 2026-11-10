@@ -111,8 +111,8 @@ OPERATIONS = [
     ('find_job', 'GET', '/v1/jobs/by-idempotency', 'read', 'Find a job receipt by scope and idempotency key before retrying admission.'),
     ('cancel_job', 'DELETE', '/v1/jobs/{job_id}', 'create', 'Cancel an owned active job.'),
     ('resume_job', 'POST', '/v1/jobs/{job_id}/resume', 'create', 'Resume a stopped owned job ONLY with explicit user authorization.'),
-    ('generate_image', 'POST', '/v1/jobs/generate', 'create', 'Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; control follows the edges, depth or pose of an owned image; resolution_tier=2k renders about 4 MP with Qwen INT8 when capabilities.two_k_enabled); returns an asynchronous job receipt.'),
-    ('edit_image', 'POST', '/v1/jobs/edit', 'create', 'Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein; resolution up to 2048 edits at 2K (about 4 MP) with Qwen INT8 and at most 4 references when capabilities.two_k_enabled.'),
+    ('generate_image', 'POST', '/v1/jobs/generate', 'create', 'Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; model=h3image for MiniMax-H3-Image at about 4 MP (resolution_tier=2k, default) or 16 MP (4k) from a complete English description; control follows the edges, depth or pose of an owned image; resolution_tier=2k renders about 4 MP with Qwen INT8 when capabilities.two_k_enabled); returns an asynchronous job receipt.'),
+    ('edit_image', 'POST', '/v1/jobs/edit', 'create', 'Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein; model=h3image edits or composes 1–10 references with MiniMax-H3-Image at about 4 MP; resolution up to 2048 edits at 2K (about 4 MP) with Qwen INT8 and at most 4 references when capabilities.two_k_enabled.'),
     ('generate_video', 'POST', '/v1/jobs/video', 'create', 'Generate H3 video (Base, Turbo, Flex, Fused Turbo, Omni) from text, keyframes or image/video/audio references, or model=kandinsky6 for a 5 s Kandinsky 6.0 clip with synchronized audio and lip-synced speech (<S>words<E>).'),
     ('generate_music', 'POST', '/v1/jobs/song', 'create', 'Generate a song: model=yue2 (YuE2 3B; ABC scores and covers from owned audio) or model=ace_step (ACE-Step 1.5 XL Turbo; a full song of exact length in about a minute).'),
     ('upscale_video', 'POST', '/v1/jobs/upscale', 'create', 'Upscale an owned video 2x or 4x with FlashVSR v1.1, keeping its original audio; creates a new video and never modifies the source.'),
@@ -334,7 +334,7 @@ def build_mcp(app, access):
 
     # structured_output=False: the guide is plain Markdown text. A generated {"result": str} output
     # schema made some clients validate the Markdown itself and reject every call.
-    @server.tool(structured_output=False, annotations=READS, description='English studio guides. Topics: image (Qwen, MOSS and FLUX 3 Klein creation), edit (Qwen and FLUX editing), video (MiniMax H3 and Kandinsky 6), music (YuE2 and ACE-Step), sound (Stable Audio 3), speech (Qwen3-TTS), director (music videos), prompts (all model guides), formats, controls, workflows, overview, all. Read the medium topic before writing a model prompt.')
+    @server.tool(structured_output=False, annotations=READS, description='English studio guides. Topics: image (Qwen, MOSS, FLUX 3 Klein and MiniMax-H3-Image creation), edit (Qwen, FLUX and H3 Image editing), video (MiniMax H3 and Kandinsky 6), music (YuE2 and ACE-Step), sound (Stable Audio 3), speech (Qwen3-TTS), director (music videos), prompts (all model guides), formats, controls, workflows, overview, all. Read the medium topic before writing a model prompt.')
     def prompt_guide(ctx: Context, topic: Literal['all', 'overview', 'prompts', 'formats', 'controls', 'workflows',
                                                   'image', 'edit', 'video', 'music', 'sound', 'speech',
                                                   'director'] = 'all') -> str:
@@ -350,8 +350,8 @@ def build_mcp(app, access):
     guide_resource('media-lab://guides/all', 'all', 'Complete English guide for all creative tools, model prompts, formats and workflows.')
     guide_resource('media-lab://guides/formats', 'formats', 'English upload, reference, encoding, export and private-download format guide.')
     guide_resource('media-lab://guides/controls', 'controls', 'English complete model controls, defaults, constraints and resolution tables.')
-    guide_resource('media-lab://guides/image', 'image', 'Image creation prompt guides: Qwen-Image 2.1, MOSS-Image and FLUX 3 Klein.')
-    guide_resource('media-lab://guides/edit', 'edit', 'Image editing prompt guides: Qwen-Image 2.1 and FLUX 3 Klein.')
+    guide_resource('media-lab://guides/image', 'image', 'Image creation prompt guides: Qwen-Image 2.1, MOSS-Image, FLUX 3 Klein and MiniMax-H3-Image.')
+    guide_resource('media-lab://guides/edit', 'edit', 'Image editing prompt guides: Qwen-Image 2.1, FLUX 3 Klein and MiniMax-H3-Image.')
     guide_resource('media-lab://guides/video', 'video', 'Video prompt guides: MiniMax H3 (modes, formats, labels, dialogue, audio) and Kandinsky 6.')
     guide_resource('media-lab://guides/music', 'music', 'Song guides: YuE2 (style, lyrics, modes, covers) and ACE-Step 1.5.')
     guide_resource('media-lab://guides/sound', 'sound', 'Stable Audio 3 instrumental, loop and sound-effect prompt guide.')

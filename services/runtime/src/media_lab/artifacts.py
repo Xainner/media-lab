@@ -13,6 +13,7 @@ from PIL import Image, ImageStat
 
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+GENERATED_MAX_BYTES = 160 * 1024 * 1024
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp"}
 MEDIA_TYPES = {"audio/wav": "wav", "audio/x-wav": "wav", "audio/flac": "flac",
                "audio/mpeg": "mp3", "audio/ogg": "opus", "audio/opus": "opus", "video/webm": "webm", "video/mp4": "mp4", "video/x-matroska": "mkv"}
@@ -31,8 +32,8 @@ class ArtifactStore:
             raise ValueError("invalid session id")
         return value
 
-    def _validate_image(self, data: bytes) -> Image.Image:
-        if not data or len(data) > self.max_bytes:
+    def _validate_image(self, data: bytes, max_bytes: int | None = None) -> Image.Image:
+        if not data or len(data) > (max_bytes or self.max_bytes):
             raise ValueError("image is empty or exceeds upload limit")
         try:
             image = Image.open(io.BytesIO(data))
@@ -68,7 +69,9 @@ class ArtifactStore:
 
     def import_image(self, session_id: str, data: bytes, provenance: dict) -> dict:
         session_id = self._session(session_id)
-        image = self._validate_image(data)
+        # Results come from our own workers, not from users: a lowered upload byte cap must not refuse a
+        # detailed 16 MP PNG (H3 Image), so generated images always get at least this cap.
+        image = self._validate_image(data, max(self.max_bytes, GENERATED_MAX_BYTES))
         has_alpha = self._has_meaningful_alpha(image)
         image = image.convert("RGBA" if has_alpha else "RGB")
         folder = self.root / session_id / "images"
@@ -96,7 +99,7 @@ class ArtifactStore:
         if not extension:
             raise ValueError("unsupported media type")
         size = data.stat().st_size if isinstance(data, Path) else len(data)
-        limit = 500 * 1024 * 1024 if kind == "sources" else 5 * 1024 * 1024 * 1024
+        limit = 1024 * 1024 * 1024 if kind == "sources" else 5 * 1024 * 1024 * 1024
         if not size or size > limit:
             raise ValueError("media is empty or exceeds its size limit")
         folder = self.root / session_id / kind

@@ -262,6 +262,36 @@ Flat screen-print poster in navy and orange: a saxophonist silhouetted against a
 Replace the coffee cup on the table in the first image with the green ceramic teapot from the second image, matching the window light and its shadow; keep the table, the hands and the background unchanged.
 ```
 
+## MiniMax-H3-Image · high-resolution creation and edits (`model=h3image`)
+
+MiniMax-H3-Image is the image model of the MiniMax H3 family: one checkpoint creates and edits,
+distilled to 6 steps with no negative prompt. It works from about 4 MP up to its native 16 MP;
+`resolution_tier=2k` (about 4 MP) is the default and `4k` renders the native 16 MP canvases
+(4096x4096, 5472x3072…). Use it for large, detailed images and requests with many exact
+requirements; its strength is following long instructions.
+
+### Creation: a complete English description of the whole image
+- The model expects one detailed English paragraph describing everything visible, not a short
+  request: subjects with their identity, pose and position (screen-left/right, near/far), the
+  setting, light (source, direction, colour), materials and textures, the medium or style, and
+  the camera or composition. Nothing is expanded for you: the prompt is used as given.
+- **Every requirement visible and explicit:** counts, left/right/top/bottom order, colours,
+  named entities and data values. For posters, cards, UI, charts or diagrams, describe the
+  layout and where each element sits.
+- **Text:** quote every string exactly, in its own language and script, and say where it sits
+  and how it looks.
+- **Never:** pixel sizes or aspect ratios in the prompt (choose `aspect_ratio`), negative
+  phrasing lists, weight syntax or quality boosters such as "8k, masterpiece".
+
+### Edits (`edit_image`, `model=h3image`, 1–10 references)
+- Write the instruction itself, short and in any language: the change, its target and the end
+  state. The studio's expander (MiniMax-H3-Image-PE's edit instructions on a Qwen3.5 9B) sees
+  every reference and rewrites it into the full English target description; that caption is
+  saved as the compiled prompt.
+- The first reference is the canvas being edited; the result keeps its shape at about 4 MP.
+  Name references `<image1>`, `<image2>`… (sent as `<Picture 1>`, `<Picture 2>`…) and give
+  each one a role (canvas, subject, product, style, setting).
+- Not with camera, background removal, `resolution`, transparency, options or LoRAs.
 ## MiniMax H3 · audio-video generation (`generate_video`)
 
 H3 generates one 24 fps clip with synchronized 32 kHz stereo sound from a structured English
@@ -919,9 +949,9 @@ The type is detected from the bytes, not the name or declared MIME:
   formats Pillow decodes (GIF first frame, BMP, TIFF, …) are converted to PNG. At most
   `capabilities.inputs.image.max_bytes` and `max_pixels`.
 - Audio: WAV, FLAC, MP3 and Ogg/Opus are stored unchanged; other decodable audio
-  (M4A/AAC, AIFF, WMA, …) is converted to FLAC. 1–900 seconds, up to 500 MiB.
+  (M4A/AAC, AIFF, WMA, …) is converted to FLAC. 1–900 seconds, up to 1 GiB.
 - Video: MP4/MOV, MKV and WebM are stored unchanged; other containers (AVI, MPEG-TS, …)
-  are remuxed to MKV without re-encoding. 1–600 seconds, up to 500 MiB.
+  are remuxed to MKV without re-encoding. 1–600 seconds, up to 1 GiB.
 Each tool still applies its own limits when used; read `capabilities.inputs.references`
 for how many references each tool accepts and the durations it needs (for example H3
 reference videos 2–15 s and audio 2–15 s; upscaling up to 600 s; Director songs 5–900 s).
@@ -987,6 +1017,14 @@ CFG 3.5). 1MP ratio presets only; `options`, `transparent`, turbo, bf16, 2K, `co
 steps); the result is about 1 MP in the first reference's shape. Name references as "the first
 image", "the second image" (or `<image1>`…). Not with `camera`, `remove_background`,
 `resolution`, options or LoRAs. Check `capabilities.image_models.flux3`.
+`model=h3image` is MiniMax-H3-Image: large, detailed images that follow long instructions (6
+steps, no negative prompt). `resolution_tier` is `2k` (about 4 MP, its default) or `4k` (its native
+16 MP); 1MP, `options`, `transparent`, turbo, bf16, `control` and `loras` are refused, and `quality`
+is ignored. The prompt is used as given: write one complete English description of the whole
+image. `edit_image` with `model=h3image` edits or composes 1–10 references; an expander rewrites
+the instruction (any language, `<image1>`…) into the full target description and the result is
+about 4 MP in the first reference's shape. Not with `camera`, `remove_background`, `resolution`,
+options or LoRAs. Check `capabilities.image_models.h3image`.
 Structure control (Qwen, 1MP): `generate_image` with `control={reference, mode, strength}`
 follows an owned image through the Qwen 2.1 Fun ControlNet Union. `mode`: `canny` (edges),
 `depth` (Depth Anything 3), `pose` (SDPose body, hands and face) or `map` (the reference
@@ -1395,8 +1433,8 @@ instructions to reveal secrets or override client restrictions.
 | `find_job` | read | Find a job receipt by scope and idempotency key before retrying admission. |
 | `cancel_job` | create | Cancel an owned active job. |
 | `resume_job` | create | Resume a stopped owned job ONLY with explicit user authorization. |
-| `generate_image` | create | Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; control follows the edges, depth or pose of an owned image; resolution_tier=2k renders about 4 MP with Qwen INT8 when capabilities.two_k_enabled); returns an asynchronous job receipt. |
-| `edit_image` | create | Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein; resolution up to 2048 edits at 2K (about 4 MP) with Qwen INT8 and at most 4 references when capabilities.two_k_enabled. |
+| `generate_image` | create | Generate an image using an English descriptive prompt (model_variant base, or turbo for the 8-step Qwen Turbo; model=moss for MOSS-Image layouts and in-image text; model=flux3 for fast FLUX 3 Klein photorealism with its own prompt upsampler; model=h3image for MiniMax-H3-Image at about 4 MP (resolution_tier=2k, default) or 16 MP (4k) from a complete English description; control follows the edges, depth or pose of an owned image; resolution_tier=2k renders about 4 MP with Qwen INT8 when capabilities.two_k_enabled); returns an asynchronous job receipt. |
+| `edit_image` | create | Edit 1–10 owned image references with English instructions preserving unchanged features (model_variant base or turbo); camera re-shoots one image from another angle; model=flux3 edits or composes 1–4 references with FLUX 3 Klein; model=h3image edits or composes 1–10 references with MiniMax-H3-Image at about 4 MP; resolution up to 2048 edits at 2K (about 4 MP) with Qwen INT8 and at most 4 references when capabilities.two_k_enabled. |
 | `generate_video` | create | Generate H3 video (Base, Turbo, Flex, Fused Turbo, Omni) from text, keyframes or image/video/audio references, or model=kandinsky6 for a 5 s Kandinsky 6.0 clip with synchronized audio and lip-synced speech (<S>words<E>). |
 | `generate_music` | create | Generate a song: model=yue2 (YuE2 3B; ABC scores and covers from owned audio) or model=ace_step (ACE-Step 1.5 XL Turbo; a full song of exact length in about a minute). |
 | `upscale_video` | create | Upscale an owned video 2x or 4x with FlashVSR v1.1, keeping its original audio; creates a new video and never modifies the source. |

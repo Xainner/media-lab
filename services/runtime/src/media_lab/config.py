@@ -62,7 +62,7 @@ def load_settings() -> Settings:
         gpu_guard_enabled=_bool("GPU_GUARD_ENABLED", True),
         enable_2k=_bool("ENABLE_2K", True),
         enable_bf16=_bool("ENABLE_BF16", False),
-        upload_max_bytes=int(os.environ.get("UPLOAD_MAX_BYTES", str(20 * 1024 * 1024))),
+        upload_max_bytes=int(os.environ.get("UPLOAD_MAX_BYTES", str(1024 * 1024 * 1024))),
         upload_max_pixels=int(os.environ.get("UPLOAD_MAX_PIXELS", str(50_000_000))),
     )
 

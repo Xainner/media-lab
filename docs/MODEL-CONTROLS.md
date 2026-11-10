@@ -22,6 +22,14 @@ CFG 3.5). 1MP ratio presets only; `options`, `transparent`, turbo, bf16, 2K, `co
 steps); the result is about 1 MP in the first reference's shape. Name references as "the first
 image", "the second image" (or `<image1>`…). Not with `camera`, `remove_background`,
 `resolution`, options or LoRAs. Check `capabilities.image_models.flux3`.
+`model=h3image` is MiniMax-H3-Image: large, detailed images that follow long instructions (6
+steps, no negative prompt). `resolution_tier` is `2k` (about 4 MP, its default) or `4k` (its native
+16 MP); 1MP, `options`, `transparent`, turbo, bf16, `control` and `loras` are refused, and `quality`
+is ignored. The prompt is used as given: write one complete English description of the whole
+image. `edit_image` with `model=h3image` edits or composes 1–10 references; an expander rewrites
+the instruction (any language, `<image1>`…) into the full target description and the result is
+about 4 MP in the first reference's shape. Not with `camera`, `remove_background`, `resolution`,
+options or LoRAs. Check `capabilities.image_models.h3image`.
 Structure control (Qwen, 1MP): `generate_image` with `control={reference, mode, strength}`
 follows an owned image through the Qwen 2.1 Fun ControlNet Union. `mode`: `canny` (edges),
 `depth` (Depth Anything 3), `pose` (SDPose body, hands and face) or `map` (the reference

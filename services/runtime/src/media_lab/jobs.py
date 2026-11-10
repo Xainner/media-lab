@@ -18,7 +18,8 @@ from .gpu_workers import GpuWorkers
 from .store import Store
 from .workflows import (REMOVE_BACKGROUND_PROMPT, REMOVE_BACKGROUND_STEPS, CAMERA_STEPS, CONTROL_STRENGTH, ENCODER, FLUX3_STEPS, FLUX3_UNETS,
                         MOSS_STEPS, MOSS_UNET, apply_camera, apply_control, camera_prompt, chain_loras, diffusion_model,
-                        edit_workflow, flux3_edit_workflow, flux3_workflow, moss_workflow, t2i_workflow)
+                        edit_workflow, flux3_edit_workflow, flux3_workflow, moss_workflow, t2i_workflow,
+                        H3_IMAGE_PROMPTS, H3_IMAGE_STEPS, H3_IMAGE_UNET, h3_image_edit_workflow, h3_image_workflow)
 from .loras import resolve_loras
 
 
@@ -133,8 +134,9 @@ class JobManager:
     def _generate(self, job_id: str, job: dict, gpu: int) -> dict:
         body = GenerateRequest.model_validate(job["request"])
         width, height = generation_size(body, self.settings.enable_2k)
-        from .model_options import image_canvas
-        width, height = image_canvas(body, self.settings.enable_2k, (width, height))
+        if body.model != "h3image":
+            from .model_options import image_canvas
+            width, height = image_canvas(body, self.settings.enable_2k, (width, height))
         seed = body.seed if body.seed is not None else secrets.randbits(53)
         compiled = compile_prompt(body.prompt, body.transparent)
         loras = []
@@ -145,6 +147,9 @@ class JobManager:
             steps, unet = FLUX3_STEPS[body.quality], FLUX3_UNETS[body.quality]
             workflow = "flux3_klein_t2i_v1" if body.quality == "draft" else "flux3_klein_base_t2i_v1"
             graph = flux3_workflow(compiled, width, height, seed, body.quality, body.aspect_ratio)
+        elif body.model == "h3image":
+            steps, unet, workflow = H3_IMAGE_STEPS, H3_IMAGE_UNET, f"h3_image_t2i_{body.resolution_tier}_v1"
+            graph = h3_image_workflow(compiled, width, height, seed)
         else:
             steps = steps_for(body.model_variant, body.quality, body.options)
             encoder = os.environ.get("QWEN21_ENCODER", ENCODER)
@@ -188,6 +193,8 @@ class JobManager:
         body = EditRequest.model_validate(job["request"])
         if body.model == "flux3":
             return self._flux3_edit(job_id, job, gpu, body)
+        if body.model == "h3image":
+            return self._h3_image_edit(job_id, job, gpu, body)
         seed = body.seed if body.seed is not None else secrets.randbits(53)
         steps = steps_for(body.model_variant, body.quality, body.options)
         compiled = compile_prompt(body.prompt, body.transparent)
@@ -256,3 +263,25 @@ class JobManager:
         })
         return {"media": [media], "data": {"workflow": workflow, "seed": seed, "steps": steps, "model": "flux3", "gpu": gpu,
                 "generation_ms": round((time.monotonic() - started) * 1000)}}
+
+    def _h3_image_edit(self, job_id: str, job: dict, gpu: int, body: EditRequest) -> dict:
+        seed = body.seed if body.seed is not None else secrets.randbits(53)
+        system, task = (self.settings.model_root / path for path in H3_IMAGE_PROMPTS)
+        system, task = system.read_text(encoding="utf-8").rstrip("\n"), task.read_text(encoding="utf-8")
+        uploaded = [self.clients[gpu].upload_image(self.artifacts.resolve(ref.uri, ref.sha256), f"{job_id}_{index}")
+                    for index, ref in enumerate(body.references, start=1)]
+        graph = h3_image_edit_workflow(body.prompt, uploaded, seed, system, task)
+        started = time.monotonic()
+        raw, backend = self.clients[gpu].run(graph, lambda p: self._progress(job_id, p, gpu),
+                                             lambda: self.store.cancel_requested(job_id),
+                                             lambda data, mime: self._store_preview(job_id, data, mime))
+        compiled = self.clients[gpu].output_text(backend["prompt_id"], "caption") or body.prompt
+        workflow = "h3_image_edit_v1"
+        media = self.artifacts.import_image(job["session_id"], raw, {
+            "operation": "edit", "workflow": workflow, "gpu": gpu, "model": "h3image",
+            "input_prompt": body.prompt, "compiled_prompt": compiled, "seed": seed, "steps": H3_IMAGE_STEPS,
+            "references": [r.model_dump() for r in body.references], "diffusion_model": H3_IMAGE_UNET,
+            "generation_ms": round((time.monotonic() - started) * 1000), "backend": backend,
+        })
+        return {"media": [media], "data": {"workflow": workflow, "seed": seed, "steps": H3_IMAGE_STEPS, "model": "h3image",
+                "gpu": gpu, "generation_ms": round((time.monotonic() - started) * 1000)}}

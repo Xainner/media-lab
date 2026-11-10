@@ -49,7 +49,7 @@ and an MCP server exposes the studio to Claude and other MCP clients.
 
 | | Create | Edit and transform |
 |---|---|---|
-| **Image** | Text to image with Qwen-Image 2.1 (Base or 8-step Turbo), FLUX 3 Klein photorealism with its own prompt upsampler, MOSS-Image posters with legible text. Nine aspect ratios, native 2K for creating and editing. | Edit or compose up to 10 references (FLUX 3 Klein: up to 4), follow the pose, edges or depth of a photo, re-shoot a subject from a new camera angle, remove the background to a transparent PNG. |
+| **Image** | Text to image with Qwen-Image 2.1 (Base or 8-step Turbo), FLUX 3 Klein photorealism with its own prompt upsampler, MOSS-Image posters with legible text, MiniMax-H3-Image for large 4–16 MP images that follow long instructions. Nine aspect ratios, native 2K for creating and editing. | Edit or compose up to 10 references (FLUX 3 Klein: up to 4; MiniMax-H3-Image with its own instruction expander, about 4 MP), follow the pose, edges or depth of a photo, re-shoot a subject from a new camera angle, remove the background to a transparent PNG. |
 | **Video** | MiniMax H3 video **with audio** from text, a first/last frame or image/video/audio references, 5–15 s, in Base, Turbo, Pika H3 Flex, Fused Turbo and FastH3 Omni profiles. Kandinsky 6: 5 s clips with speech and **lip-sync**. Animated titles: exact text over black or white, one title or a sequence of phrases, with presets or an AI-planned animation. | Follow another clip's motion, edges or depth; swap a character or just the head (H3 Character Swap, Head Swap, SCAIL-2); refine faces; remove a person; upscale 2× or 4× with FlashVSR. |
 | **Music** | Full songs with vocals from style tags and lyrics: ACE-Step 1.5 XL Turbo (exact length, about a minute) or YuE2 3B (up to 15 min, ABC scores). Instrumentals, loops, SFX and one-shots with Stable Audio 3. | Covers from a song's melody (YuE2), stem separation into vocals + instrumental or four stems (Hybrid Demucs). |
 | **Voice** | Qwen3-TTS in 10 languages: nine studio voices with delivery instructions, or a new voice designed from a description. | Clone a voice from a 3–30 s clip — **only with the speaker's permission**; the API refuses without explicit consent. |
@@ -59,7 +59,7 @@ Plus: a persistent **library** of everything you make, private **characters** yo
 `@name` in any prompt, a per-account **LoRA library** (paste a Hugging Face or Civitai link;
 Qwen-Image 2.1 and MiniMax H3 LoRAs are detected and verified), an **AI** button that turns
 a short idea into a model-ready prompt with your LLM provider and that model's guide (FLUX 3
-Klein and Stable Audio 3 use their own official upsamplers instead), drag-and-drop references,
+Klein, Stable Audio 3 and MiniMax-H3-Image edits use their own official upsamplers instead), drag-and-drop references,
 live job progress, invitation-only accounts with TOTP, and a web UI in **English and Spanish**.
 
 ## Gallery
@@ -97,6 +97,7 @@ is downloaded at a pinned revision and verified by SHA-256 by the scripts in
 | [MOSS-Image](https://huggingface.co/Comfy-Org/MOSS-Image) SFT | Posters, layouts, in-image text | `moss` | ~13 GB | Apache-2.0 |
 | [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein-comfy) | Fast photorealism and editing | `flux3` | ~24 GB | FLUX Kommunity License — **gated** |
 | [MiniMax H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) (FL2VA, Ref2VA) + Fused Turbo merge | Video with audio | `h3` | ~84 GB | MiniMax H3 Community License; Fused Turbo: research use |
+| [MiniMax-H3-Image](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image) (Comfy-Org INT8) + its prompt expander's instructions | 4–16 MP images and edits (needs `h3` and `moss`) | `h3-image` | ~22 GB | MiniMax-H3-Image Community License — **serving other people needs MiniMax's written authorization** |
 | LightX2V H3 Turbo LoRAs | 8-step H3 profile | `h3-turbo` | ~4 GB | MiniMax H3 Community License |
 | [Pika H3 Flex](https://huggingface.co/Pika-Labs/Pika-H3-Flex) LoRAs | 6-step H3 profile | `h3-flex` | ~4 GB | MiniMax H3 Community License (Pika Labs derivative; its NOTICE is kept next to the weights) |
 | FastH3 Omni | 8-step reference video | `h3-omni` | ~22 GB | MiniMax H3 Community License |
@@ -112,8 +113,8 @@ is downloaded at a pinned revision and verified by SHA-256 by the scripts in
 | [FlashVSR v1.1](https://huggingface.co/JunhaoZhuang/FlashVSR-v1.1) | Video upscaling (part of `qwen`) | `qwen` | — | Apache-2.0 (node GPL-3.0) |
 
 Presets: **minimal** = `qwen` (~44 GB) · **recommended** = Qwen, structure control, MOSS,
-FLUX 3 Klein, H3 + Turbo, ACE-Step, Stable Audio 3, Qwen3-TTS and stems (~230 GB) · **all**
-(~326 GB). `deploy/install.sh list-models` prints the current table.
+FLUX 3 Klein, H3 + H3 Image + Turbo + Flex, ACE-Step, Stable Audio 3, Qwen3-TTS and stems
+(~256 GB) · **all** (~352 GB). `deploy/install.sh list-models` prints the current table.
 
 > [!NOTE]
 > Kandinsky 6 and SCAIL-2 also read encoders from the shared model directory
@@ -335,6 +336,11 @@ publishers, and **you** are responsible for reading and accepting each licence b
   account whose token the installer uses.
 - **Own community licences:** MiniMax H3 and every H3 LoRA (MiniMax H3 Community License), Stable
   Audio 3 (Stability AI Community License), SAM 3.1 (Meta SAM License), YuE2 (see its card).
+- **MiniMax-H3-Image** (MiniMax-H3-Image Community License, different from H3's): if other people
+  use it on your server (web, API or MCP), you need MiniMax's prior written authorization
+  ([request form](https://platform.minimax.io/console/license)), and you must bind them to its use
+  restrictions. It is not licensed in the EU, the UK, South Korea or the US, and its outputs may
+  not be used to train other models. Skip the `h3-image` group if that does not fit your case.
 - **Permissive:** MOSS-Image, ACE-Step 1.5, Qwen3-TTS, Depth Anything 3, MediaPipe, FlashVSR
   (Apache-2.0); Kandinsky 6, SCAIL-2, SDPose, BigVGAN, Demucs (MIT).
 - Some LoRAs and encoders (Head Swap, Taomate, LightX2V Wan, RT-DETR, Wan 2.1 CLIP vision) have
@@ -387,5 +393,6 @@ comprueba el equipo, descarga los modelos elegidos con hashes verificados, crea
 las claves y el certificado de origen, construye las imágenes, arranca el stack y te da un enlace
 de un solo uso para crear al administrador. Usa `--dry-run` para ver qué haría y `--help` para
 todas las opciones. Antes de instalar, **lee y acepta las licencias de cada modelo**: varias son
-no comerciales y FLUX 3 Klein exige aceptarla en Hugging Face. Clona voces y cambia caras solo
+no comerciales, FLUX 3 Klein exige aceptarla en Hugging Face y MiniMax-H3-Image necesita
+autorización escrita de MiniMax para que otras personas lo usen en tu servidor. Clona voces y cambia caras solo
 con el consentimiento de las personas, y nunca para engañar.

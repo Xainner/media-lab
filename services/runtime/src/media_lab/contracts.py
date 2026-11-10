@@ -5,7 +5,8 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 from .model_options import CanvasOptions, ImageOptions, VideoOptions, SongOptions, video_size
 from .creative_workflows import SA3_KINDS, TITLE_MAX_PHRASES, TITLE_STYLES, TTS_LANGUAGES, TTS_SPEAKERS, title_slots
-from .workflows import CAMERA_AZIMUTHS, CAMERA_DISTANCES, CAMERA_ELEVATIONS, CONTROL_MODES, FLUX3_MAX_REFERENCES, TURBO_STEPS
+from .workflows import (CAMERA_AZIMUTHS, CAMERA_DISTANCES, CAMERA_ELEVATIONS, CONTROL_MODES, FLUX3_MAX_REFERENCES,
+                        H3_IMAGE_MAX_REFERENCES, TURBO_STEPS)
 
 
 PRESETS_1MP: dict[str, tuple[int, int]] = {
@@ -30,6 +31,19 @@ PRESETS_2K: dict[str, tuple[int, int]] = {
     "9:16": (1536, 2752),
     "4:5": (1792, 2240),
     "5:4": (2240, 1792),
+}
+
+# MiniMax-H3-Image's native 16 MP canvases (model card sizes; 4:5 and 5:4 at the same area, multiples of 32).
+PRESETS_4K: dict[str, tuple[int, int]] = {
+    "1:1": (4096, 4096),
+    "4:3": (4736, 3552),
+    "3:4": (3552, 4736),
+    "3:2": (5024, 3360),
+    "2:3": (3360, 5024),
+    "16:9": (5472, 3072),
+    "9:16": (3072, 5472),
+    "4:5": (3648, 4576),
+    "5:4": (4576, 3648),
 }
 
 PRESET_LABELS: dict[str, tuple[str, str]] = {
@@ -141,18 +155,26 @@ class GenerateRequest(ModelRequest):
     quality: Literal["draft", "quality"] = Field(default="quality", description="draft = 25 steps, quality = 40. Ignored by turbo.")
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1, description="Fixed seed to reproduce or compare; unset = random.")
     transparent: bool = Field(default=False, description="RGBA output with a transparent background; the runtime adds the alpha wording to the prompt.")
-    resolution_tier: Literal["1mp", "2k"] = Field(default="1mp", description="2k only with INT8 when capabilities.two_k_enabled.")
+    resolution_tier: Literal["1mp", "2k", "4k"] = Field(default="1mp", description="Qwen: 2k only with INT8 when capabilities.two_k_enabled. h3image: 2k (about 4 MP, its default) or 4k (its native 16 MP); no 1mp.")
     model_precision: Literal["int8", "bf16"] = "int8"
     model_variant: ModelVariant = Field(default="base", description=VARIANT_HELP)
     session_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,80}$", description=SESSION_HELP)
-    model: Literal["qwen", "moss", "flux3"] = Field(default="qwen", description="qwen: Qwen-Image 2.1 (variants, precisions, options, transparency). moss: MOSS-Image SFT, strong layout and in-image text (English or Chinese copy); 1MP presets only, draft 16 / quality 25 steps. flux3: FLUX 3 Image Klein, fast photorealism; its own prompt upsampler expands the request first (any language, short is fine); 1MP presets only, draft = distilled 16 steps, quality = base 50 steps.")
+    model: Literal["qwen", "moss", "flux3", "h3image"] = Field(default="qwen", description="qwen: Qwen-Image 2.1 (variants, precisions, options, transparency). moss: MOSS-Image SFT, strong layout and in-image text (English or Chinese copy); 1MP presets only, draft 16 / quality 25 steps. flux3: FLUX 3 Image Klein, fast photorealism; its own prompt upsampler expands the request first (any language, short is fine); 1MP presets only, draft = distilled 16 steps, quality = base 50 steps. h3image: MiniMax-H3-Image, high-resolution detail and strict instruction following from a long English description of the whole image (used as given); resolution_tier 2k (about 4 MP, default) or 4k (16 MP); fixed 6 steps (quality ignored).")
     control: ImageControl | None = Field(default=None, description="Qwen only, 1MP: follow the edges, depth or pose of an owned image (Fun ControlNet Union). Check capabilities.image_control.")
     loras: list[LoraUse] = Field(default_factory=list, max_length=4, description="Qwen only. " + LORAS_HELP)
 
     @model_validator(mode="after")
     def turbo_schedule(self):
         check_turbo_options(self.model_variant, self.options)
-        if self.model != "qwen" and (self.options or self.transparent or self.model_variant != "base"
+        if self.model == "h3image":
+            if "resolution_tier" not in self.model_fields_set:
+                self.resolution_tier = "2k"
+            if (self.options or self.transparent or self.model_variant != "base" or self.model_precision != "int8"
+                    or self.resolution_tier == "1mp"):
+                raise ValueError("MiniMax-H3-Image genera a 2k (unos 4 MP) o 4k (16 MP), sin opciones avanzadas, transparencia, Turbo ni BF16")
+        elif self.resolution_tier == "4k":
+            raise ValueError("4k (16 MP) solo existe con MiniMax-H3-Image")
+        elif self.model != "qwen" and (self.options or self.transparent or self.model_variant != "base"
                                      or self.model_precision != "int8" or self.resolution_tier != "1mp"):
             name = {"moss": "MOSS-Image", "flux3": "FLUX 3 Klein"}[self.model]
             raise ValueError(f"{name} solo admite los formatos 1MP, sin opciones avanzadas ni transparencia")
@@ -192,15 +214,18 @@ class EditRequest(ModelRequest):
     model_precision: Literal["int8", "bf16"] = "int8"
     model_variant: ModelVariant = Field(default="base", description=VARIANT_HELP)
     session_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,80}$", description=SESSION_HELP)
-    model: Literal["qwen", "flux3"] = Field(default="qwen", description=f"qwen: Qwen-Image 2.1 edit. flux3: FLUX 3 Image Klein (distilled, 16 steps): 1–{FLUX3_MAX_REFERENCES} references, output about 1 MP in the first reference's shape; its upsampler sees the images and expands the request (name references 'the first image'…, or <image1>…); no camera, background removal, options, transparency, turbo, bf16, resolution or LoRAs.")
+    model: Literal["qwen", "flux3", "h3image"] = Field(default="qwen", description=f"qwen: Qwen-Image 2.1 edit. flux3: FLUX 3 Image Klein (distilled, 16 steps): 1–{FLUX3_MAX_REFERENCES} references, output about 1 MP in the first reference's shape; its upsampler sees the images and expands the request (name references 'the first image'…, or <image1>…); no camera, background removal, options, transparency, turbo, bf16, resolution or LoRAs. h3image: MiniMax-H3-Image (6 steps): 1–{H3_IMAGE_MAX_REFERENCES} references, output about 4 MP in the first reference's shape; its expander sees the images and rewrites the instruction (any language; name references <image1>… or <Picture 1>…); same exclusions as flux3.")
 
     @model_validator(mode="after")
     def turbo_schedule(self):
         check_turbo_options(self.model_variant, self.options)
-        if self.model == "flux3" and (len(self.references) > FLUX3_MAX_REFERENCES or self.camera is not None
-                                      or self.remove_background or self.options or self.transparent or self.loras
-                                      or self.model_variant != "base" or self.model_precision != "int8" or self.resolution):
-            raise ValueError(f"FLUX 3 Klein edita con 1 a {FLUX3_MAX_REFERENCES} imágenes, sin ángulo, quitar fondo, opciones, transparencia, LoRAs ni resolución")
+        if self.model != "qwen":
+            name, most = {"flux3": ("FLUX 3 Klein", FLUX3_MAX_REFERENCES),
+                          "h3image": ("MiniMax-H3-Image", H3_IMAGE_MAX_REFERENCES)}[self.model]
+            if (len(self.references) > most or self.camera is not None or self.remove_background or self.options
+                    or self.transparent or self.loras or self.model_variant != "base" or self.model_precision != "int8"
+                    or self.resolution):
+                raise ValueError(f"{name} edita con 1 a {most} imágenes, sin ángulo, quitar fondo, opciones, transparencia, LoRAs ni resolución")
         if self.camera is None and not self.remove_background and not self.prompt.strip():
             raise ValueError("Describe la edición")
         if self.remove_background and (len(self.references) != 1 or self.camera is not None
@@ -509,6 +534,8 @@ def steps_for(variant: str, quality: str, options=None) -> int:
 
 
 def generation_size(body: GenerateRequest, enable_2k: bool) -> tuple[int, int]:
+    if body.model == "h3image":
+        return (PRESETS_4K if body.resolution_tier == "4k" else PRESETS_2K)[body.aspect_ratio]
     if body.resolution_tier == "2k":
         if not enable_2k:
             raise ValueError("2K is not enabled on this host")

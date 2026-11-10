@@ -23,6 +23,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import Field
 
 from .accounts import Accounts
+from .config import SETTINGS
 from .mailbox import Mailbox, SMTPConfig
 from .providers import Endpoint, Providers, ProviderSettings, ProviderCredential, ProviderSelection, ProviderBusy
 from .admin_ops import AdminOperations, protect_last_admin
@@ -98,7 +99,7 @@ def create_app(*, state_root: Path | None = None, key_path: Path | None = None,
         with suppress(OSError):
             accounts.path.with_name(accounts.path.name + suffix).chmod(0o600)
     store = TenantStore(accounts.path)
-    artifacts = TenantArtifacts(store, state / "artifacts", 20 * 1024 * 1024, 32 * 1024 * 1024)
+    artifacts = TenantArtifacts(store, state / "artifacts", SETTINGS.upload_max_bytes, 32 * 1024 * 1024)
     mail, providers = Mailbox(accounts, origin), Providers(accounts)
     loras, characters = LoraLibrary(store, lora_root()), Characters(store)
     mcp_access = McpAccess(accounts, origin)
