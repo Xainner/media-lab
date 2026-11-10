@@ -314,6 +314,19 @@ def test_body_limit_and_foreign_agent_runs_are_not_found(lab):
             assert client.post(path + "/continue", headers=headers).status_code == 404
 
 
+def test_upload_routes_accept_files_up_to_1_gib(lab):
+    app, *_ = lab
+    gib, mib = 1024 * 1024 * 1024, 1024 * 1024
+    with TestClient(app, base_url=ORIGIN) as client:
+        response = sign_in(client, "bob")
+        headers = {"Origin": ORIGIN, "X-CSRF-Token": response.json()["csrf"]}
+        for path in ("/v1/uploads", "/v1/media/uploads"):
+            fits = client.post(path, headers={**headers, "Content-Length": str(gib + mib)})
+            assert fits.status_code != 413, path
+            assert client.post(path, headers={**headers, "Content-Length": str(gib + mib + 1)}).status_code == 413
+        assert client.post("/v1/account/provider/test", headers={**headers, "Content-Length": str(3 * mib)}).status_code == 413
+
+
 def test_smtp_gate_outbox_encryption_and_bounded_failures(lab, monkeypatch):
     app, accounts, _, _, admin, alice, _ = lab
     from media_lab.mailbox import SMTPConfig
