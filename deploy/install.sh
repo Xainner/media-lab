@@ -33,7 +33,7 @@ IMAGES_GB=40                 # room for the ComfyUI, web and agent images and bu
 # Model groups. Each group runs existing download scripts (script:arg passes one argument);
 # sizes are approximate downloads.
 # ---------------------------------------------------------------------------------------------
-GROUP_ORDER=(qwen qwen-bf16 qwen-control moss flux3 h3 h3-turbo h3-flex h3-omni h3-control video-edit
+GROUP_ORDER=(qwen qwen-bf16 qwen-control moss flux3 h3 h3-image h3-turbo h3-flex h3-omni h3-control video-edit
              scail2 kandinsky6 yue2 ace-step stable-audio3 tts stems)
 declare -A G_SCRIPTS=(
   [qwen]="download-models.sh download-turbo-flashvsr.sh"
@@ -42,6 +42,7 @@ declare -A G_SCRIPTS=(
   [moss]="download-moss-image-models.sh"
   [flux3]="download-flux3-klein-models.sh"
   [h3]="download-h3-models.sh"
+  [h3-image]="download-h3-image-models.sh"
   [h3-turbo]="download-h3-turbo-models.sh"
   [h3-flex]="download-h3-flex-models.sh"
   [h3-omni]="download-fasth3-omni.sh"
@@ -56,12 +57,12 @@ declare -A G_SCRIPTS=(
   [stems]="download-stems-model.sh"
 )
 declare -A G_GB=(
-  [qwen]=44 [qwen-bf16]=14 [qwen-control]=8 [moss]=13 [flux3]=24 [h3]=84 [h3-turbo]=4 [h3-flex]=4
+  [qwen]=44 [qwen-bf16]=14 [qwen-control]=8 [moss]=13 [flux3]=24 [h3]=84 [h3-image]=22 [h3-turbo]=4 [h3-flex]=4
   [h3-omni]=22 [h3-control]=5 [video-edit]=5 [scail2]=27 [kandinsky6]=18 [yue2]=5
   [ace-step]=20 [stable-audio3]=18 [tts]=14 [stems]=1
 )
 declare -A G_DEPS=(
-  [qwen-bf16]="qwen" [qwen-control]="qwen" [h3-turbo]="h3" [h3-flex]="h3" [h3-omni]="h3"
+  [qwen-bf16]="qwen" [qwen-control]="qwen" [h3-image]="h3 moss" [h3-turbo]="h3" [h3-flex]="h3" [h3-omni]="h3"
   [h3-control]="h3 qwen-control" [video-edit]="h3" [scail2]="qwen video-edit" [kandinsky6]="moss"
 )
 declare -A G_DESC=(
@@ -71,6 +72,7 @@ declare -A G_DESC=(
   [moss]="MOSS-Image: posters and legible in-image text"
   [flux3]="FLUX 3 Klein: fast photorealism and editing (GATED: accept the licence on Hugging Face)"
   [h3]="MiniMax H3 video with audio (Base + Fused Turbo profiles)"
+  [h3-image]="MiniMax-H3-Image: 4–16 MP images and edits that follow long instructions"
   [h3-turbo]="H3 Turbo profile (LightX2V 8-step LoRAs)"
   [h3-flex]="H3 Flex profile (Pika Labs 6-step LoRAs)"
   [h3-omni]="FastH3 Omni 8-step reference video"
@@ -91,6 +93,7 @@ declare -A G_LICENSE=(
   [moss]="Apache-2.0"
   [flux3]="FLUX Kommunity License (gated)"
   [h3]="MiniMax H3 Community License; Fused Turbo merge: research use"
+  [h3-image]="MiniMax-H3-Image Community License: serving other people needs MiniMax's written authorization; not in the EU, UK, KR or US"
   [h3-turbo]="MiniMax H3 Community License"
   [h3-flex]="MiniMax H3 Community License (Pika Labs derivative; keep its NOTICE)"
   [h3-omni]="MiniMax H3 Community License"
@@ -105,7 +108,7 @@ declare -A G_LICENSE=(
   [stems]="MIT"
 )
 PRESET_MINIMAL="qwen"
-PRESET_RECOMMENDED="qwen qwen-control moss flux3 h3 h3-turbo h3-flex ace-step stable-audio3 tts stems"
+PRESET_RECOMMENDED="qwen qwen-control moss flux3 h3 h3-image h3-turbo h3-flex ace-step stable-audio3 tts stems"
 PRESET_ALL="${GROUP_ORDER[*]}"
 
 # ---------------------------------------------------------------------------------------------
@@ -389,7 +392,8 @@ Presets: minimal = $PRESET_MINIMAL (~$(groups_gb "$PRESET_MINIMAL") GB)
          all = every group (~$(groups_gb "$PRESET_ALL") GB)
 
 Every licence must be read and accepted by whoever installs the weights. Several are
-non-commercial or research-only, and FLUX 3 Klein is gated on Hugging Face.
+non-commercial or research-only, FLUX 3 Klein is gated on Hugging Face, and MiniMax-H3-Image
+needs MiniMax's written authorization before other people use it on your server.
 EOF
 }
 
@@ -1271,7 +1275,8 @@ Point the proxy at https://127.0.0.1:$PORT; the summary at the end explains how.
     done
     ui_checklist OPT_MODELS "Model groups ($free GB free; preselected: what fits, up to 'recommended').
 qwen is always installed. Each licence is yours to read and accept: run
-'$PROGRAM list-models'. Several are non-commercial; FLUX 3 Klein is gated." "${items[@]}"
+'$PROGRAM list-models'. Several are non-commercial; FLUX 3 Klein is gated; MiniMax-H3-Image
+needs MiniMax's written authorization to serve other people." "${items[@]}"
   fi
 
   resolve_gpus

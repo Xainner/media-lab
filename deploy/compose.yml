@@ -18,8 +18,8 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.comfyui
       args:
-        COMFYUI_REF: fd7639f477050e5c25b68fc38a9c2a6b6d988211
-    image: media-lab-comfyui:0.12.0
+        COMFYUI_REF: 989d93d0d968e704c589ce0146bb18c77f6b50cc
+    image: media-lab-comfyui:0.13.0
     container_name: media-lab-comfyui
     restart: "no"
     ports:
@@ -54,7 +54,7 @@ services:
 
   comfyui-gpu1:
     logging: *logging
-    image: media-lab-comfyui:0.12.0
+    image: media-lab-comfyui:0.13.0
     container_name: media-lab-comfyui-gpu1
     restart: "no"
     ports:

@@ -29,7 +29,7 @@ DOWNLOAD_TTL = 3600
 MAX_LINKS_PER_CALL = 50
 MAX_PENDING_UPLOADS = 200
 MAX_LIVE_DOWNLOADS = 1000
-MEDIA_MAX_BYTES = 500 * 1024 * 1024
+MEDIA_MAX_BYTES = 1024 * 1024 * 1024
 LEASE_SECONDS = 15 * 60
 IMAGE_TYPES = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp"}
 WEBM_CODECS = {"vp8", "vp9", "av1", "opus", "vorbis"}
@@ -192,7 +192,7 @@ class McpFiles:
     async def _receive(self, grant, request):
         declared = request.headers.get('content-length')
         if declared and (not declared.isdigit() or int(declared) > MEDIA_MAX_BYTES + 1024 * 1024):
-            raise TransferError(413, 'File exceeds 500 MiB')
+            raise TransferError(413, 'File exceeds 1 GiB')
         self.spool.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=self.spool) as directory:
             raw = Path(directory) / 'raw'
@@ -226,7 +226,7 @@ class McpFiles:
                     async for chunk in request.stream():
                         size += len(chunk)
                         if size > MEDIA_MAX_BYTES + 1024 * 1024:
-                            raise TransferError(413, 'File exceeds 500 MiB')
+                            raise TransferError(413, 'File exceeds 1 GiB')
                         yield chunk
                 from starlette.formparsers import MultiPartParser
                 try:
@@ -248,12 +248,12 @@ class McpFiles:
                 async for chunk in request.stream():
                     size += len(chunk)
                     if size > MEDIA_MAX_BYTES:
-                        raise TransferError(413, 'File exceeds 500 MiB')
+                        raise TransferError(413, 'File exceeds 1 GiB')
                     out.write(chunk)
         if not size:
             raise TransferError(400, 'The request body is empty; send the file bytes (curl -T ./name.ext <url>)')
         if size > MEDIA_MAX_BYTES:
-            raise TransferError(413, 'File exceeds 500 MiB')
+            raise TransferError(413, 'File exceeds 1 GiB')
 
 
 def guess_type(path):

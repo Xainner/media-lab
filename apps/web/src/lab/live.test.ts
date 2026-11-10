@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { droppedKind, improve, mentioned, operations, planTitle, requests, speechTags, withCharacters, type Submission } from './live'
+import { droppedKind, improve, loraBase, mentioned, operations, planTitle, requests, speechTags, withCharacters, type Submission } from './live'
 
 const ref = { uri: 'artifact://s/images/a.png', sha256: 'a' }
 const base = (patch: Partial<Submission>): Submission => ({ kind: 'image', prompt: 'un faro', modelId: 'qwen-quality', values: { aspect: '1:1', quality: 'Calidad' }, count: 1, refs: [], ...patch })
@@ -181,6 +181,21 @@ test('FLUX 3 Klein creates from text and edits up to four photos', () => {
   expect(edit.body.model).toBe('flux3')
   expect(edit.body.references).toHaveLength(4)
   expect(edit.body).not.toHaveProperty('loras')
+})
+
+test('H3 Image creates at 4 or 16 MP and edits up to ten photos through its own expander', async () => {
+  const create = requests(base({ modelId: 'h3-image', values: { aspect: '16:9', size: '2K', quality: 'Borrador' } }))[0]
+  expect(create.path).toBe('/v1/jobs/generate')
+  expect(create.body).toEqual(expect.objectContaining({ model: 'h3image', aspect_ratio: '16:9', resolution_tier: '2k' }))
+  expect(create.body).not.toHaveProperty('quality')
+  expect(requests(base({ modelId: 'h3-image', values: { aspect: '1:1', size: '16 MP' } }))[0].body.resolution_tier).toBe('4k')
+  const edit = requests(base({ modelId: 'h3-image', refs: Array(12).fill(REF) }))[0]
+  expect(edit.path).toBe('/v1/jobs/edit')
+  expect(edit.body.model).toBe('h3image')
+  expect(edit.body.references).toHaveLength(10)
+  expect(edit.body).not.toHaveProperty('loras')
+  expect(loraBase(base({ modelId: 'h3-image' }))).toBeNull()
+  expect((await improve(base({ modelId: 'h3-image', refs: [REF] }))).prompt).toBe(base({}).prompt)
 })
 
 test('Kandinsky turns quoted dialogue into speech marks and sends the sounds apart', () => {

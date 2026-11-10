@@ -13,6 +13,7 @@ export const models: Model[] = [
   { id: 'qwen-turbo', name: 'Qwen Image 2.1 Turbo', maker: 'Qwen', modality: 'image', get blurb() { return t('composer.model.qwenTurbo.blurb') }, tags: ['Rápido', 'Texto nítido'], art: art('model-image'), status: 'ready' },
   { id: 'qwen-quality', name: 'Qwen Image 2.1', maker: 'Qwen', modality: 'image', get blurb() { return t('composer.model.qwenQuality.blurb') }, tags: ['Calidad', 'Edición', 'Ángulos'], art: art('feed-fashion'), status: 'ready' },
   { id: 'moss-image', name: 'MOSS-Image', maker: 'OpenMOSS', modality: 'image', get blurb() { return t('composer.model.moss.blurb') }, tags: ['Layout', 'Tipografía'], art: art('feed-miniature'), status: 'new' },
+  { id: 'h3-image', name: 'MiniMax H3 Image', maker: 'MiniMax', modality: 'image', get blurb() { return t('composer.model.h3Image.blurb') }, tags: ['16 MP', 'Edición'], art: art('feed-desert'), status: 'new' },
   { id: 'flux3-klein', name: 'FLUX 3 Klein', maker: 'Black Forest Labs', modality: 'image', get blurb() { return t('composer.model.flux3Klein.blurb') }, tags: ['Foto', 'Rápido', 'Edición'], art: art('feed-product'), status: 'new' },
   { id: 'h3', name: 'MiniMax H3', maker: 'MiniMax', modality: 'video', get blurb() { return t('composer.model.h3.blurb') }, tags: ['Audio', '15 s'], art: art('model-video'), status: 'ready' },
   { id: 'h3-turbo', name: 'H3 Turbo', maker: 'MiniMax · LightX2V', modality: 'video', get blurb() { return t('composer.model.h3Turbo.blurb') }, tags: ['Rápido', 'Referencias'], art: art('feed-alley'), status: 'new' },
@@ -89,7 +90,7 @@ export const settings: Record<Modality, Choice[]> = {
     { id: 'distance', get label() { return t('composer.setting.distance') }, options: Object.keys(DISTANCES) },
     { id: 'aspect', get label() { return t('composer.setting.aspect') }, options: ['1:1', '4:5', '3:4', '2:3', '9:16', '5:4', '4:3', '3:2', '16:9'] },
     { id: 'quality', get label() { return t('composer.setting.quality') }, options: ['Calidad', 'Borrador'] },
-    { id: 'size', get label() { return t('composer.setting.size') }, options: ['1 MP', '2K'] },
+    { id: 'size', get label() { return t('composer.setting.size') }, options: ['1 MP', '2K', '16 MP'] },
   ],
   video: [
     { id: 'mode', get label() { return t('composer.setting.mode') }, options: ['Texto', 'Imagen inicial', 'Referencias', 'Seguir vídeo', 'Cambiar personaje', 'Cambiar cabeza', 'Quitar persona', 'Escalar', 'Títulos'] },

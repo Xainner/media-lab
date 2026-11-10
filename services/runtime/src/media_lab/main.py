@@ -37,7 +37,8 @@ from .prompt_check import PromptCheck, check_prompt
 from .loras import LORA_BASES, LORA_USE_MAX, lora_root, resolve_loras
 from .workflows import (ENCODER, UNET, UNET_BF16, UNET_TURBO, UNET_TURBO_BF16, TURBO_STEPS, VAE, MOSS_STEPS, CAMERA_AZIMUTHS,
                         CAMERA_DISTANCES, CAMERA_ELEVATIONS, CONTROL_MODES, camera_ready, control_ready, diffusion_model,
-                        moss_ready, FLUX3_STEPS, FLUX3_MAX_REFERENCES, TWO_K_EDIT_REFERENCES, flux3_ready)
+                        moss_ready, FLUX3_STEPS, FLUX3_MAX_REFERENCES, TWO_K_EDIT_REFERENCES, flux3_ready,
+                        H3_IMAGE_EDIT_MEGAPIXELS, H3_IMAGE_MAX_REFERENCES, H3_IMAGE_STEPS, h3_image_ready)
 
 
 # Jobs run by CreativeJobs (everything except Qwen generate/edit, which JobManager runs).
@@ -145,7 +146,13 @@ def capabilities():
                          "flux3": {"label": "FLUX 3 Image Klein", "ready": flux3_ready(SETTINGS.model_root, "draft"),
                                    "quality_ready": flux3_ready(SETTINGS.model_root, "quality"), "steps": FLUX3_STEPS,
                                    "prompt_upsampler": True, "edit": True, "max_references": FLUX3_MAX_REFERENCES,
-                                   "transparent": False}},
+                                   "transparent": False},
+                         "h3image": {"label": "MiniMax-H3-Image",
+                                     "ready": h3_image_ready(SETTINGS.model_root, SETTINGS.h3_model_root),
+                                     "steps": H3_IMAGE_STEPS, "resolution_tiers": ["2k", "4k"], "default_tier": "2k",
+                                     "edit": True, "max_references": H3_IMAGE_MAX_REFERENCES,
+                                     "edit_megapixels": H3_IMAGE_EDIT_MEGAPIXELS, "edit_prompt_expander": True,
+                                     "transparent": False}},
         "image_control": {"label": "Qwen 2.1 Fun ControlNet Union",
                           "modes": {mode: control_ready(SETTINGS.model_root, mode) for mode in CONTROL_MODES}},
         "image_camera": {"label": "QMA camera angles", "ready": camera_ready(SETTINGS.model_root),
@@ -275,7 +282,7 @@ def node_status():
     return {"ok": all(worker["ok"] for worker in workers), "workers": workers}
 
 
-MEDIA_UPLOAD_MAX_BYTES = 500 * 1024 * 1024
+MEDIA_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024
 # Uploaded videos serve H3 references (2–15 s, checked per job) and upscaling (up to its limit).
 VIDEO_UPLOAD_SECONDS = (1, UPSCALE_MAX_SECONDS)
 
@@ -300,7 +307,7 @@ async def upload_media(file: UploadFile = File(...), session_id: str = Form(defa
                 while chunk := await file.read(1024 * 1024):
                     size += len(chunk)
                     if size > MEDIA_UPLOAD_MAX_BYTES:
-                        raise ValueError("El archivo supera 500 MiB")
+                        raise ValueError("El archivo supera 1 GiB")
                     target.write(chunk)
             if not size:
                 raise ValueError("El archivo está vacío")
@@ -606,11 +613,14 @@ async def upload(file: UploadFile = File(...), session_id: str = Form(default="d
 @app.post("/v1/jobs/generate", status_code=202)
 def generate(body: GenerateRequest, idempotency_key: str | None = Header(default=None)):
     try:
-        if body.resolution_tier == "2k" and not SETTINGS.enable_2k:
+        if body.resolution_tier == "2k" and body.model != "h3image" and not SETTINGS.enable_2k:
             raise ValueError("2K is not enabled on this host")
         if body.resolution_tier == "2k" and body.model_precision == "bf16":
             raise ValueError("BF16 at 2K has not passed the memory gate")
-        if body.model == "moss":
+        if body.model == "h3image":
+            if not h3_image_ready(SETTINGS.model_root, SETTINGS.h3_model_root):
+                raise ValueError("MiniMax-H3-Image is not installed; no automatic substitution")
+        elif body.model == "moss":
             if not moss_ready(SETTINGS.model_root):
                 raise ValueError("MOSS-Image is not installed; no automatic substitution")
         elif body.model == "flux3":
@@ -622,7 +632,9 @@ def generate(body: GenerateRequest, idempotency_key: str | None = Header(default
             if not control_ready(SETTINGS.model_root, body.control.mode):
                 raise ValueError("El control de estructura no está instalado")
             artifacts.resolve(body.control.reference.uri, body.control.reference.sha256)
-        image_canvas(body, SETTINGS.enable_2k, generation_size(body, SETTINGS.enable_2k))
+        size = generation_size(body, SETTINGS.enable_2k)
+        if body.model != "h3image":
+            image_canvas(body, SETTINGS.enable_2k, size)
         resolve_loras(store, body.loras, "qwen")
         return {"ok": True, **jobs.submit_generate(body, idempotency_key)}
     except IdempotencyConflict as exc:
@@ -649,6 +661,9 @@ def edit(body: EditRequest, idempotency_key: str | None = Header(default=None)):
         if body.model == "flux3":
             if not flux3_ready(SETTINGS.model_root, "draft"):
                 raise ValueError("FLUX 3 Image Klein is not installed; no automatic substitution")
+        elif body.model == "h3image":
+            if not h3_image_ready(SETTINGS.model_root, SETTINGS.h3_model_root):
+                raise ValueError("MiniMax-H3-Image is not installed; no automatic substitution")
         else:
             require_image_model(body.model_variant, body.model_precision)
         if body.camera is not None and not camera_ready(SETTINGS.model_root):

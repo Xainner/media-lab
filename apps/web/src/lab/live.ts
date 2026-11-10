@@ -7,7 +7,7 @@ import { t } from '../i18n'
 
 export type LabJob = { id: string; status: string; pct: number; queue?: number; error?: string; prompt: string; ratio: number; kind: Modality; model: string; ref?: ArtifactRef; more?: { ref: ArtifactRef; prompt: string }[] }
 export type Caps = { turbo: boolean; h3Turbo: boolean; omni: boolean; fusedTurbo: boolean; flex: boolean; bf16: boolean; turboPrecision: 'int8' | 'bf16'; swap: { character: boolean; head: boolean; remove: boolean; scail: boolean }; stems: boolean; faceRefine: boolean; upscale: boolean; ace: boolean; moss: boolean; control: Record<string, boolean>; camera: boolean; cutout: boolean; follow: Record<string, boolean>; loras: boolean
-  flux3: boolean; kandinsky6: boolean; twoK: boolean; sound: Record<string, boolean>; speech: Record<string, boolean>; title: boolean }
+  flux3: boolean; h3image: boolean; kandinsky6: boolean; twoK: boolean; sound: Record<string, boolean>; speech: Record<string, boolean>; title: boolean }
 
 /** Job operations each composer view lists after a reload; every request() operation must appear here. */
 export const operations: Record<Modality, string[]> = { image: ['generate', 'edit'], video: ['video', 'swap', 'face_refine', 'remove', 'upscale', 'title'], audio: ['song', 'stems', 'sound', 'speech'] }
@@ -27,6 +27,7 @@ function modelLabel(job: Job & { request?: any }) {
   if (job.operation === 'song') return r.model === 'ace_step' ? 'ACE-Step 1.5' : 'YuE2 3B'
   if (r.model === 'moss') return 'MOSS-Image'
   if (r.model === 'flux3') return job.operation === 'edit' ? `FLUX 3 Klein · ${t('creations.model.edit')}` : 'FLUX 3 Klein'
+  if (r.model === 'h3image') return job.operation === 'edit' ? `MiniMax H3 Image · ${t('creations.model.edit')}` : `MiniMax H3 Image · ${r.resolution_tier === '4k' ? '16 MP' : '4 MP'}`
   const name = r.model_variant === 'turbo' ? 'Qwen Image 2.1 Turbo' : 'Qwen Image 2.1'
   if (r.camera) return `${name} · ${t('creations.model.angle')}`
   if (r.remove_background) return `${name} · ${t('creations.model.noBackground')}`
@@ -59,7 +60,7 @@ export function useMediaSrc(ref?: ArtifactRef) {
 }
 
 export function useCaps() {
-  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, flex: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, upscale: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, kandinsky6: false, twoK: false, sound: {}, speech: {}, title: false })
+  const [caps, setCaps] = useState<Caps>({ turbo: false, h3Turbo: false, omni: false, fusedTurbo: false, flex: false, bf16: false, turboPrecision: 'int8', swap: { character: false, head: false, remove: false, scail: false }, stems: false, faceRefine: false, upscale: false, ace: false, moss: false, control: {}, camera: false, cutout: false, follow: {}, loras: false, flux3: false, h3image: false, kandinsky6: false, twoK: false, sound: {}, speech: {}, title: false })
   useEffect(() => {
     let live = true
     runtime('GET', '/v1/capabilities').then(c => {
@@ -68,7 +69,7 @@ export function useCaps() {
       setCaps({ turbo: Boolean(turbo.int8 || turbo.bf16), h3Turbo: Boolean(c.video?.profiles?.turbo?.ready), omni: Boolean(c.video?.profiles?.omni?.ready), fusedTurbo: Boolean(c.video?.profiles?.fused_turbo?.ready), flex: Boolean(c.video?.profiles?.flex?.ready), bf16: Boolean(c.model_precisions?.bf16), turboPrecision: turbo.int8 ? 'int8' : 'bf16',
         swap: { character: Boolean(c.swap?.modes?.character?.ready), head: Boolean(c.swap?.modes?.head?.ready), remove: Boolean(c.remove?.ready), scail: Boolean(c.swap?.modes?.scail?.ready) }, stems: Boolean(c.stems?.ready), faceRefine: Boolean(c.face_refine?.ready), upscale: Boolean(c.upscale?.ready), ace: Boolean(c.music?.models?.ace_step?.ready), moss: Boolean(c.image_models?.moss?.ready),
         control: c.image_control?.modes || {}, camera: Boolean(c.image_camera?.ready), cutout: Boolean(c.image_remove_background?.ready), follow: c.video?.control?.modes || {}, loras: Boolean(c.loras?.ready),
-        flux3: Boolean(c.image_models?.flux3?.ready), kandinsky6: Boolean(c.video?.models?.kandinsky6?.ready), twoK: Boolean(c.two_k_enabled),
+        flux3: Boolean(c.image_models?.flux3?.ready), h3image: Boolean(c.image_models?.h3image?.ready), kandinsky6: Boolean(c.video?.models?.kandinsky6?.ready), twoK: Boolean(c.two_k_enabled),
         sound: Object.fromEntries(Object.entries(c.sound?.kinds || {}).map(([k, v]: [string, any]) => [k, Boolean(v?.ready)])), speech: c.speech?.voices || {}, title: Boolean(c.video?.titles?.ready) })
     }).catch(() => {})
     return () => { live = false }
@@ -135,6 +136,13 @@ export function requests(s: Submission): { path: string; body: any; operation: s
     const body = s.refs.length
       ? { path: '/v1/jobs/edit', operation: 'edit', body: { model: 'flux3', prompt: s.prompt, references: s.refs.slice(0, 4), session_id } }
       : { path: '/v1/jobs/generate', operation: 'generate', body: { model: 'flux3', prompt: s.prompt, aspect_ratio: s.values.aspect, quality, session_id } }
+    return Array.from({ length: s.count }, () => body)
+  }
+  if (s.kind === 'image' && s.modelId === 'h3-image' && (s.values.mode || 'Crear') === 'Crear') {
+    // H3 Image: references (up to 10) make it an edit at about 4 MP; creation runs at 4 MP (2K) or its native 16 MP.
+    const body = s.refs.length
+      ? { path: '/v1/jobs/edit', operation: 'edit', body: { model: 'h3image', prompt: s.prompt, references: s.refs.slice(0, 10), session_id } }
+      : { path: '/v1/jobs/generate', operation: 'generate', body: { model: 'h3image', prompt: s.prompt, aspect_ratio: s.values.aspect, resolution_tier: s.values.size === '16 MP' ? '4k' : '2k', session_id } }
     return Array.from({ length: s.count }, () => body)
   }
   if (s.kind === 'image') {
@@ -237,6 +245,8 @@ export async function improve(s: Submission): Promise<Submission> {
   if (s.kind === 'video' && (SWAP_MODES[s.values.mode] || s.values.mode === 'Escalar' || s.values.mode === 'Títulos')) return s
   // These models rewrite or read the text themselves: FLUX's and Stable Audio's official upsamplers, the exact words of a voice.
   if (['stable-audio3', 'qwen3-tts'].includes(s.modelId) || (s.modelId === 'flux3-klein' && (s.values.mode || 'Crear') === 'Crear')) return s
+  // H3 Image edits go through MiniMax's own expander, which sees the photos; its creation takes the full description we write.
+  if (s.modelId === 'h3-image' && s.refs.length && (s.values.mode || 'Crear') === 'Crear') return s
   if (s.kind === 'image' && (s.values.mode === 'Ángulo' || s.values.mode === 'Quitar fondo')) return s
   if (s.modelId === 'kandinsky6') {
     // Kandinsky's beautifier keeps the request's language, but the model learned English captions: the provider translates the scene and keeps the words.
@@ -367,7 +377,7 @@ export const LORA_BASES: Record<LoraBase, string> = { get qwen() { return t('cre
 
 /** The base a submission's LoRAs must match, or null when that job takes none. */
 export function loraBase(s: Pick<Submission, 'kind' | 'modelId' | 'values'>): LoraBase | null {
-  if (s.kind === 'image') return s.modelId === 'moss-image' || s.modelId === 'flux3-klein' || s.values.mode === 'Quitar fondo' ? null : 'qwen'
+  if (s.kind === 'image') return ['moss-image', 'flux3-klein', 'h3-image'].includes(s.modelId) || s.values.mode === 'Quitar fondo' ? null : 'qwen'
   if (s.kind === 'video') return SWAP_MODES[s.values.mode] || s.values.mode === 'Títulos' || s.modelId === 'kandinsky6' ? null : 'h3'
   return null
 }

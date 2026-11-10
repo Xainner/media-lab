@@ -49,6 +49,90 @@ def moss_workflow(prompt: str, width: int, height: int, seed: int, steps: int) -
     }
 
 
+# MiniMax-H3-Image (MiniMax-H3-Image Community License; hosted access for third parties needs MiniMax's
+# written authorization): the official ComfyUI templates image_minimax_h3_image_t2i / _edit. One
+# checkpoint for creation and editing, distilled to 6 steps, CFG 1 (no negative prompt), euler / simple,
+# the MiniMax-H3 Qwen3-VL text encoder ("minimax") and its own image VAE. It works from about 4 MP up to
+# its native 16 MP; below that quality drops. Edits scale <Picture 1> to 4 MP (multiple of 32) and keep
+# that canvas, and the Qwen3.5 9B expander rewrites the instruction with MiniMax-H3-Image-PE's edit task
+# prompt first (on by default in the template; off for text to image, where the prompt is used as given).
+H3_IMAGE_UNET = "minimax_h3_image_pruned_int8_convrot.safetensors"
+H3_IMAGE_VAE = "minimax_h3_image_vae_fp16.safetensors"
+H3_IMAGE_ENCODER = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+H3_IMAGE_EXPANDER = MOSS_ENCODER
+H3_IMAGE_STEPS = 6
+H3_IMAGE_EDIT_MEGAPIXELS = 4.0
+H3_IMAGE_MAX_REFERENCES = 10
+H3_IMAGE_PROMPTS = ("prompts/h3_image/t2i/system_prompt.txt", "prompts/h3_image/edit/task_prompt.txt")
+
+
+def h3_image_ready(model_root, h3_model_root) -> bool:
+    return all(p.is_file() for p in (model_root / "diffusion_models" / H3_IMAGE_UNET, model_root / "vae" / H3_IMAGE_VAE,
+                                     model_root / "text_encoders" / H3_IMAGE_EXPANDER,
+                                     h3_model_root / "text_encoders" / H3_IMAGE_ENCODER,
+                                     *(model_root / p for p in H3_IMAGE_PROMPTS)))
+
+
+def h3_image_request(prompt: str) -> str:
+    """Our <image1>… reference names as the <Picture N> labels H3 Image is trained on."""
+    return re.sub(r"<image(\d{1,2})>", r"<Picture \1>", prompt.strip())
+
+
+def _h3_image_graph(prompt, width, height, seed: int, prefix: str, images: list | None = None) -> dict:
+    graph = {
+        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": H3_IMAGE_UNET, "weight_dtype": "default"}},
+        "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": H3_IMAGE_ENCODER, "type": "minimax", "device": "default"}},
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": H3_IMAGE_VAE}},
+        "4": {"class_type": "MiniMaxH3ImageConditioning", "inputs": {
+            "clip": ["2", 0], "vae": ["3", 0], "prompt": prompt, "width": width, "height": height,
+            **{f"images.image_{i}": image for i, image in enumerate(images or [], start=1)}}},
+        "neg": {"class_type": "ConditioningZeroOut", "inputs": {"conditioning": ["4", 0]}},
+        "6": {"class_type": "KSampler", "inputs": {
+            "model": ["1", 0], "positive": ["4", 0], "negative": ["neg", 0], "latent_image": ["4", 1], "seed": seed,
+            "steps": H3_IMAGE_STEPS, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
+        "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["3", 0]}},
+        "8": {"class_type": "SaveImage", "inputs": {"images": ["7", 0], "filename_prefix": f"media_lab/{prefix}"}},
+    }
+    return graph
+
+
+def h3_image_workflow(prompt: str, width: int, height: int, seed: int) -> dict:
+    if width % 32 or height % 32:
+        raise ValueError("MiniMax-H3-Image needs width and height in multiples of 32")
+    return _h3_image_graph(prompt, width, height, seed, "h3_image_t2i")
+
+
+def h3_image_edit_workflow(prompt: str, uploaded_names: list[str], seed: int, system: str, task: str) -> dict:
+    """Edit <Picture 1> with up to nine more references. The expander sees every picture and writes the
+    caption (JSON key expanded_caption) that conditions the DiT; the canvas is <Picture 1> at 4 MP."""
+    if not 1 <= len(uploaded_names) <= H3_IMAGE_MAX_REFERENCES:
+        raise ValueError(f"MiniMax-H3-Image edits 1–{H3_IMAGE_MAX_REFERENCES} references")
+    graph = {}
+    images = []
+    for index, name in enumerate(uploaded_names):
+        graph[f"ref{index}"] = {"class_type": "LoadImage", "inputs": {"image": name}}
+        images.append([f"ref{index}", 0])
+    graph["scale"] = {"class_type": "ResizeImageMaskNode", "inputs": {
+        "input": images[0], "resize_type": "scale total pixels", "resize_type.megapixels": H3_IMAGE_EDIT_MEGAPIXELS,
+        "scale_method": "area"}}
+    graph["canvas"] = {"class_type": "ResizeImageMaskNode", "inputs": {
+        "input": ["scale", 0], "resize_type": "scale to multiple", "resize_type.multiple": 32, "scale_method": "area"}}
+    graph["size"] = {"class_type": "GetImageSize", "inputs": {"image": ["canvas", 0]}}
+    images[0] = ["canvas", 0]
+    graph["up_clip"] = {"class_type": "CLIPLoader", "inputs": {"clip_name": H3_IMAGE_EXPANDER, "type": "minimax", "device": "default"}}
+    graph["expand"] = {"class_type": "TextGenerateV2", "inputs": {
+        "clip": ["up_clip", 0], "prompt": f"{task}User input: {h3_image_request(prompt)}\noutput_text:\n",
+        "max_length": 8196, "sampling_mode": "on", "sampling_mode.temperature": 1.0, "sampling_mode.top_k": 20,
+        "sampling_mode.top_p": 0.95, "sampling_mode.min_p": 0.0, "sampling_mode.repetition_penalty": 1.0,
+        "sampling_mode.presence_penalty": 0.0, "sampling_mode.seed": 0, "thinking": True,
+        "use_default_template": True, "mtp": "auto", "system_prompt": system,
+        **{f"images.image{i}": image for i, image in enumerate(images, start=1)}}}
+    graph["extract"] = {"class_type": "JsonExtractString", "inputs": {"json_string": ["expand", 0], "key": "expanded_caption"}}
+    graph["caption"] = {"class_type": "PreviewAny", "inputs": {"source": ["extract", 0]}}
+    graph.update(_h3_image_graph(["extract", 0], ["size", 0], ["size", 1], seed, "h3_image_edit", images))
+    return graph
+
+
 # FLUX 3 Image Klein (Black Forest Labs, FLUX Kommunity License): the official ComfyUI templates.
 # Qwen3-VL 4B "flux3" encoder, FLUX.2 VAE, euler / simple. Draft is the step-distilled DiT (16 steps,
 # CFG 1); quality is the base DiT (50 steps, CFG 3.5). BFL says never to run Klein without its

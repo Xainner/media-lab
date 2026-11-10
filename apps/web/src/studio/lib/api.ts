@@ -20,7 +20,7 @@ export type Job = {
 }
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error)

@@ -944,9 +944,40 @@ AGENT_BRIEF = """Model prompt essentials (read prompt_guide for the full guide b
 - Video upscaling: upscale_video runs FlashVSR v1.1 on an owned video (x2 default, x4 for small sources), keeps the original audio and creates a new video; no prompt is involved.
 - Director: image_prompt is a Qwen observer paragraph repeating identity every scene; video_prompt is an H3 Base I2VA body from that keyframe; the song replaces clip audio, so non_diegetic_music is N/A. For a visible singer that must lip-sync, set lip_sync: true and write a Ref2VA video_prompt with <Picture 1> = keyframe and <Audio 1> = the song excerpt (fully_copy)."""
 
+H3IMAGE = """## MiniMax-H3-Image · high-resolution creation and edits (`model=h3image`)
+
+MiniMax-H3-Image is the image model of the MiniMax H3 family: one checkpoint creates and edits,
+distilled to 6 steps with no negative prompt. It works from about 4 MP up to its native 16 MP;
+`resolution_tier=2k` (about 4 MP) is the default and `4k` renders the native 16 MP canvases
+(4096x4096, 5472x3072…). Use it for large, detailed images and requests with many exact
+requirements; its strength is following long instructions.
+
+### Creation: a complete English description of the whole image
+- The model expects one detailed English paragraph describing everything visible, not a short
+  request: subjects with their identity, pose and position (screen-left/right, near/far), the
+  setting, light (source, direction, colour), materials and textures, the medium or style, and
+  the camera or composition. Nothing is expanded for you: the prompt is used as given.
+- **Every requirement visible and explicit:** counts, left/right/top/bottom order, colours,
+  named entities and data values. For posters, cards, UI, charts or diagrams, describe the
+  layout and where each element sits.
+- **Text:** quote every string exactly, in its own language and script, and say where it sits
+  and how it looks.
+- **Never:** pixel sizes or aspect ratios in the prompt (choose `aspect_ratio`), negative
+  phrasing lists, weight syntax or quality boosters such as "8k, masterpiece".
+
+### Edits (`edit_image`, `model=h3image`, 1–10 references)
+- Write the instruction itself, short and in any language: the change, its target and the end
+  state. The studio's expander (MiniMax-H3-Image-PE's edit instructions on a Qwen3.5 9B) sees
+  every reference and rewrites it into the full English target description; that caption is
+  saved as the compiled prompt.
+- The first reference is the canvas being edited; the result keeps its shape at about 4 MP.
+  Name references `<image1>`, `<image2>`… (sent as `<Picture 1>`, `<Picture 2>`…) and give
+  each one a role (canvas, subject, product, style, setting).
+- Not with camera, background removal, `resolution`, transparency, options or LoRAs."""
+
 TOPICS = {
-    'image': LANGUAGE + '\n' + QWEN_IMAGE + '\n' + MOSS + '\n' + FLUX3,
-    'edit': LANGUAGE + '\n' + QWEN_EDIT + '\n' + FLUX3,
+    'image': LANGUAGE + '\n' + QWEN_IMAGE + '\n' + MOSS + '\n' + FLUX3 + '\n' + H3IMAGE,
+    'edit': LANGUAGE + '\n' + QWEN_EDIT + '\n' + FLUX3 + '\n' + H3IMAGE,
     'video': LANGUAGE + '\n' + H3 + '\n' + KANDINSKY6 + '\n' + TITLES,
     'music': LANGUAGE + '\n' + YUE2 + '\n' + ACE_STEP,
     'sound': LANGUAGE + '\n' + STABLE_AUDIO3,
@@ -954,5 +985,5 @@ TOPICS = {
     'director': LANGUAGE + '\n' + DIRECTOR + '\n' + QWEN_IMAGE + '\n' + H3,
 }
 
-MODEL_GUIDE = '\n'.join([LANGUAGE, QWEN_IMAGE, QWEN_EDIT, MOSS, FLUX3, H3, KANDINSKY6, TITLES, YUE2, ACE_STEP,
+MODEL_GUIDE = '\n'.join([LANGUAGE, QWEN_IMAGE, QWEN_EDIT, MOSS, FLUX3, H3IMAGE, H3, KANDINSKY6, TITLES, YUE2, ACE_STEP,
                          STABLE_AUDIO3, QWEN_TTS, DIRECTOR])

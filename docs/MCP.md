@@ -119,11 +119,11 @@ over plain HTTP with temporary links:
    successful one consumes it.
 
 The type comes from the bytes. PNG/JPEG/WebP become normalized PNG and other
-Pillow-readable images (GIF, BMP, TIFF…) are converted to PNG (20 MiB, 50 MP). WAV/
+Pillow-readable images (GIF, BMP, TIFF…) are converted to PNG (1 GiB, 50 MP). WAV/
 FLAC/MP3/Ogg/Opus are kept and other audio (M4A/AAC, AIFF…) becomes FLAC (1–900 s).
 MP4/MOV/MKV/WebM are kept and other containers are remuxed to MKV without re-encoding
-(1–600 s, so long clips can be upscaled). Audio and video accept up to 500 MiB; the NPM
-proxy allows 501 MiB with request buffering off. Each tool keeps its own limits;
+(1–600 s, so long clips can be upscaled). Images, audio and video accept up to 1 GiB; the NPM
+proxy allows 1025 MiB with request buffering off. Each tool keeps its own limits;
 `capabilities.inputs` lists formats and how many references every tool accepts
 (edit 1–10 images; H3 first/last frame, up to 9 images, 3 videos of 2–15 s and 3
 audios of 1–15 s in r2v; one cover source; one upscale source; Director song plus one

@@ -95,9 +95,9 @@ The type is detected from the bytes, not the name or declared MIME:
   formats Pillow decodes (GIF first frame, BMP, TIFF, …) are converted to PNG. At most
   `capabilities.inputs.image.max_bytes` and `max_pixels`.
 - Audio: WAV, FLAC, MP3 and Ogg/Opus are stored unchanged; other decodable audio
-  (M4A/AAC, AIFF, WMA, …) is converted to FLAC. 1–900 seconds, up to 500 MiB.
+  (M4A/AAC, AIFF, WMA, …) is converted to FLAC. 1–900 seconds, up to 1 GiB.
 - Video: MP4/MOV, MKV and WebM are stored unchanged; other containers (AVI, MPEG-TS, …)
-  are remuxed to MKV without re-encoding. 1–600 seconds, up to 500 MiB.
+  are remuxed to MKV without re-encoding. 1–600 seconds, up to 1 GiB.
 Each tool still applies its own limits when used; read `capabilities.inputs.references`
 for how many references each tool accepts and the durations it needs (for example H3
 reference videos 2–15 s and audio 2–15 s; upscaling up to 600 s; Director songs 5–900 s).
@@ -162,6 +162,14 @@ CFG 3.5). 1MP ratio presets only; `options`, `transparent`, turbo, bf16, 2K, `co
 steps); the result is about 1 MP in the first reference's shape. Name references as "the first
 image", "the second image" (or `<image1>`…). Not with `camera`, `remove_background`,
 `resolution`, options or LoRAs. Check `capabilities.image_models.flux3`.
+`model=h3image` is MiniMax-H3-Image: large, detailed images that follow long instructions (6
+steps, no negative prompt). `resolution_tier` is `2k` (about 4 MP, its default) or `4k` (its native
+16 MP); 1MP, `options`, `transparent`, turbo, bf16, `control` and `loras` are refused, and `quality`
+is ignored. The prompt is used as given: write one complete English description of the whole
+image. `edit_image` with `model=h3image` edits or composes 1–10 references; an expander rewrites
+the instruction (any language, `<image1>`…) into the full target description and the result is
+about 4 MP in the first reference's shape. Not with `camera`, `remove_background`, `resolution`,
+options or LoRAs. Check `capabilities.image_models.h3image`.
 Structure control (Qwen, 1MP): `generate_image` with `control={reference, mode, strength}`
 follows an owned image through the Qwen 2.1 Fun ControlNet Union. `mode`: `canny` (edges),
 `depth` (Depth Anything 3), `pose` (SDPose body, hands and face) or `map` (the reference
@@ -658,7 +666,7 @@ def build_guides(operations):
     # Server instructions stay compact: clients keep them in context on every turn.
     topics['overview'] = '\n'.join([
         '# Media Lab — MCP overview',
-        'Private studio: Qwen-Image-2.1 (and its 8-step Turbo), MOSS-Image and FLUX 3 Klein images '
+        'Private studio: Qwen-Image-2.1 (and its 8-step Turbo), MOSS-Image, FLUX 3 Klein and MiniMax-H3-Image images '
         'and edits, MiniMax H3 and Kandinsky 6 audio-video clips, video swaps and upscaling, YuE2 and '
         'ACE-Step songs, Stable Audio 3 sound, Qwen3-TTS speech, Director music videos and the studio '
         'agent, all scoped to your account.',
