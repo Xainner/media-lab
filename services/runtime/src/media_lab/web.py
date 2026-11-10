@@ -645,7 +645,8 @@ def create_app(*, state_root: Path | None = None, key_path: Path | None = None,
 
     app.state.admin_ops = AdminOperations(app, accounts, store, mail, artifacts, agent_request, runtime)
     app.state.mcp, mcp_transport = build_mcp(app, mcp_access)
-    app.add_middleware(BrowserBoundary, accounts=accounts, origin=origin, service_key=service_key, mcp_app=mcp_transport)
+    app.add_middleware(BrowserBoundary, accounts=accounts, origin=origin, service_key=service_key, mcp_app=mcp_transport,
+                       upload_max_bytes=SETTINGS.upload_max_bytes)
     web_root = Path(os.getenv("WEB_ROOT", str(state / "web"))).resolve()
 
     @app.get("/{path:path}")

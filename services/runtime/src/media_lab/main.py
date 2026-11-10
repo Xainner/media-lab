@@ -14,7 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from .artifacts import ArtifactStore
 from .comfy import ComfyClient
-from .config import SETTINGS
+from .config import MEDIA_UPLOAD_MAX_BYTES, SETTINGS
 from .contracts import (AnimatedTitleRequest, ExportRequest, EditRequest, GenerateRequest, SessionMessage, VideoRequest, SongRequest,
                         FaceRefineRequest, ProductionRequest, RemoveRequest, SoundRequest, SpeechRequest, StemsRequest, SwapRequest, UpscaleRequest, UPSCALE_MAX_INPUT_PIXELS, UPSCALE_MAX_SECONDS,
                         UPSCALE_MAX_WORK_SECONDS, UPSCALE_RATE, resolution_presets)
@@ -282,7 +282,6 @@ def node_status():
     return {"ok": all(worker["ok"] for worker in workers), "workers": workers}
 
 
-MEDIA_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024
 # Uploaded videos serve H3 references (2–15 s, checked per job) and upscaling (up to its limit).
 VIDEO_UPLOAD_SECONDS = (1, UPSCALE_MAX_SECONDS)
 

@@ -4,6 +4,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+# Audio and video uploads (/v1/media/uploads); images use UPLOAD_MAX_BYTES.
+MEDIA_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024
+
 
 def _bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name)

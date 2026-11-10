@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import JSONResponse
 
 from .accounts import Accounts, AccessDenied, RateLimited
+from .config import MEDIA_UPLOAD_MAX_BYTES
 from .security import OWNER, digest
 
 SESSION_COOKIE = "__Host-rvl-session"
@@ -63,8 +64,12 @@ def cookie(response: Response, key: str, value: str, max_age: int | None = None)
 
 
 class BrowserBoundary:
-    def __init__(self, app, accounts: Accounts, origin: str, service_key: str = "", mcp_app=None):
+    def __init__(self, app, accounts: Accounts, origin: str, service_key: str = "", mcp_app=None,
+                 upload_max_bytes: int = 20 * 1024 * 1024):
         self.app, self.accounts, self.origin = app, accounts, origin
+        # Each upload is one multipart request: the file's own cap plus 1 MiB of multipart framing.
+        self.upload_limits = {"/v1/uploads": upload_max_bytes + 1024 * 1024,
+                              "/v1/media/uploads": MEDIA_UPLOAD_MAX_BYTES + 1024 * 1024}
         parsed = urlsplit(origin)
         if parsed.scheme != "https" or parsed.path or parsed.query or parsed.fragment or parsed.username:
             raise RuntimeError("PUBLIC_ORIGIN must be an exact HTTPS origin")
@@ -116,8 +121,7 @@ class BrowserBoundary:
             pass
         mutating = request.method not in {"GET", "HEAD", "OPTIONS"}
         # Bound multipart spooling as well as JSON, including chunked requests.
-        body_limit = (501 if path == "/v1/media/uploads" else 21 if path == "/v1/uploads"
-                      else 8 if internal else 2) * 1024 * 1024
+        body_limit = self.upload_limits.get(path, (8 if internal else 2) * 1024 * 1024)
         if mutating:
             try:
                 declared = int(headers.get("content-length", "0"))
