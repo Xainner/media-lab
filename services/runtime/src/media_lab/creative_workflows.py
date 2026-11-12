@@ -974,9 +974,9 @@ SA3_CHECKPOINTS = {"medium": "stable_audio_3_medium.safetensors", "small_sfx": "
 SA3_ENCODER = "t5gemma_b_b_ul2.safetensors"
 SA3_REWRITER = "qwen3.5_2b_bf16.safetensors"
 SA3_STEPS = 8
-# kind -> (checkpoint, template category, seconds range)
+# kind -> (checkpoint, template category, seconds range); EmptyLatentAudio takes at least 1 s.
 SA3_KINDS = {"music": ("medium", "Music", (5, 380)), "instrument": ("medium", "Instrument", (2, 380)),
-             "sfx": ("small_sfx", "SFX", (1, 120)), "one_shot": ("small_sfx", "One-shot", (0.5, 10))}
+             "sfx": ("small_sfx", "SFX", (1, 120)), "one_shot": ("small_sfx", "One-shot", (1, 10))}
 
 
 def sa3_ready(model_root, kind: str = "music") -> bool:

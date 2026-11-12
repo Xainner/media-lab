@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import httpx
+import pytest
 
 from media_lab import comfy
 from media_lab.comfy import ComfyClient
@@ -13,6 +14,29 @@ RULES = Path(__file__).resolve().parents[2] / "comfyui-nodes" / "media_lab_clean
 spec = importlib.util.spec_from_file_location("media_lab_cleanup_rules", RULES)
 rules = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rules)
+
+
+def test_partially_valid_workflow_is_rejected_and_dequeued(monkeypatch):
+    calls = []
+    errors = {"latent": {"class_type": "EmptyLatentAudio", "dependent_outputs": ["save"], "errors": [
+        {"type": "value_smaller_than_min", "message": "Value 0.6 smaller than min of 1.0", "details": "seconds"}]}}
+
+    def handler(request):
+        is_json = request.headers.get("content-type", "").startswith("application/json")
+        calls.append((request.url.path, json.loads(request.content) if is_json else None))
+        if request.url.path == "/prompt":
+            return httpx.Response(200, json={"prompt_id": "p9", "number": 1, "node_errors": errors})
+        return httpx.Response(200, json={})
+
+    real = httpx.Client
+    monkeypatch.setattr(comfy.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(comfy.websocket, "create_connection", lambda *a, **k: (_ for _ in ()).throw(OSError()))
+    client = ComfyClient("http://comfy", 60)
+    with pytest.raises(comfy.ComfyError, match=r"latent \(EmptyLatentAudio\): Value 0.6 smaller than min of 1.0: seconds"):
+        client.run_output({"latent": {}}, "audio", lambda _: None, lambda: False)
+    assert ("/queue", {"delete": ["p9"]}) in calls and ("/interrupt", {"prompt_id": "p9"}) in calls
+    assert client.job_prompts == ["p9"]
+    assert not any(path.startswith("/history") for path, _ in calls)
 
 
 def test_end_job_deletes_uploads_outputs_and_history(monkeypatch):

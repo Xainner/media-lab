@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+from contextlib import suppress
 import time
 import uuid
 from pathlib import Path
@@ -19,6 +20,17 @@ PreviewCallback = Callable[[bytes, str], None]
 # ComfyUI binary websocket frame: 4-byte event type + 4-byte image type + image bytes.
 PREVIEW_IMAGE_EVENT = 1
 PREVIEW_MIME = {1: "image/jpeg", 2: "image/png"}
+
+
+def _node_errors(errors: dict) -> str:
+    """One line per failing node from ComfyUI's node_errors, e.g. "latent (EmptyLatentAudio): ..."."""
+    lines = []
+    for node, entry in errors.items():
+        entry = entry if isinstance(entry, dict) else {}
+        reasons = "; ".join(f"{e.get('message', '')}: {e.get('details', '')}".strip(": ")
+                            for e in entry.get("errors", []) if isinstance(e, dict))
+        lines.append(f"{node} ({entry.get('class_type', '?')}): {reasons or 'invalid'}")
+    return " | ".join(lines)[:1000]
 
 
 def parse_preview_frame(raw: bytes) -> tuple[bytes, str] | None:
@@ -215,8 +227,17 @@ class ComfyClient:
                 )
                 if response.status_code >= 400:
                     raise ComfyError(f"ComfyUI rejected workflow: {response.text[:1000]}")
-                prompt_id = response.json()["prompt_id"]
-            self.job_prompts.append(prompt_id)
+                accepted = response.json()
+                prompt_id = accepted["prompt_id"]
+                self.job_prompts.append(prompt_id)
+                # When only some outputs validate, ComfyUI still queues the valid part and lists the
+                # rest in node_errors; the job would then finish without its result. Stop it instead.
+                if accepted.get("node_errors"):
+                    with suppress(Exception):
+                        client.post(f"{self.base_url}/queue", json={"delete": [prompt_id]})
+                    with suppress(Exception):
+                        client.post(f"{self.base_url}/interrupt", json={"prompt_id": prompt_id})
+                    raise ComfyError(f"ComfyUI rejected workflow: {_node_errors(accepted['node_errors'])}")
             progress({"pct": 0, "step": 0, "steps": 0, "node": "submitted",
                       "prompt_id": prompt_id})
             if ws is not None:
