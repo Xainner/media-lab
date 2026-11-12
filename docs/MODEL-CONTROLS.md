@@ -225,7 +225,7 @@ dialogue from ambience. Check `capabilities.stems.ready`.
 `generate_sound(body={prompt, kind, seconds, enhance, format})` uses Stable Audio 3 for
 everything without singing. `kind=music` (Medium, 5–380 s): an instrumental track;
 `instrument` (Medium, 2–380 s): a solo part or loop; `sfx` (Small SFX, 1–120 s): effects
-and ambiences; `one_shot` (Small SFX, 0.5–10 s): a single hit or sample. `seconds` is the
+and ambiences; `one_shot` (Small SFX, 1–10 s): a single hit or sample. `seconds` is the
 exact length. With `enhance=true` (default) Qwen3.5 2B rewrites the idea with the official
 category prompt, so any language works; the rewrite is returned in the job data. No vocals
 or lyrics: songs go to `generate_music`. Check `capabilities.sound.kinds`.

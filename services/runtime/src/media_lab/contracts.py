@@ -443,8 +443,8 @@ class StemsRequest(ModelRequest):
 
 class SoundRequest(ModelRequest):
     prompt: str = Field(min_length=1, max_length=4000, description="The sound or instrumental piece: genre, instruments, mood, tempo for music; source, material, space and movement for effects. Any language when enhance is on (Qwen rewrites it in English); English otherwise.")
-    kind: Literal["music", "instrument", "sfx", "one_shot"] = Field(default="music", description="music: a full instrumental track (Stable Audio 3 Medium, 5–380 s). instrument: a solo instrument part or loop (Medium, 2–380 s). sfx: sound effects and ambiences (Small SFX, 1–120 s). one_shot: a single hit or sample (Small SFX, 0.5–10 s). No vocals or lyrics: use generate_music for songs.")
-    seconds: float = Field(default=30, ge=0.5, le=380, description="Exact length in seconds, within the kind's range.")
+    kind: Literal["music", "instrument", "sfx", "one_shot"] = Field(default="music", description="music: a full instrumental track (Stable Audio 3 Medium, 5–380 s). instrument: a solo instrument part or loop (Medium, 2–380 s). sfx: sound effects and ambiences (Small SFX, 1–120 s). one_shot: a single hit or sample (Small SFX, 1–10 s). No vocals or lyrics: use generate_music for songs.")
+    seconds: float = Field(default=30, ge=1, le=380, description="Exact length in seconds, within the kind's range.")
     enhance: bool = Field(default=True, description="Let Qwen3.5 2B rewrite the idea with the official category-aware prompt (recommended; the rewrite is returned). false sends the prompt unchanged.")
     format: Literal["flac", "mp3"] = Field(default="flac")
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)

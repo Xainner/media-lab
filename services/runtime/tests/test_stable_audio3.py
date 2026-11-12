@@ -33,7 +33,8 @@ def test_effects_use_small_sfx_and_plain_prompts_skip_the_rewrite():
 
 def test_lengths_follow_each_kind():
     assert SoundRequest(prompt="x", kind="music", seconds=380).seconds == 380
-    assert SoundRequest(prompt="x", kind="one_shot", seconds=0.5).kind == "one_shot"
-    for kind, seconds in (("music", 4), ("sfx", 121), ("one_shot", 11), ("instrument", 1)):
+    # EmptyLatentAudio takes at least 1 s: shorter one-shots are refused up front, not lost in ComfyUI.
+    assert SoundRequest(prompt="x", kind="one_shot", seconds=1).kind == "one_shot"
+    for kind, seconds in (("music", 4), ("sfx", 121), ("one_shot", 11), ("one_shot", 0.6), ("sfx", 0.9), ("instrument", 1)):
         with pytest.raises(ValidationError):
             SoundRequest(prompt="x", kind=kind, seconds=seconds)

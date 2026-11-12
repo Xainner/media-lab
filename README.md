@@ -51,7 +51,7 @@ and an MCP server exposes the studio to Claude and other MCP clients.
 |---|---|---|
 | **Image** | Text to image with Qwen-Image 2.1 (Base or 8-step Turbo), FLUX 3 Klein photorealism with its own prompt upsampler, MOSS-Image posters with legible text, MiniMax-H3-Image for large 4–16 MP images that follow long instructions. Nine aspect ratios, native 2K for creating and editing. | Edit or compose up to 10 references (FLUX 3 Klein: up to 4; MiniMax-H3-Image with its own instruction expander, about 4 MP), follow the pose, edges or depth of a photo, re-shoot a subject from a new camera angle, remove the background to a transparent PNG. |
 | **Video** | MiniMax H3 video **with audio** from text, a first/last frame or image/video/audio references, 5–15 s, in Base, Turbo, Pika H3 Flex, Fused Turbo and FastH3 Omni profiles. Kandinsky 6: 5 s clips with speech and **lip-sync**. Animated titles: exact text over black or white, one title or a sequence of phrases, with presets or an AI-planned animation. | Follow another clip's motion, edges or depth; swap a character or just the head (H3 Character Swap, Head Swap, SCAIL-2); refine faces; remove a person; upscale 2× or 4× with FlashVSR. |
-| **Music** | Full songs with vocals from style tags and lyrics: ACE-Step 1.5 XL Turbo (exact length, about a minute) or YuE2 3B (up to 15 min, ABC scores). Instrumentals, loops, SFX and one-shots with Stable Audio 3. | Covers from a song's melody (YuE2), stem separation into vocals + instrumental or four stems (Hybrid Demucs). |
+| **Music** | Full songs with vocals from style tags and lyrics: ACE-Step 1.5 XL Turbo (exact length, about a minute) or YuE2 3B (up to 15 min, ABC scores). Instrumentals, loops, SFX and one-shots (1–10 s) with Stable Audio 3. | Covers from a song's melody (YuE2), stem separation into vocals + instrumental or four stems (Hybrid Demucs). |
 | **Voice** | Qwen3-TTS in 10 languages: nine studio voices with delivery instructions, or a new voice designed from a description. | Clone a voice from a 3–30 s clip — **only with the speaker's permission**; the API refuses without explicit consent. |
 | **Productions** | The **Director** turns a song into a music video: audio analysis, an editable storyboard, keyframes and clips per scene, MP4 preview and a master that keeps the original audio stream. | Reuse your own images and clips per scene; resume interrupted productions. |
 
@@ -193,7 +193,7 @@ The server ships **59 tools**, English instructions, per-model prompt guides
 | Conversations & providers | `list_sessions`, `get_session`, `add_message`, `provider_status`, `list_providers`, `discover_models` |
 
 Files move with short-lived upload and download links (`curl -T` / `curl -o`), so agents never
-paste megabytes of base64. Tokens are scoped to their owner, rate-limited and revocable. The
+paste megabytes of base64; images, audio and video go up to 1 GiB. Tokens are scoped to their owner, rate-limited and revocable. The
 complete guide is [`docs/MCP-GUIDE.md`](docs/MCP-GUIDE.md); the server design and token
 lifecycle are in [`docs/MCP.md`](docs/MCP.md); every model control is in
 [`docs/MODEL-CONTROLS.md`](docs/MODEL-CONTROLS.md).
@@ -262,8 +262,8 @@ origin certificate:
 
 - **Behind a reverse proxy (recommended).** Keep `--listen 127.0.0.1` (default). Proxy your
   public name to `https://127.0.0.1:8390`, keep the `Host` header, verify the upstream with
-  `~/media-lab-data/secrets/origin-ca.crt` (server name = your host name), allow 501 MB request bodies
-  and 600 s timeouts, and disable buffering.
+  `~/media-lab-data/secrets/origin-ca.crt` (server name = your host name), allow 1025 MB request bodies
+  (uploads take files up to 1 GiB) and 600 s timeouts, and disable buffering.
   [`deploy/npm-proxy-advanced.conf`](deploy/npm-proxy-advanced.conf) is a working Nginx
   Proxy Manager example.
 - **Direct on the LAN.** Use `--listen 0.0.0.0` and an origin with the port, such as
